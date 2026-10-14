@@ -31,7 +31,7 @@ export default function Nav({ onSearch, logado = false }: NavProps) {
       <div className="relative max-w-[517px] flex-1 max-[640px]:order-3 max-[640px]:max-w-none max-[640px]:basis-full">
         <input
           type="search"
-          placeholder="Buscar jogos"
+          placeholder="Search"
           aria-label="Buscar jogos"
           onChange={(e) => onSearch?.(e.target.value)}
           className="h-[46px] w-full rounded-[13px] border border-bp-muted/30 bg-bp-nav pl-[18px] pr-[52px] text-xs text-bp-text outline-none placeholder:text-bp-muted/45 focus:border-bp-primary"
