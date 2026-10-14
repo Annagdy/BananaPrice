@@ -1,6 +1,6 @@
 # BananaPrice: alterações desta branch
 
-Conversão das telas do protótipo (Vite + JSX + CSS) para **Next.js (App Router) + TypeScript + Tailwind**, mais a configuração para rodar com **Docker**.
+
 Escopo: apenas as telas (Home, Login, Cadastro e Notificações). Não há autenticação nem dados reais ainda, tudo usa dados fake.
 
 ---
