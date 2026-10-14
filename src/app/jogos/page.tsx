@@ -1,0 +1,193 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import Nav from '../../components/Nav'
+import Footer from '../../components/Footer'
+import GameCard from '../../components/GameCard'
+import { StoreIcon, TagIcon } from '../../components/Icons'
+import { palmeira } from '../../components/assets'
+import { promos, STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
+import type { Promo } from '../../mocks/promos'
+import type { Game } from '../../mocks/games'
+import { tema } from '../../mocks/tema'
+
+const paraCard = (p: Promo): Game => ({
+  id: p.id,
+  name: p.name,
+  store: p.store,
+  discount: p.discount,
+  originalPrice: p.original,
+  price: p.price,
+  cover: p.capa,
+})
+
+function Opcao({ label, ativa, onClick }: { label: string; ativa: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativa}
+      className={`w-[254px] cursor-pointer rounded-[20px] px-7 py-1.5 text-left font-body text-2xl transition max-[640px]:w-full max-[640px]:text-xl ${
+        ativa ? 'bg-bp-primary/15 text-bp-primary' : 'text-bp-muted hover:bg-bp-muted/10'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+function Grupo({ titulo, icone, children }: { titulo: string; icone: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 p-2.5">
+      <h2 className="flex items-center gap-2.5 p-5 font-head text-2xl font-extrabold text-bp-primary">
+        {icone}
+        {titulo}
+      </h2>
+      {children}
+    </div>
+  )
+}
+
+export default function JogosPage() {
+  const [busca, setBusca] = useState('')
+  const [precoMax, setPrecoMax] = useState<number | null>(null)
+  const [corteMin, setCorteMin] = useState<number | null>(null)
+  const [lojas, setLojas] = useState<string[]>([])
+  const [pagina, setPagina] = useState(1)
+
+  const filtrados = useMemo(
+    () =>
+      promos.filter(
+        (p) =>
+          p.name.toLowerCase().includes(busca.toLowerCase()) &&
+          (precoMax === null || p.price < precoMax) &&
+          (corteMin === null || p.discount >= corteMin) &&
+          (lojas.length === 0 || lojas.includes(p.store)),
+      ),
+    [busca, precoMax, corteMin, lojas],
+  )
+
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PER_PAGE))
+  const atual = Math.min(pagina, totalPaginas)
+  const visiveis = filtrados.slice((atual - 1) * PER_PAGE, atual * PER_PAGE)
+
+  const escolher = (definir: (v: number | null) => void, valorAtual: number | null, v: number) => {
+    definir(valorAtual === v ? null : v)
+    setPagina(1)
+  }
+  const alternarLoja = (loja: string) => {
+    setLojas((l) => (l.includes(loja) ? l.filter((x) => x !== loja) : [...l, loja]))
+    setPagina(1)
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bp-bg">
+      <Nav
+        logado
+        onSearch={(q) => {
+          setBusca(q)
+          setPagina(1)
+        }}
+      />
+      <div className="h-[5px]" style={{ background: tema.divisor }} />
+
+      <section className="px-[55px] pt-2.5 max-[640px]:px-4">
+        <h1 className="flex items-center gap-3 p-5 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
+          <TagIcon width={56} height={56} /> Ofertas do Momento
+        </h1>
+      </section>
+      <div className="mx-2.5 h-[5px] rounded-[2px]" style={{ background: tema.divisorForte }} />
+
+      <main className="relative flex-1 overflow-hidden">
+        <Image
+          src={palmeira}
+          alt=""
+          width={759}
+          height={632}
+          className="pointer-events-none absolute bottom-0 left-[-305px] h-auto w-[759px] max-[1100px]:hidden"
+        />
+
+        <div className="relative z-[1] flex items-start gap-[67px] px-[75px] pb-10 pt-10 max-[1250px]:gap-8 max-[1250px]:px-6 max-[1100px]:flex-col max-[1100px]:items-center max-[640px]:px-4">
+          <aside
+            aria-label="Filtros"
+            className="flex shrink-0 flex-col gap-[100px] rounded-3xl px-7 py-[22px] shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[1100px]:gap-6 max-[640px]:w-full"
+            style={{ background: tema.painel }}
+          >
+            <Grupo titulo="Preços" icone={<TagIcon />}>
+              {PRICE_FILTERS.map((v) => (
+                <Opcao
+                  key={v}
+                  label={`Abaixo de R$ ${v}`}
+                  ativa={precoMax === v}
+                  onClick={() => escolher(setPrecoMax, precoMax, v)}
+                />
+              ))}
+            </Grupo>
+
+            <Grupo titulo="Cortes" icone={<TagIcon />}>
+              {CUT_FILTERS.map((v) => (
+                <Opcao
+                  key={v}
+                  label={`Pelo menos ${v}%`}
+                  ativa={corteMin === v}
+                  onClick={() => escolher(setCorteMin, corteMin, v)}
+                />
+              ))}
+            </Grupo>
+
+            <Grupo titulo="Lojas" icone={<StoreIcon />}>
+              {STORES.map((s) => (
+                <Opcao key={s} label={s} ativa={lojas.includes(s)} onClick={() => alternarLoja(s)} />
+              ))}
+            </Grupo>
+          </aside>
+
+          <section aria-label="Ofertas" className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8">
+            {visiveis.length === 0 ? (
+              <p className="py-16 text-center text-bp-muted">Nenhuma oferta encontrada com esses filtros.</p>
+            ) : (
+              <ul className="grid w-full list-none grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
+                {visiveis.map((p) => (
+                  <li key={p.id}>
+                    <Link href={`/turbo/${p.id}`} className="block transition hover:brightness-110">
+                      <GameCard game={paraCard(p)} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <nav
+              aria-label="Paginação"
+              className="flex items-center gap-[73px] rounded-3xl bg-bp-nav p-2.5 max-[640px]:gap-10"
+            >
+              <button
+                type="button"
+                onClick={() => setPagina(atual - 1)}
+                disabled={atual === 1}
+                aria-label="Página anterior"
+                className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
+              />
+              <span className="sr-only" aria-live="polite">
+                Página {atual} de {totalPaginas}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPagina(atual + 1)}
+                disabled={atual === totalPaginas}
+                aria-label="Próxima página"
+                className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(0_0,100%_50%,0_100%)]"
+              />
+            </nav>
+          </section>
+        </div>
+      </main>
+
+      <div className="h-[5px]" style={{ background: tema.divisor }} />
+      <Footer />
+    </div>
+  )
+}

@@ -34,12 +34,12 @@ export default function HomePage() {
           <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
             <BoltIcon /> Vitrine Turbo
           </h2>
-          <button
-            type="button"
+          <Link
+            href="/jogos"
             className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-bp-primary px-4 py-[9px] text-xs text-bp-neutral transition hover:brightness-110"
           >
             <BoltIcon width={12} height={16} /> Dar um turbo
-          </button>
+          </Link>
         </div>
 
         <div className="flex items-center justify-center gap-[29px] p-2.5">

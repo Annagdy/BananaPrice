@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import { BellIcon } from '../../components/Icons'
-import { capaExemplo, palmeira } from '../../components/assets'
+import { capaExemplo, macacotudo } from '../../components/assets'
 import { notificacoes } from '../../mocks/notificacoes'
 
 export default function NotificacoesPage() {
@@ -44,7 +44,7 @@ export default function NotificacoesPage() {
         </ul>
 
         <Image
-          src={palmeira}
+          src={macacotudo}
           alt=""
           width={574}
           height={383}

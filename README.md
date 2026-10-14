@@ -73,7 +73,15 @@ Escopo: apenas as telas (Home, Login, Cadastro e Notificações). Não há auten
 - O arquivo `index.module.css` do export do Figma não é mais necessário.
 
 ### Não alterado
-`conta`, `jogos` e `jogos/[id]`, `turbo/[gameId]` e `turbo/sucesso`, e `api/` continuam como estavam.
+`api/` continua como estava. Nenhuma rota foi criada, alterada ou removida.
+
+### Telas adicionais
+- `jogos/page.tsx`: lista de ofertas com painel de filtros (preço, corte e loja), grade de 3 colunas e paginação por setas (dados de `mocks/promos.ts`).
+- `jogos/[id]/page.tsx`: detalhe do jogo, com dados de exemplo.
+- `turbo/[gameId]/page.tsx`: passa a ler os dados de `mocks/turbo.ts`.
+- `turbo/sucesso/page.tsx`: confirmação de pagamento (dados de `mocks/sucesso.ts`).
+- `components/Carregando.tsx`: tela de carregamento reutilizável (dados de `mocks/carregando.ts`).
+- `mocks/tema.ts`: cores usadas nessas telas que não estão no `globals.css`.
 
 ---
 

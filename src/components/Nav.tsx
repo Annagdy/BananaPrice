@@ -45,7 +45,7 @@ export default function Nav({ onSearch, logado = false }: NavProps) {
             <BellIcon />
           </Link>
           <Link
-            href="#"
+            href="/lista-de-desejos"
             className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3 text-xs text-bp-neutral"
           >
             <HeartIcon /> Lista de Desejos

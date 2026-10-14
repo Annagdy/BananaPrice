@@ -18,7 +18,7 @@ import {
 } from '../../components/Icons'
 
 type Form = { nome: string; email: string; senha: string; confirma: string }
-type Erros = Partial<Record<'senha' | 'confirma' | 'termos', string>>
+type Erros = Partial<Record<'nome' | 'email' | 'senha' | 'confirma' | 'termos', string>>
 
 function forca(s: string): number {
   let n = 0
@@ -40,13 +40,17 @@ export default function CadastroPage() {
   const [alertas, setAlertas] = useState(true)
   const [erro, setErro] = useState<Erros>({})
 
-  const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setF({ ...f, [k]: e.target.value })
+  const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const valor = e.target.value
+    setF((atual) => ({ ...atual, [k]: valor }))
+  }
   const nivel = forca(f.senha)
 
   const enviar = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const er: Erros = {}
+    if (!f.nome.trim()) er.nome = 'Informe seu nome ou nick'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) er.email = 'Informe um e-mail válido'
     if (f.senha.length < 8) er.senha = 'A senha precisa ter no mínimo 8 caracteres'
     if (f.confirma !== f.senha) er.confirma = 'As senhas não coincidem'
     if (!termos) er.termos = 'Aceite os Termos de Uso e a Política de Privacidade'
@@ -86,6 +90,8 @@ export default function CadastroPage() {
           placeholder="Ex: BananinhaGamer"
           value={f.nome}
           onChange={set('nome')}
+          autoComplete="username"
+          error={erro.nome}
           required
         />
 
@@ -97,6 +103,8 @@ export default function CadastroPage() {
           placeholder="seuemail@exemplo.com"
           value={f.email}
           onChange={set('email')}
+          autoComplete="email"
+          error={erro.email}
           required
         />
 
@@ -108,6 +116,7 @@ export default function CadastroPage() {
           placeholder="Mínimo 8 caracteres"
           value={f.senha}
           onChange={set('senha')}
+          autoComplete="new-password"
           error={erro.senha}
           inputRight={
             <button
@@ -144,6 +153,7 @@ export default function CadastroPage() {
           placeholder="Repita a senha"
           value={f.confirma}
           onChange={set('confirma')}
+          autoComplete="new-password"
           error={erro.confirma}
         />
 

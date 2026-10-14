@@ -47,6 +47,7 @@ export default function LoginPage() {
           placeholder="banana@gamer.com"
           value={login}
           onChange={(e) => setLogin(e.target.value)}
+          autoComplete="username"
           required
         />
 
@@ -63,6 +64,7 @@ export default function LoginPage() {
           placeholder="••••••••"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
+          autoComplete="current-password"
           required
           inputRight={
             <button

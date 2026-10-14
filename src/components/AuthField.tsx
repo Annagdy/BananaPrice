@@ -39,6 +39,8 @@ export default function AuthField({
         </span>
         <input
           id={id}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-erro` : undefined}
           {...inputProps}
           className={`w-full rounded-full border bg-bp-input px-11 py-[9px] text-sm text-bp-text outline-none placeholder:text-bp-muted/40 focus:border-bp-primary ${
             error ? 'border-[#e5484d]' : 'border-transparent'
@@ -48,7 +50,11 @@ export default function AuthField({
       </div>
 
       {below}
-      {error && <span className="pl-3 text-[11px] text-[#ff8a8e]">{error}</span>}
+      {error && (
+        <span id={`${id}-erro`} role="alert" className="pl-3 text-[11px] text-[#ff8a8e]">
+          {error}
+        </span>
+      )}
     </div>
   )
 }

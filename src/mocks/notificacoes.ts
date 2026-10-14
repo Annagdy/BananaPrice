@@ -9,6 +9,6 @@ export type Notificacao = {
 export const notificacoes: Notificacao[] = Array.from({ length: 4 }, (_, i) => ({
   id: i + 1,
   titulo: 'Notificação',
-  descricao: 'Descricação da notificação',
+  descricao: 'Descrição da notificação',
   imagem: null,
 }))

@@ -61,3 +61,6 @@ export const UserIcon = (p: IconProps) => (
 export const BellIcon = (p: IconProps) => (
   <svg width="30" height="30" viewBox="0 0 24 24" {...base} {...p}><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" /></svg>
 )
+export const StoreIcon = (p: IconProps) => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M4 3h16l2 6a3 3 0 01-5 2 3 3 0 01-5 0 3 3 0 01-5 0 3 3 0 01-5-2z" /><path d="M4 13.5V21h6v-5h4v5h6v-7.5a5 5 0 01-4-1.3 5 5 0 01-4 1.3 5 5 0 01-4-1.3 5 5 0 01-4 1.3z" /></svg>
+)
