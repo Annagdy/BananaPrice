@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # necessário para o hot reload funcionar com o código montado no container
+      - WATCHPACK_POLLING=true
+    volumes:
+      - .:/app
+      # mantém as dependências do container, sem usar as do seu computador
+      - /app/node_modules
+      - /app/.next

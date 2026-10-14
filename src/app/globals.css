@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bp-primary: #facc15;
+  --color-bp-on-primary: #231b00;
+  --color-bp-bg: #150c09;
+  --color-bp-surface: #231916;
+  --color-bp-nav: #322824;
+  --color-bp-input: #271d1a;
+  --color-bp-neutral: #2c221e;
+  --color-bp-text: #f1dfd8;
+  --color-bp-muted: #d1c6ab;
+  --color-bp-steam: #0088ff;
+  --font-head: var(--font-rubik), sans-serif;
+  --font-body: var(--font-nunito), sans-serif;
+}
