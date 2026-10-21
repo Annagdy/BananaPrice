@@ -215,7 +215,7 @@ export default function CadastroPage() {
         <button
           type="submit"
           disabled={carregando}
-          className="... disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {carregando ? 'Criando...' : <>Criar Conta BananaPrice <ArrowRight /></>}
         </button>

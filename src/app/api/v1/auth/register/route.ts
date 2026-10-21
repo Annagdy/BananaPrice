@@ -23,6 +23,21 @@ export async function POST(request: Request) {
     );
   }
 
+  
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: senha,
+    options: {
+      data: { nome_usuario: nomeUsuario },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin}/api/v1/auth/confirm`,
+    },
+  });
+  
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  
   const { data: existente } = await supabaseAdmin
     .from("usuario")
     .select("id_usuario")
@@ -32,21 +47,7 @@ export async function POST(request: Request) {
   if (existente) {
     return NextResponse.json({ error: "Esse nome de usuário já está em uso." }, { status: 409 });
   }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password: senha,
-    options: {
-        data: { nome_usuario: nomeUsuario },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin}/api/v1/auth/confirm`,
-        },
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
+  
   return NextResponse.json(
     {
       user: { id: data.user?.id, email: data.user?.email, nomeUsuario },
