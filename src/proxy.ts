@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
 
-export function middleware() {
+export async function proxy() {
   return NextResponse.next()
 }

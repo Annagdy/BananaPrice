@@ -1,23 +1,53 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AuthShell from '../../components/AuthShell'
 import AuthField from '../../components/AuthField'
 import { AtIcon, LockIcon, EyeIcon, EyeOffIcon, ArrowRight, VisitorIcon, SteamIcon } from '../../components/Icons'
 
+/* Só aceita caminhos internos (evita open redirect) */
+function destinoSeguro(next: string | null): string {
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/conta'
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [login, setLogin] = useState('')
   const [senha, setSenha] = useState('')
   const [ver, setVer] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [carregando, setCarregando] = useState(false)
 
-  const entrar = (e: React.FormEvent<HTMLFormElement>) => {
+  const entrar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // TODO: integrar com a autenticação (Supabase).
-    // Por enquanto é só para navegar: qualquer dado leva às notificações.
-    router.push('/notificacoes')
+    setErro(null)
+    setCarregando(true)
+    // router.push('/notificacoes')
+
+    try {
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login, senha }),
+      })
+      const json = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        setErro(json?.error ?? 'Não foi possível entrar. Tente novamente.')
+        return
+      }
+
+      // lê o ?next= direto da URL, assim não precisa de useSearchParams/Suspense
+      const next = new URLSearchParams(window.location.search).get('next')
+      router.push(destinoSeguro(next))
+      router.refresh() // atualiza Server Components com a nova sessão
+    } catch {
+      setErro('Falha de conexão. Verifique sua internet e tente novamente.')
+    } finally {
+      setCarregando(false)
+    }
   }
 
   return (
@@ -28,7 +58,7 @@ export default function LoginPage() {
       </div>
 
       <a
-        href="#"
+        href="/api/v1/auth/steam"
         className="flex items-center justify-center gap-2 rounded-full bg-bp-steam px-4 py-2 text-sm tracking-[.28px] text-bp-text hover:brightness-110"
       >
         <SteamIcon /> Continuar com Steam
@@ -80,9 +110,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105"
+          disabled={carregando}
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Entrar na Conta <ArrowRight />
+          {carregando ? 'Entrando...' : <>Entrar na Conta <ArrowRight /></>}
         </button>
         <Link
           href="/"
