@@ -52,7 +52,7 @@ export async function PATCH(request: Request) {
       .update({ nome_usuario: nomeUsuario })
       .eq("id_usuario", atual.id_usuario);
     if (error) {
-        console.error("[PATCH conta] updateUser:", error.status, error.code, error.message);
+        console.error("[PATCH conta] updateUser:", error.code, error.message);
         return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
     }
     await supabase.auth.updateUser({ data: { nome_usuario: nomeUsuario } });
