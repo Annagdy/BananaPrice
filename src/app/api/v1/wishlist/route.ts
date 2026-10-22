@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
-/* Descobre o id_usuario (da nossa tabela) de quem está logado. */
+/*
+Descobre o id_usuario (tabela "usuario") de quem está logado.
+
+@returns O id_usuario, ou null se não houver sessão ou o usuário não existir na tabela.
+*/
 async function usuarioLogado(): Promise<number | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -17,6 +21,15 @@ async function usuarioLogado(): Promise<number | null> {
   return data?.id_usuario ?? null;
 }
 
+/*
+GET /api/v1/wishlist (RF10): lista a wishlist do usuário logado.
+
+Para cada jogo devolve a melhor oferta atual (menor valor_atual em preco_jogo). O preço original
+é calculado a partir do valor atual e do percentual de desconto.
+
+@returns 200 { jogos: [{ id, nome, precoOriginal, precoComDesconto, desconto, loja, url }] };
+         401 não autenticado; 500 erro ao ler o banco.
+*/
 export async function GET() {
   const idUsuario = await usuarioLogado();
   if (idUsuario === null) {
@@ -80,6 +93,13 @@ export async function GET() {
   return NextResponse.json({ jogos: resultado });
 }
 
+/*
+POST /api/v1/wishlist (RF10): adiciona um jogo à wishlist. Cria a lista do usuário se ainda
+não existir. Adicionar um jogo repetido não gera erro.
+
+@body { idJogo } id_jogo existente na tabela "jogo".
+@returns 201 { ok }; 400 idJogo inválido; 401 não autenticado; 404 jogo não encontrado; 500 erro no banco.
+*/
 export async function POST(request: Request) {
   const idUsuario = await usuarioLogado();
   if (idUsuario === null) {

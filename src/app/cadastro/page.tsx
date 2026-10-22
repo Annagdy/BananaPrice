@@ -20,6 +20,10 @@ import {
 type Form = { nome: string; email: string; senha: string; confirma: string }
 type Erros = Partial<Record<'nome' | 'email' | 'senha' | 'confirma' | 'termos', string>>
 
+/* Calcula a força da senha.
+
+@param s Senha digitada.
+@returns 0 (vazia), 1 (fraca), 2 (média) ou 3 (forte). */
 function forca(s: string): number {
   let n = 0
   if (s.length >= 8) n++

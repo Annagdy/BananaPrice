@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
+/*
+PATCH /api/v1/conta: altera os dados da conta logada. Todos os campos são opcionais.
+
+- nomeUsuario: valida formato e unicidade; atualiza "usuario" e o user_metadata.
+- email: o Supabase envia um link de confirmação ao NOVO endereço; só vale depois do clique.
+  Não aceita endereços @steam.local.
+- senha: mínimo 8 caracteres. Permite entrar por e-mail em contas criadas pela Steam.
+
+@body { nomeUsuario?, email?, senha? }
+@returns 200 { ok, aviso }; 400 dado inválido; 401 não autenticado; 404 usuário não encontrado;
+         409 nome de usuário em uso.
+*/
 export async function PATCH(request: Request) {
   const { origin } = new URL(request.url);
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? origin;

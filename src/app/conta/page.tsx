@@ -13,6 +13,9 @@ import { createClient } from '@/lib/supabase.ts/client.ts'
 
 const Divider = () => <div className="my-2 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
 
+/* Página /conta: mostra os dados da sessão atual e permite alterá-los (PATCH /api/v1/conta).
+Também conecta a conta à Steam (/api/v1/auth/steam), encerra a sessão e mostra avisos vindos
+da URL (?erro=steam_em_uso, ?email=confirmado). */
 export default function ContaPage() {
   const router = useRouter()
   const [salvo, setSalvo] = useState({ nome: '', email: '' })
@@ -251,6 +254,14 @@ type CampoProps = {
   autoComplete?: string
 }
 
+/* Campo de formulário com rótulo.
+
+@param id Id e name do input.
+@param label Texto do rótulo.
+@param type "text" ou "email".
+@param value Valor atual.
+@param onChange Chamado a cada alteração.
+@param autoComplete Dica de preenchimento automático (opcional). */
 function Campo({ id, label, type, value, onChange, autoComplete }: CampoProps) {
   return (
     <div className="flex flex-col gap-2.5">
