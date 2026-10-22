@@ -1,6 +1,7 @@
+
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -24,14 +25,24 @@ const paraCard = (p: Promo): Game => ({
   cover: p.capa,
 })
 
-function Opcao({ label, ativa, onClick }: { label: string; ativa: boolean; onClick: () => void }) {
+function Opcao({
+  label,
+  ativa,
+  onClick,
+}: {
+  label: string
+  ativa: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={ativa}
       className={`w-[254px] cursor-pointer rounded-[20px] px-7 py-1.5 text-left font-body text-2xl transition max-[640px]:w-full max-[640px]:text-xl ${
-        ativa ? 'bg-bp-primary/15 text-bp-primary' : 'text-bp-muted hover:bg-bp-muted/10'
+        ativa
+          ? 'bg-bp-primary/15 text-bp-primary'
+          : 'text-bp-muted hover:bg-bp-muted/10'
       }`}
     >
       {label}
@@ -39,7 +50,15 @@ function Opcao({ label, ativa, onClick }: { label: string; ativa: boolean; onCli
   )
 }
 
-function Grupo({ titulo, icone, children }: { titulo: string; icone: ReactNode; children: ReactNode }) {
+function Grupo({
+  titulo,
+  icone,
+  children,
+}: {
+  titulo: string
+  icone: ReactNode
+  children: ReactNode
+}) {
   return (
     <div className="flex flex-col gap-0.5 p-2.5">
       <h2 className="flex items-center gap-2.5 p-5 font-head text-2xl font-extrabold text-bp-primary">
@@ -52,6 +71,7 @@ function Grupo({ titulo, icone, children }: { titulo: string; icone: ReactNode; 
 }
 
 export default function JogosPage() {
+  const [resultadoBusca, setResultadoBusca] = useState('')
   const [busca, setBusca] = useState('')
   const [precoMax, setPrecoMax] = useState<number | null>(null)
   const [corteMin, setCorteMin] = useState<number | null>(null)
@@ -74,14 +94,90 @@ export default function JogosPage() {
   const atual = Math.min(pagina, totalPaginas)
   const visiveis = filtrados.slice((atual - 1) * PER_PAGE, atual * PER_PAGE)
 
-  const escolher = (definir: (v: number | null) => void, valorAtual: number | null, v: number) => {
+  const escolher = (
+    definir: (v: number | null) => void,
+    valorAtual: number | null,
+    v: number,
+  ) => {
     definir(valorAtual === v ? null : v)
     setPagina(1)
   }
+
   const alternarLoja = (loja: string) => {
-    setLojas((l) => (l.includes(loja) ? l.filter((x) => x !== loja) : [...l, loja]))
+    setLojas((l) =>
+      l.includes(loja) ? l.filter((x) => x !== loja) : [...l, loja],
+    )
     setPagina(1)
   }
+
+  useEffect(() => {
+    const termo = busca.trim()
+
+    if (!termo) {
+      setResultadoBusca('')
+      return
+    }
+
+    let cancelado = false
+    const controller = new AbortController()
+
+    setResultadoBusca('Consultando API...')
+
+    async function pesquisar() {
+      try {
+        const resposta = await fetch(
+          `/api/v1/games?busca=${encodeURIComponent(termo)}`,
+          { signal: controller.signal },
+        )
+
+        const dados = await resposta.json()
+
+        if (!resposta.ok) {
+          throw new Error(dados.erro || `Erro HTTP: ${resposta.status}`)
+        }
+
+        const nomes =
+          typeof dados.resultado === 'string'
+            ? dados.resultado
+            : Array.isArray(dados.nomes)
+              ? dados.nomes.join(', ')
+              : typeof dados.nomes === 'string'
+                ? dados.nomes
+                : null
+
+        if (nomes === null) {
+          throw new Error(
+            `Formato inesperado da API: ${JSON.stringify(dados)}`,
+          )
+        }
+
+        if (!cancelado) {
+          setResultadoBusca(
+            nomes.trim() ? nomes : 'Nenhum jogo encontrado.',
+          )
+        }
+      } catch (erro) {
+        if (
+          !cancelado &&
+          !(erro instanceof Error && erro.name === 'AbortError')
+        ) {
+          console.error('Erro na pesquisa:', erro)
+          setResultadoBusca(
+            `Falha na pesquisa: ${
+              erro instanceof Error ? erro.message : 'Erro desconhecido'
+            }`,
+          )
+        }
+      }
+    }
+
+    pesquisar()
+
+    return () => {
+      cancelado = true
+      controller.abort()
+    }
+  }, [busca])
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -92,6 +188,7 @@ export default function JogosPage() {
           setPagina(1)
         }}
       />
+
       <div className="h-[5px]" style={{ background: tema.divisor }} />
 
       <section className="px-[55px] pt-2.5 max-[640px]:px-4">
@@ -99,7 +196,11 @@ export default function JogosPage() {
           <TagIcon width={56} height={56} /> Ofertas do Momento
         </h1>
       </section>
-      <div className="mx-2.5 h-[5px] rounded-[2px]" style={{ background: tema.divisorForte }} />
+
+      <div
+        className="mx-2.5 h-[5px] rounded-[2px]"
+        style={{ background: tema.divisorForte }}
+      />
 
       <main className="relative flex-1 overflow-hidden">
         <Image
@@ -140,19 +241,36 @@ export default function JogosPage() {
 
             <Grupo titulo="Lojas" icone={<StoreIcon />}>
               {STORES.map((s) => (
-                <Opcao key={s} label={s} ativa={lojas.includes(s)} onClick={() => alternarLoja(s)} />
+                <Opcao
+                  key={s}
+                  label={s}
+                  ativa={lojas.includes(s)}
+                  onClick={() => alternarLoja(s)}
+                />
               ))}
             </Grupo>
           </aside>
 
-          <section aria-label="Ofertas" className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8">
-            {visiveis.length === 0 ? (
-              <p className="py-16 text-center text-bp-muted">Nenhuma oferta encontrada com esses filtros.</p>
+          <section
+            aria-label="Ofertas"
+            className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8"
+          >
+            {busca.trim() ? (
+              <p className="py-16 text-center text-bp-muted">
+                {resultadoBusca || 'Aguardando pesquisa...'}
+              </p>
+            ) : visiveis.length === 0 ? (
+              <p className="py-16 text-center text-bp-muted">
+                Nenhuma oferta encontrada com esses filtros.
+              </p>
             ) : (
               <ul className="grid w-full list-none grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
                 {visiveis.map((p) => (
                   <li key={p.id}>
-                    <Link href={`/turbo/${p.id}`} className="block transition hover:brightness-110">
+                    <Link
+                      href={`/turbo/${p.id}`}
+                      className="block transition hover:brightness-110"
+                    >
                       <GameCard game={paraCard(p)} />
                     </Link>
                   </li>
@@ -171,9 +289,11 @@ export default function JogosPage() {
                 aria-label="Página anterior"
                 className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
               />
+
               <span className="sr-only" aria-live="polite">
                 Página {atual} de {totalPaginas}
               </span>
+
               <button
                 type="button"
                 onClick={() => setPagina(atual + 1)}
