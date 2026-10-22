@@ -3,6 +3,19 @@ import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 import { validarLoginSteam, importarWishlistSteam } from "@/lib/steam.ts";
 
+/*
+GET /api/v1/auth/steam/callback (RF04, RF05): conclui o login com a Steam.
+
+Valida a assinatura com a Steam e trata três casos:
+1. Steam já vinculada: entra na conta dona dela.
+2. Usuário já logado: vincula a Steam à conta atual (conta_steam).
+3. Steam nova e ninguém logado: cria usuário, conta_steam e abre a sessão.
+
+Ao final tenta importar a wishlist, sem nunca derrubar o login se a importação falhar.
+
+@returns Redirecionamento para /conta; /conta?erro=steam_em_uso se a Steam pertence a outro
+         usuário; /login?erro=steam em qualquer falha (o motivo vai para o console do servidor).
+*/
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? origin;

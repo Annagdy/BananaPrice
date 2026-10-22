@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
+/*
+DELETE /api/v1/wishlist/[gameId] (RF10): remove um jogo da wishlist do usuário logado.
+
+Só apaga da lista do próprio usuário, então não afeta a lista de outras pessoas.
+
+@param params.gameId id_jogo a remover (Promise, como exige o Next 15+).
+@returns 200 { ok }; 400 gameId inválido; 401 não autenticado; 404 usuário não encontrado; 500 erro no banco.
+*/
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ gameId: string }> }

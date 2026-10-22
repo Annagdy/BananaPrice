@@ -7,11 +7,16 @@ import AuthShell from '../../components/AuthShell'
 import AuthField from '../../components/AuthField'
 import { AtIcon, LockIcon, EyeIcon, EyeOffIcon, ArrowRight, VisitorIcon, SteamIcon } from '../../components/Icons'
 
-/* Só aceita caminhos internos (evita open redirect) */
+/* Aceita só caminhos internos em ?next= (evita open redirect). Qualquer outro valor vira "/conta".
+
+@param next Valor do parâmetro ?next=.
+@returns Caminho seguro para redirecionar após o login. */
 function destinoSeguro(next: string | null): string {
   return next && next.startsWith('/') && !next.startsWith('//') ? next : '/conta'
 }
 
+/* Página /login: entrada por e-mail ou usuário (POST /api/v1/auth/login) e por Steam
+(GET /api/v1/auth/steam). Mostra erros da API e o erro vindo de ?erro=steam. */
 export default function LoginPage() {
   const router = useRouter()
   const [login, setLogin] = useState('')

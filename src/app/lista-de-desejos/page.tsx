@@ -29,9 +29,15 @@ type ItemDesejo = {
 
 const POR_PAGINA = 3
 
+/* Formata um valor em reais (BRL).
+
+@param valor Número a formatar.
+@returns Texto como "R$ 59,90". */
 const brl = (valor: number): string =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+/* Página /lista-de-desejos: carrega GET /api/v1/wishlist, pagina de 3 em 3 e remove itens com
+DELETE /api/v1/wishlist/[id]. Sem sessão (401), redireciona para /login?next=/lista-de-desejos. */
 export default function ListaDeDesejosPage() {
   const [itens, setItens] = useState<ItemDesejo[]>([])
   const [carregando, setCarregando] = useState<boolean>(true)
@@ -156,6 +162,11 @@ export default function ListaDeDesejosPage() {
   )
 }
 
+/* Cartão de um jogo da lista: preço (com o original riscado quando há desconto), loja, faixa de
+desconto, botão "Remover" e link "Ver ofertas" para a página do jogo.
+
+@param item Dados do jogo.
+@param onRemover Chamado com o id do jogo ao clicar em "Remover". */
 function CartaoDesejo({
   item,
   onRemover,
@@ -199,13 +210,13 @@ function CartaoDesejo({
             >
               Remover
             </button>
-            <Link
+            <link
               href={item.url}
               className="inline-flex items-center gap-2 rounded-[9px] bg-bp-muted px-4 py-2 text-sm text-bp-neutral transition hover:brightness-110"
             >
               <ExternalIcon className="size-[25px]" />
               Ver ofertas
-            </Link>
+            </link>
           </div>
         </div>
       </div>
