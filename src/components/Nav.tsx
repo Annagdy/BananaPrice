@@ -33,7 +33,11 @@ export default function Nav({ onSearch, logado = false }: NavProps) {
           type="search"
           placeholder="Search"
           aria-label="Buscar jogos"
-          onChange={(e) => onSearch?.(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onSearch?.(e.currentTarget.value)
+            }
+          }}
           className="h-[46px] w-full rounded-[13px] border border-bp-muted/30 bg-bp-nav pl-[18px] pr-[52px] text-xs text-bp-text outline-none placeholder:text-bp-muted/45 focus:border-bp-primary"
         />
         <SearchIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-[#817667]/90" />
