@@ -44,7 +44,7 @@ export async function salvarJogos(
 
     // Monta as linhas
 
-    const linhas = [];
+    const linhas: Record<string, unknown>[] = [];
 
     for (const jogo of jogos) {
 

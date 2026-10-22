@@ -1,7 +1,7 @@
 import { buscarPaginaJogos, buscarPrecosLote } from "../src/lib/itad.ts";
 import { salvarJogos } from "../src/services/jogos";
 import { salvarPrecos } from "../src/services/precos";
-import { LIMITE_JOGOS } from "../src/lib/config";
+import { LIMITE_JOGOS } from "../src/lib/config.ts";
 
 // Importar "../src/lib/supabase" (via services/jogos e services/precos) já carrega o .env e valida as variáveis de ambiente antes de qualquer chamada à API ser feita.
 

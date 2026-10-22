@@ -1,15 +1,58 @@
 import axios from "axios";
-import { esperar } from "../util.ts";
+import { esperar } from "../util.ts/index.ts";
+
+const URL_API_ITAD = "https://api.isthereanydeal.com";
+
+/* ID da loja Steam dentro do ITAD, usado no lookup de appid -> itad_id. */
+const ID_LOJA_STEAM_ITAD = 61;
+
+/*
+Lê a ITAD_API_KEY na hora do uso, e não na importação, para o build do Next não quebrar se ela não estiver definida.
+*/
+function obterChaveItad(): string {
+
+    const chave = process.env.ITAD_API_KEY;
+
+    if (!chave) {
+        throw new Error("ITAD_API_KEY não foi encontrada. Defina no .env da raiz do projeto.");
+    }
+
+    return chave;
+}
+
+/* Calcula quanto esperar depois de um erro 429 (limite de requisições).
+
+Usa o header 'retry-after' quando a API manda; sem ele, espera 5 minutos.
+
+@param erro Erro do axios.
+@returns Tempo de espera em milissegundos.
+
+*/
+function calcularEspera429(erro: any): number {
+
+    const retryAfter = erro.response?.headers?.["retry-after"];
+
+    if (retryAfter) {
+
+        const segundos = Number(retryAfter);
+
+        if (!isNaN(segundos)) {
+            return (segundos + 5) * 1000;
+        }
+    }
+
+    return 5 * 60 * 1000;
+}
 
 /* Gera um slug (formato "meu-jogo") a partir de um título.
 
-Usado como fallback quando a API não manda/possui slog para tal jogo.
+Usado como fallback quando a API não manda/possui slug para tal jogo.
 
 @param texto Texto de origem (normalmente o título do jogo).
 @returns O texto em minúsculas, sem acentos, com espaços e pontuação trocados por hífens.
 
 */
-export function slugify(texto: string){
+export function slugify(texto: string) {
 
     return texto
         .normalize("NFD")
@@ -29,15 +72,15 @@ o 'id' do último jogo recebido em 'ultimoId'.
 @returns Um array de jogos crus da API, cada um com pelo menos 'id' e 'title' (e 'slug', quando a API manda).
 
 */
-export async function buscarPaginaJogos(ultimoId?: string){
-    
+export async function buscarPaginaJogos(ultimoId?: string) {
+
     console.log("Buscando jogos...");
 
     const response = await axios.get(
-        "https://api.isthereanydeal.com/unstable/games/list/v1",
+        `${URL_API_ITAD}/unstable/games/list/v1`,
         {
             params: {
-                key: process.env.ITAD_API_KEY,
+                key: obterChaveItad(),
                 ...(ultimoId && { last: ultimoId })
             }
         }
@@ -57,14 +100,16 @@ devolve 'null', para um jogo problemático não travar o resto da importação.
 */
 export async function buscarGenero(itadId: string): Promise<string | null> {
 
-    while(true) {
+    while (true) {
+
         try {
+
             const response = await axios.get(
-                "https://api.isthereanydeal.com/games/info/v2",
+                `${URL_API_ITAD}/games/info/v2`,
                 {
                     params: {
                         id: itadId,
-                        key: process.env.ITAD_API_KEY
+                        key: obterChaveItad()
                     }
                 }
             );
@@ -72,26 +117,15 @@ export async function buscarGenero(itadId: string): Promise<string | null> {
             const tags: string[] = response.data?.tags ?? [];
 
             return tags.length > 0 ? tags.join(", ") : null;
+
         } catch (erro: any) {
-            
-            const status = erro.response?.status;
 
-            if (status === 429) {
+            if (erro.response?.status === 429) {
 
-                const retryAfter = erro.response?.headers?.["retry-after"];
-                let tempoEspera = 5 * 60 * 1000;
-
-                if (retryAfter) {
-
-                    const segundos = Number(retryAfter);
-
-                    if (!isNaN(segundos)) {
-                        tempoEspera = (segundos + 5) * 1000;
-                    }
-                }
+                const tempoEspera = calcularEspera429(erro);
 
                 console.log(
-                    'Limite atingido buscando gênero de ${itadId}, ' + 'aguardando ${Math.ceil(tempoEspera / 1000)}s...'
+                    `Limite atingido buscando gênero de ${itadId}, aguardando ${Math.ceil(tempoEspera / 1000)}s...`
                 );
 
                 await esperar(tempoEspera);
@@ -100,7 +134,7 @@ export async function buscarGenero(itadId: string): Promise<string | null> {
             }
 
             console.log(
-                'Não foi possível buscar gênero de ${itadId}:', erro.response?.data ?? erro.message
+                `Não foi possível buscar gênero de ${itadId}:`, erro.response?.data ?? erro.message
             );
 
             return null;
@@ -110,13 +144,13 @@ export async function buscarGenero(itadId: string): Promise<string | null> {
 
 /* Busca os preços atuais de um lote de jogos na API ('/games/prices/v3'), POST com até 200 ids por vez.
 
-Em caso de limite de requisições, espera o tempo indicado pela API e tenta o mesmo lote de novo. QUalquer
+Em caso de limite de requisições, espera o tempo indicado pela API e tenta o mesmo lote de novo. Qualquer
 outro erro é logado e relançado, encerrando a importação.
 
-@param ids Ids (itad_id) dos jogos deste lote
+@param ids Ids (itad_id) dos jogos deste lote.
 @param inicio Posição do primeiro jogo do lote dentro da página.
 @param fim Posição do último jogo do lote dentro da página.
-@returns Um array com '{ id, historyLow, deals }' por jogo, onde 'deals é a lista de ofertas por loja.
+@returns Um array com '{ id, historyLow, deals }' por jogo, onde 'deals' é a lista de ofertas por loja.
 
 */
 export async function buscarPrecosLote(
@@ -124,70 +158,102 @@ export async function buscarPrecosLote(
     inicio: number,
     fim: number
 ) {
-    
+
     while (true) {
 
         try {
-            console.log(
-                'Consultando preços: jogos ${inicio} até ${fim}'
-            );
+
+            console.log(`Consultando preços: jogos ${inicio} até ${fim}`);
 
             const response = await axios.post(
-                "https://api.isthereanydeal.com/games/prices/v3",
+                `${URL_API_ITAD}/games/prices/v3`,
                 ids,
                 {
                     params: {
-                        key: process.env.ITAD_API_KEY,
+                        key: obterChaveItad(),
                         country: "BR"
                     }
                 }
             );
 
             return response.data;
+
         } catch (erro: any) {
-            
-            const status = erro.response?.status;
 
             // Limite de requisições
+            if (erro.response?.status === 429) {
 
-            if (status === 429) {
+                const tempoEspera = calcularEspera429(erro);
 
-                const retryAfter = erro.response?.headers?.["retry-after"];
-                let tempoEspera = 5 * 60 * 1000;
-            
-                if (retryAfter) {
-                    
-                    const segundos = Number(retryAfter);
-
-                    if (!isNaN(segundos)) {
-                        tempoEspera = (segundos + 5) * 1000;
-                    }
-                }
-
-                console.log('Limite da API atingido');
-
-                console.log(
-                    'Aguardando ${Math.ceil(tempoEspera / 1000)} segundos...'
-                );
+                console.log("Limite da API atingido");
+                console.log(`Aguardando ${Math.ceil(tempoEspera / 1000)} segundos...`);
 
                 await esperar(tempoEspera);
 
-                console.log(
-                    'Tentando novamente o lote ${inicio}-${fim}...'
-                );
+                console.log(`Tentando novamente o lote ${inicio}-${fim}...`);
 
                 continue;
             }
 
             // Outro erro
-
-            console.log('Erro na API de preços');
-
-            console.log(
-                erro.response?.data ?? erro.message
-            );
+            console.log("Erro na API de preços");
+            console.log(erro.response?.data ?? erro.message);
 
             throw erro;
         }
     }
+}
+
+/* Converte appids da Steam em ids do ITAD (jogo.itad_id), usado na importação da wishlist (RF05).
+
+Usa o lookup por loja ('/lookup/id/shop/61/v1', POST com até 200 ids por vez). Cada appid é enviado
+no formato "app/<appid>" e a API responde um objeto { "app/730": "<itad_id>" | null }.
+
+Diferente das outras funções, aqui NÃO espera em caso de 429: esta função roda dentro do login do usuário, e
+esperar minutos deixaria a requisição pendurada. Se o limite for atingido, devolve o que já conseguiu.
+
+@param appIds Lista de appids da Steam.
+@returns Lista de itad_id dos jogos que o ITAD reconheceu (appids desconhecidos são ignorados).
+
+*/
+export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<string[]> {
+
+    const resultado: string[] = [];
+    const tamanhoLote = 200;
+
+    for (let i = 0; i < appIds.length; i += tamanhoLote) {
+
+        const lote = appIds.slice(i, i + tamanhoLote).map((appId) => `app/${appId}`);
+
+        try {
+
+            const response = await axios.post(
+                `${URL_API_ITAD}/lookup/id/shop/${ID_LOJA_STEAM_ITAD}/v1`,
+                lote,
+                { params: { key: obterChaveItad() } }
+            );
+
+            const mapa: Record<string, string | null> = response.data ?? {};
+
+            for (const itadId of Object.values(mapa)) {
+
+                if (itadId) {
+                    resultado.push(itadId);
+                }
+            }
+
+        } catch (erro: any) {
+
+            console.log(
+                "Não foi possível converter appids da Steam em itad_id:", erro.response?.data ?? erro.message
+            );
+
+            // 429: devolve o que já tem, em vez de travar o login
+            if (erro.response?.status === 429) {
+                break;
+            }
+        }
+    }
+
+    return resultado;
 }
