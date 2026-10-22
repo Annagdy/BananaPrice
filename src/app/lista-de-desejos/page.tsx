@@ -6,6 +6,7 @@ import Image from 'next/image'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import { capaExemplo, macacoFeliz } from '../../components/assets'
+import Link from 'next/link'
 
 type ItemDesejo = {
   id: number
@@ -210,13 +211,13 @@ function CartaoDesejo({
             >
               Remover
             </button>
-            <link
+            <Link
               href={item.url}
               className="inline-flex items-center gap-2 rounded-[9px] bg-bp-muted px-4 py-2 text-sm text-bp-neutral transition hover:brightness-110"
             >
               <ExternalIcon className="size-[25px]" />
               Ver ofertas
-            </link>
+            </Link>
           </div>
         </div>
       </div>

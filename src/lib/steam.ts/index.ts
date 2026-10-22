@@ -167,16 +167,22 @@ export async function buscarWishlistSteam(steamId: string): Promise<number[]> {
 
     const resposta = await chamarSteam(
         "wishlist Steam",
-        `${URL_API_STEAM}/IWishlistService/GetWishlist/v1/?steamid=${steamId}`
+        `${URL_API_STEAM}/IWishlistService/GetWishlist/v1/?key=${obterChaveSteam()}&steamid=${steamId}`
     );
 
     if (!resposta.ok) {
+        console.log("[wishlist] Steam respondeu", resposta.status);
         return [];
     }
 
     const json = await resposta.json();
+    const itens: { appid: number }[] = json.response?.items ?? [];
 
-    return (json.response?.items ?? []).map((item: { appid: number }) => item.appid);
+    if (itens.length === 0) {
+        console.log("[wishlist] Steam devolveu vazio (steamId:", steamId, ")");
+    }
+
+    return itens.map((item) => item.appid);
 }
 
 /*
