@@ -20,6 +20,10 @@ import {
 type Form = { nome: string; email: string; senha: string; confirma: string }
 type Erros = Partial<Record<'nome' | 'email' | 'senha' | 'confirma' | 'termos', string>>
 
+/* Calcula a força da senha.
+
+@param s Senha digitada.
+@returns 0 (vazia), 1 (fraca), 2 (média) ou 3 (forte). */
 function forca(s: string): number {
   let n = 0
   if (s.length >= 8) n++
@@ -39,6 +43,9 @@ export default function CadastroPage() {
   const [termos, setTermos] = useState(false)
   const [alertas, setAlertas] = useState(true)
   const [erro, setErro] = useState<Erros>({})
+  const [msg, setMsg] = useState<string | null>(null)
+  const [erroGeral, setErroGeral] = useState<string | null>(null)
+  const [carregando, setCarregando] = useState(false)
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value
@@ -46,19 +53,46 @@ export default function CadastroPage() {
   }
   const nivel = forca(f.senha)
 
-  const enviar = (e: React.FormEvent<HTMLFormElement>) => {
+  const enviar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setErroGeral(null)
+    setMsg(null)
+
     const er: Erros = {}
-    if (!f.nome.trim()) er.nome = 'Informe seu nome ou nick'
+    if (!/^[a-zA-Z0-9_.]{3,20}$/.test(f.nome.trim()))
+      er.nome = 'Use de 3 a 20 caracteres: letras, números, _ ou .'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) er.email = 'Informe um e-mail válido'
     if (f.senha.length < 8) er.senha = 'A senha precisa ter no mínimo 8 caracteres'
     if (f.confirma !== f.senha) er.confirma = 'As senhas não coincidem'
     if (!termos) er.termos = 'Aceite os Termos de Uso e a Política de Privacidade'
     setErro(er)
     if (Object.keys(er).length) return
-    // TODO: integrar com o cadastro (Supabase).
-    // Por enquanto é só para navegar: cadastro válido leva às notificações.
-    router.push('/notificacoes')
+
+    setCarregando(true)
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomeUsuario: f.nome, email: f.email, senha: f.senha }),
+      })
+      const json = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        setErroGeral(json?.error ?? 'Não foi possível criar a conta.')
+        return
+      }
+
+      if (json?.needsEmailConfirmation) {
+        setMsg('Conta criada! Verifique seu e-mail para confirmar.')
+      } else {
+        router.push('/conta')
+        router.refresh()
+      }
+    } catch {
+      setErroGeral('Falha de conexão. Tente novamente.')
+    } finally {
+      setCarregando(false)
+    }
   }
 
   return (
@@ -72,7 +106,7 @@ export default function CadastroPage() {
       </div>
 
       <a
-        href="#"
+        href="/api/v1/auth/steam"
         className="flex items-center justify-center gap-2 rounded-full bg-bp-steam px-4 py-2 text-sm tracking-[.28px] text-bp-text hover:brightness-110"
       >
         <SteamIcon /> Cadastrar com a Steam
@@ -184,9 +218,10 @@ export default function CadastroPage() {
 
         <button
           type="submit"
-          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105"
+          disabled={carregando}
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Criar Conta BananaPrice <ArrowRight />
+          {carregando ? 'Criando...' : <>Criar Conta BananaPrice <ArrowRight /></>}
         </button>
       </form>
 

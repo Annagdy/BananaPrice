@@ -18,4 +18,4 @@ o script para assim que atingir esse total, mesmo no meio de uma página.
 'null': para não ter limite e importar o catálogo inteiro.
 
 */
-export const LIMITE_JOGOS: number | null = 500;
+export const LIMITE_JOGOS: number | null = 500000;
