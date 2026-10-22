@@ -1,159 +1,77 @@
-# BananaPrice: alterações desta branch
+# BananaPrice: Autenticação, Conta e Lista de Desejos
 
+Registro das rotas e mudanças já implementadas. Tudo o que não aparece aqui ainda não foi feito.
 
-Escopo: apenas as telas (Home, Login, Cadastro e Notificações). Não há autenticação nem dados reais ainda, tudo usa dados fake.
+## Rotas implementadas
 
----
+| Método | Rota | O que faz | RF |
+|---|---|---|---|
+| POST | `/api/v1/auth/register` | Cadastro por e-mail com nome de usuário único | RF02 |
+| POST | `/api/v1/auth/login` | Login por e-mail **ou** nome de usuário | RF03 |
+| GET | `/api/v1/auth/steam` | Inicia o login com a Steam (OpenID 2.0) | RF04 |
+| GET | `/api/v1/auth/steam/callback` | Valida a Steam, cria/vincula a conta, abre a sessão e importa a wishlist | RF04, RF05 |
+| GET | `/api/v1/auth/confirm` | Recebe o link de confirmação de e-mail | - |
+| PATCH | `/api/v1/conta` | Altera nome de usuário, e-mail (com confirmação) e senha da conta logada | - |
+| GET | `/api/v1/wishlist` | Lista a wishlist do usuário logado com melhor preço atual | RF10 |
+| POST | `/api/v1/wishlist` | Adiciona um jogo à wishlist (`{ "idJogo": 1 }`) | RF10 |
+| DELETE | `/api/v1/wishlist/[gameId]` | Remove um jogo da wishlist | RF10 |
 
-## 1. Dependências e configuração
+### Comportamento do login com a Steam
 
-| Arquivo | Alteração |
-|---|---|
-| `package.json` | Adicionados `next`, `react`, `react-dom` e, em dev, `typescript`, `@types/*`, `tailwindcss` e `@tailwindcss/postcss`. Criados os scripts `dev`, `build` e `start`. As dependências antigas (supabase, axios, dotenv, tsx) foram mantidas. |
-| `package-lock.json` | Atualizado pelo `npm install`. |
-| `tsconfig.json` | **Novo.** Configuração TypeScript do Next (modo `strict`). |
-| `next.config.mjs` | **Novo.** Configuração do Next, vazia por enquanto. |
-| `postcss.config.mjs` | **Novo.** Ativa o plugin do Tailwind v4 (`@tailwindcss/postcss`). |
-| `next-env.d.ts` | **Novo, gerado automaticamente** pelo Next na primeira execução. Não editar. |
+O callback cobre três casos:
 
-> Os imports das telas são **relativos** (`../components/...`), então não dependem do alias `@/`.
+1. **Steam já vinculada:** entra na conta dona dela.
+2. **Usuário já logado:** vincula a Steam à conta atual.
+3. **Steam nova e ninguém logado:** cria usuário, vínculo em `conta_steam` e sessão.
 
----
+Quem entra pela Steam recebe um e-mail provisório (`<steamid>@steam.local`). Em `/conta` ele pode trocar por um e-mail real e continua vinculado à mesma Steam, podendo entrar pelos dois meios.
 
-## 2. Estilo global (`src/app`)
+### Ainda não implementado
 
-### `globals.css` (novo)
-- `@import "tailwindcss"` e um bloco `@theme` com as cores e fontes do projeto.
-- Cores com prefixo `bp-` para não colidir com as do Tailwind:
+`games`, `games/[id]`, `games/[id]/history`, `notifications`, `highlights`, `payments/pix`, `webhooks/pix` e a rota de logout (hoje o botão **Sair** usa o `signOut()` do navegador).
 
-| Classe | Cor | Uso |
-|---|---|---|
-| `bp-primary` | `#facc15` | amarelo principal (botões, títulos, preços) |
-| `bp-on-primary` | `#231b00` | texto sobre o amarelo |
-| `bp-bg` | `#150c09` | fundo da página |
-| `bp-surface` | `#231916` | cartão de login e cadastro |
-| `bp-nav` | `#322824` | barra de navegação e rodapé |
-| `bp-input` | `#271d1a` | campos de formulário |
-| `bp-neutral` | `#2c221e` | cards de jogo |
-| `bp-text` | `#f1dfd8` | texto claro |
-| `bp-muted` | `#d1c6ab` | texto secundário |
-| `bp-steam` | `#0088ff` | botão da Steam |
+## Mudanças no banco
 
-- Fontes: `font-head` (Rubik) e `font-body` (Nunito Sans).
-
-### `layout.tsx` (novo)
-- Layout raiz, em `pt-BR`, com título e descrição do site.
-- Carrega Rubik e Nunito Sans via `next/font/google`.
-- Aplica fundo `bp-bg` e a fonte do corpo em todas as páginas.
-
----
-
-## 3. Telas (`src/app`)
-
-### Home: `page.tsx` (modificado)
-- Nav, Hero, **Vitrine Turbo** (carrossel com setas), **Ofertas do Momento** (grade de cards), botão "Ver Mais" e rodapé.
-- A busca do Nav filtra os cards da grade.
-- Dados vêm de `mocks/games.ts`.
-
-### Login: `login/page.tsx` (modificado)
-- Botão "Continuar com a Steam", e-mail ou usuário, senha com botão de mostrar e ocultar, "Esqueceu a senha?", "Continuar como visitante" e link para o cadastro.
-- **Login de mentira:** o envio do formulário leva a `/notificacoes` com qualquer dado. Há um `TODO` no ponto de trocar pelo Supabase.
-- Steam e "Esqueceu a senha?" ainda não fazem nada (`href="#"`).
-
-### Cadastro: `cadastro/page.tsx` (modificado)
-- Nome ou nick, e-mail, senha, confirmação de senha, termos de uso e opção de receber alertas.
-- **Barra de força da senha** (fraca, média, forte).
-- **Validação:** senha com no mínimo 8 caracteres, confirmação igual à senha e termos aceitos.
-- Cadastro válido leva a `/notificacoes`. Também há `TODO` para o Supabase.
-
-### Notificações: `notificacoes/page.tsx` (modificado)
-- Nav na versão **logado**, título com sino, linha divisória e lista de cards de notificação.
-- Imagem decorativa no canto, escondida em telas menores que 1100px, e rodapé.
-- Dados vêm de `mocks/notificacoes.ts`. O layout deixou de usar posição absoluta e ficou flexível.
-- O arquivo `index.module.css` do export do Figma não é mais necessário.
-
-### Não alterado
-`api/` continua como estava. Nenhuma rota foi criada, alterada ou removida.
-
-### Telas adicionais
-- `jogos/page.tsx`: lista de ofertas com painel de filtros (preço, corte e loja), grade de 3 colunas e paginação por setas (dados de `mocks/promos.ts`).
-- `jogos/[id]/page.tsx`: detalhe do jogo, com dados de exemplo.
-- `turbo/[gameId]/page.tsx`: passa a ler os dados de `mocks/turbo.ts`.
-- `turbo/sucesso/page.tsx`: confirmação de pagamento (dados de `mocks/sucesso.ts`).
-- `components/Carregando.tsx`: tela de carregamento reutilizável (dados de `mocks/carregando.ts`).
-- `mocks/tema.ts`: cores usadas nessas telas que não estão no `globals.css`.
-
----
-
-## 4. Componentes (`src/components`), todos novos
-
-| Arquivo | Descrição |
-|---|---|
-| `Nav.tsx` | Barra superior com logo, busca e botões. Prop `logado`: `false` mostra "Login / Cadastrar", `true` mostra sino, Lista de Desejos e Conta. É componente de cliente (`'use client'`). |
-| `Hero.tsx` | Banner da Home com título, subtítulo e mascote. |
-| `GameCard.tsx` | Card de jogo (capa, desconto, loja, preço antigo e atual). Variante `wide` usada na Vitrine Turbo. |
-| `Footer.tsx` | Rodapé com texto institucional, links de transparência e créditos da API. |
-| `AuthShell.tsx` | Moldura do login e do cadastro: fundo com palmeira e banana, logo e cartão. |
-| `AuthField.tsx` | Campo de formulário reutilizável (label, ícone, olho da senha e mensagem de erro). |
-| `Icons.tsx` | Ícones SVG usados nas telas. |
-| `assets.ts` | Caminhos das imagens em `public/assets`. |
-
----
-
-## 5. Dados de exemplo (`src/mocks`), todos novos
-
-- `games.ts`: tipo `Game` e lista de 12 jogos fake.
-- `notificacoes.ts`: tipo `Notificacao` e 4 notificações fake.
-
-Quando a API estiver pronta, basta trocar esses imports pelos dados reais.
-
----
-
-## 6. Imagens (`public/assets`)
-
-`logo.png`, `macaco.png`, `palmeira.png`, `bananas.png` e `capa-exemplo.png`, vindas do protótipo.
-`capa-exemplo.png` e `palmeira.png` estão como **placeholders** em alguns lugares (capas dos jogos, avatares das notificações e imagem do canto).
-
----
-
-## 7. Docker
-
-| Arquivo | Descrição |
-|---|---|
-| `Dockerfile` | Imagem `node:22-slim`, instala as dependências e roda `npm run dev` na porta 3000. |
-| `docker-compose.yml` | Sobe o serviço `web` em `localhost:3000`, com o código montado em volume (hot reload, `WATCHPACK_POLLING`) e `node_modules` e `.next` isolados no container. |
-| `.dockerignore` | Ignora `node_modules`, `.next`, `.git` e `.github` no build. |
-
----
-
-## 8. `middleware.ts` (modificado)
-
-O Next exige que o arquivo exporte uma função `middleware` (ou `default`). Sem isso, toda requisição quebrava e a Home dava 404. A função passou a existir e só libera a requisição, sem regra de autenticação ainda. O Next 16 está renomeando middleware para `proxy`, mas o nome antigo continua funcionando.
-
----
+- `usuario` passou a se ligar ao Supabase Auth pela coluna `auth_id`. A coluna `senha` foi removida (a senha fica só no Auth).
+- `usuario.id_usuario` virou identity (autoincremento).
+- `conta_steam.id_steam` virou `text` e deixou de ser identity (o SteamID64 passa de 2^53).
+- E-mail e nome de usuário únicos em `usuario`; uma `lista_desejo` por usuário.
+- Triggers em `auth.users`:
+  - cria a linha em `usuario` quando nasce um usuário;
+  - mantém `usuario.email` sincronizado quando o e-mail muda.
 
 ## Como rodar
 
-**Local**
-```bash
-npm install
-npm run dev
-```
+1. Instale as dependências:
+   ```bash
+   npm install
+   ```
+2. Configure o `.env.local`:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=
+   SUPABASE_SERVICE_ROLE_KEY=
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000
+   STEAM_API_KEY=
+   ITAD_API_KEY=
+   ```
+   `NEXT_PUBLIC_SITE_URL` deve ser idêntica à URL aberta no navegador (host e porta), senão a validação da Steam falha.
+3. Aplique as mudanças do banco (migration em `supabase/migrations` ou pelo SQL Editor do Supabase).
+4. Inicie:
+   ```bash
+   npm run dev
+   ```
 
-**Docker**
-```bash
-docker compose up --build
-```
+## Como testar
 
-Acesse `http://localhost:3000`, `/login`, `/cadastro` e `/notificacoes`.
-Fluxo para ver as notificações: `/login` e clique em **Entrar na Conta**.
+- **Cadastro e login:** crie uma conta em `/cadastro` e entre em `/login` (por e-mail e por usuário).
+- **Steam:** clique em **Continuar com Steam**. Deve cair em `/conta` e criar linhas em `usuario` e `conta_steam`. Entrar de novo deve levar à mesma conta.
+- **Vincular e-mail:** em `/conta`, troque o e-mail provisório por um real e confirme pelo link recebido.
+- **Wishlist:** a importação só grava jogos que **já existem** na tabela `jogo`, então o catálogo precisa estar populado (`atualizarBD`) e a wishlist da Steam precisa estar **pública**. Entre pela Steam de novo depois de popular o catálogo para reimportar. Para testar só a página, insira linhas em `lista_jogo` manualmente.
 
----
+## Pendências conhecidas
 
-## Próximos passos
-
-- Integrar login e cadastro com o Supabase, no lugar do `router.push`.
-- Ligar o botão da Steam, o "Esqueceu a senha?" e a Lista de Desejos.
-- Trocar os mocks pelos dados reais da API.
-- Substituir as imagens placeholders pelas definitivas.
-- Proteger `/notificacoes` e `/conta` no `middleware.ts` quando houver sessão.
+- A importação da wishlist depende do endpoint `IWishlistService/GetWishlist` da Steam e do lookup de IDs do ITAD (`/lookup/id/shop/61/v1`). Ambos precisam ser conferidos na prática.
+- O envio de e-mails do Supabase tem limites no plano padrão. Para uso real, configure um SMTP próprio.
+- Capa dos jogos e link externo da loja não existem no schema atual; a lista usa imagem de exemplo e leva à página interna `/jogos/<id>`.
+- Ativar RLS nas tabelas antes de qualquer acesso direto pelo navegador (as rotas atuais usam a service role no servidor).

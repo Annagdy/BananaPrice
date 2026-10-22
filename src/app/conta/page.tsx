@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent, SVGProps } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -8,34 +8,98 @@ import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import { BellIcon, SteamIcon } from '../../components/Icons'
 import { macacobanana } from '../../components/assets'
+import { createClient } from '@/lib/supabase.ts/client.ts'
 
-// TODO: vir da sessão/Supabase. Por enquanto são dados de exemplo.
-const USUARIO_INICIAL = { nome: 'Bananinha', email: 'bananinha@gmail.com' }
 
 const Divider = () => <div className="my-2 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
 
+/* Página /conta: mostra os dados da sessão atual e permite alterá-los (PATCH /api/v1/conta).
+Também conecta a conta à Steam (/api/v1/auth/steam), encerra a sessão e mostra avisos vindos
+da URL (?erro=steam_em_uso, ?email=confirmado). */
 export default function ContaPage() {
   const router = useRouter()
-  const [salvo, setSalvo] = useState(USUARIO_INICIAL)
-  const [nome, setNome] = useState<string>(USUARIO_INICIAL.nome)
-  const [email, setEmail] = useState<string>(USUARIO_INICIAL.email)
+  const [salvo, setSalvo] = useState({ nome: '', email: '' })
+  const [nome, setNome] = useState('')
+  const [email, setEmail] = useState('')
+  const [carregando, setCarregando] = useState(true)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [notificarEmail, setNotificarEmail] = useState<boolean>(true)
 
-  const confirmar = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    // TODO: salvar na API (Supabase).
-    setSalvo({ nome, email })
-  }
+  useEffect(() => {
+    const supabase = createClient()
 
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+      const dados = {
+        // o trigger grava nome_usuario no user_metadata, então não precisa consultar a tabela (nem de RLS)
+        nome: user.user_metadata?.nome_usuario ?? '',
+        email: user.email ?? '',
+      }
+      setSalvo(dados)
+      setNome(dados.nome)
+      setEmail(dados.email)
+      setCarregando(false)
+    })
+
+    // o callback da Steam redireciona para /conta?erro=steam_em_uso
+    if (new URLSearchParams(window.location.search).get('erro') === 'steam_em_uso') {
+      setAviso('Essa conta Steam já está vinculada a outro usuário.')
+    }
+  }, [router])
+
+  {aviso && (
+    <p role="alert" className="rounded-xl bg-bp-nav px-4 py-3 text-bp-muted">
+      {aviso}
+    </p>
+  )}
+
+  const confirmar = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setAviso(null)
+
+    const res = await fetch('/api/v1/conta', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nomeUsuario: nome, email }),
+    })
+    const json = await res.json().catch(() => null)
+
+    if (!res.ok) {
+      setAviso(json?.error ?? 'Não foi possível salvar.')
+      return
+    }
+    setSalvo({ nome, email })
+    setAviso(json?.aviso ?? 'Dados salvos!')
+  }
+  // const confirmar = (e: FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault()
+  //   // TODO: salvar na API (Supabase).
+  //   setSalvo({ nome, email })
+  // }
+  
   const cancelar = () => {
     setNome(salvo.nome)
     setEmail(salvo.email)
   }
 
-  const sair = () => {
-    // TODO: encerrar a sessão de verdade.
+  // const cancelar = () => {
+  //   setNome(salvo.nome)
+  //   setEmail(salvo.email)
+  // }
+
+  const sair = async () => {
+    await createClient().auth.signOut()
     router.push('/login')
+    router.refresh()
   }
+
+  // const sair = () => {
+  //   // TODO: encerrar a sessão de verdade.
+  //   router.push('/login')
+  // }
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -107,8 +171,8 @@ export default function ContaPage() {
               </div>
               <button
                 type="button"
-                // TODO: iniciar o fluxo de conexão com a Steam.
-                className="shrink-0 cursor-pointer rounded-[9px] border border-bp-muted bg-bp-neutral px-6 py-2 text-xs text-bp-muted transition hover:brightness-125"
+                onClick={() => { window.location.href = '/api/v1/auth/steam' }}
+                className="..."
               >
                 Conectar
               </button>
@@ -190,6 +254,14 @@ type CampoProps = {
   autoComplete?: string
 }
 
+/* Campo de formulário com rótulo.
+
+@param id Id e name do input.
+@param label Texto do rótulo.
+@param type "text" ou "email".
+@param value Valor atual.
+@param onChange Chamado a cada alteração.
+@param autoComplete Dica de preenchimento automático (opcional). */
 function Campo({ id, label, type, value, onChange, autoComplete }: CampoProps) {
   return (
     <div className="flex flex-col gap-2.5">
