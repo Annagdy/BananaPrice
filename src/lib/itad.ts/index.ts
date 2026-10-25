@@ -6,6 +6,27 @@ const URL_API_ITAD = "https://api.isthereanydeal.com";
 /* ID da loja Steam dentro do ITAD, usado no lookup de appid -> itad_id. */
 const ID_LOJA_STEAM_ITAD = 61;
 
+/* Domínio das imagens do ITAD (confirmado com a resposta de /games/info/v2). */
+const CDN_CAPAS_ITAD = "https://assets.isthereanydeal.com";
+
+export type TamanhoCapa = "boxart" | "banner145" | "banner300" | "banner400";
+
+/* Monta a URL da capa a partir do itad_id.
+
+Alguns jogos não têm imagem no ITAD; nesse caso a URL dá 404 e o front mostra a capa padrão.
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@param tamanho Versão da imagem. "banner300" serve bem para cards.
+@returns A URL, ou null se não houver itad_id. */
+export function urlCapaItad(itadId: string | null, tamanho: TamanhoCapa = "banner300"): string | null {
+
+    if (!itadId) {
+        return null;
+    }
+
+    return `${CDN_CAPAS_ITAD}/${itadId}/${tamanho}.jpg`;
+}
+
 /*
 Lê a ITAD_API_KEY na hora do uso, e não na importação, para o build do Next não quebrar se ela não estiver definida.
 */
@@ -256,4 +277,58 @@ export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<str
     }
 
     return resultado;
+}
+
+/* Busca no ITAD os links de compra de um jogo, um por loja ('/games/prices/v3').
+
+Roda dentro da requisição da página, então NÃO espera em caso de 429 nem lança erro: se algo falhar,
+devolve um mapa vazio e a página mostra as ofertas sem o botão de compra.
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@returns Mapa { nome da loja em minúsculas -> URL https de compra }. */
+export async function buscarLinksLojas(itadId: string | null): Promise<Map<string, string>> {
+
+    const links = new Map<string, string>();
+
+    if (!itadId) {
+        return links;
+    }
+
+    try {
+
+        const resposta = await fetch(
+            `${URL_API_ITAD}/games/prices/v3?key=${obterChaveItad()}&country=BR`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify([itadId]),
+                cache: "no-store"
+            }
+        );
+
+        if (!resposta.ok) {
+            console.log("[itad] links das lojas: resposta", resposta.status);
+            return links;
+        }
+
+        const json = await resposta.json();
+        const ofertas: any[] = json?.[0]?.deals ?? [];
+
+        for (const oferta of ofertas) {
+
+            const nome: unknown = oferta?.shop?.name;
+            const url: unknown = oferta?.url;
+
+            // só aceita https; guarda a primeira (a mais barata) de cada loja
+            if (typeof nome === "string" && typeof url === "string" && url.startsWith("https://")) {
+                const chave = nome.toLowerCase();
+                if (!links.has(chave)) links.set(chave, url);
+            }
+        }
+
+    } catch (erro: any) {
+        console.log("[itad] links das lojas falhou:", erro.message);
+    }
+
+    return links;
 }
