@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
+import { buscarLinksOfertas } from "@/lib/itad.ts";
 
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
@@ -27,6 +28,8 @@ export async function GET(
   }
   if (!jogo) return NextResponse.json({ error: "Jogo não encontrado." }, { status: 404 });
 
+  const links = jogo.itad_id ? await buscarLinksOfertas(jogo.itad_id) : {};
+
   // ofertas atuais em todas as lojas, da mais barata para a mais cara (comparação de preços)
   const { data: precos } = await supabase
     .from("preco_jogo")
@@ -48,6 +51,7 @@ export async function GET(
           : atual,
       desconto,
       atualizadoEm: p.atualizado_em,
+      url: links[(nomeDaLoja(p.loja) ?? "").toLowerCase()] ?? null,
     };
   });
 

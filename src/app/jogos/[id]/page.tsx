@@ -5,7 +5,6 @@ import Nav from '../../../components/Nav'
 import Footer from '../../../components/Footer'
 import { capaExemplo } from '../../../components/assets'
 import { tema } from '../../../mocks/tema'
-import { urlCapaItad, buscarLinksLojas } from "@/lib/itad.ts";
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -23,7 +22,6 @@ type JogoResposta = {
   melhorOferta: Oferta | null
   ofertas: Oferta[]
   menorPrecoHistorico: { valor: number; data: string } | null
-  capa: string | null
 }
 
 /* Busca o jogo na API. Devolve null se o id não existir ou for inválido. */
@@ -34,6 +32,12 @@ async function buscarJogo(id: string): Promise<JogoResposta | null> {
   if (!res.ok) throw new Error('Falha ao carregar o jogo.')
   return res.json()
 }
+
+/* Atributos comuns dos links que saem do site (loja externa). */
+const LINK_EXTERNO = {
+  target: '_blank',
+  rel: 'noopener noreferrer sponsored',
+} as const
 
 export default async function JogoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -100,15 +104,24 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
             )}
 
             <div className="flex flex-wrap gap-3 pt-2">
+              {melhorOferta?.url && (
+                <a
+                  href={melhorOferta.url}
+                  {...LINK_EXTERNO}
+                  className="rounded-[9px] bg-bp-primary px-6 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
+                >
+                  Ir para {melhorOferta.loja ?? 'a loja'}
+                </a>
+              )}
               <Link
                 href={`/turbo/${jogo.id}`}
-                className="rounded-[9px] bg-bp-primary px-6 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
+                className="rounded-[9px] bg-bp-muted px-6 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
               >
                 Dar um turbo
               </Link>
               <Link
                 href="/jogos"
-                className="rounded-[9px] bg-bp-muted px-6 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
+                className="rounded-[9px] border border-bp-muted px-6 py-2.5 text-[15px] text-bp-muted transition hover:brightness-125"
               >
                 Voltar às ofertas
               </Link>
@@ -116,29 +129,69 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
           </div>
         </section>
 
-        {ofertas.length > 1 && (
+        {/* Todas as lojas: aparece sempre que houver pelo menos uma oferta */}
+        {ofertas.length > 0 && (
           <section
-            aria-label="Comparação de preços"
+            aria-label="Onde comprar"
             className="w-full max-w-[1100px] rounded-3xl p-6"
             style={{ background: tema.painel }}
           >
             <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">
-              Comparar preços
+              Onde comprar
             </h2>
+
             <ul className="flex list-none flex-col gap-2">
-              {ofertas.map((o) => (
-                <li
-                  key={o.idLoja}
-                  className="flex items-center justify-between gap-4 rounded-[13px] bg-bp-neutral px-4 py-3 text-bp-muted"
-                >
-                  <span>{o.loja ?? `Loja ${o.idLoja}`}</span>
-                  <span className="flex items-center gap-3">
-                    {o.desconto > 0 && <span className="text-sm">-{o.desconto}%</span>}
-                    <strong className="font-head text-bp-primary">{brl(o.preco)}</strong>
-                  </span>
-                </li>
-              ))}
+              {ofertas.map((o, i) => {
+                const conteudo = (
+                  <>
+                    <span className="flex items-center gap-3">
+                      <span className="font-body text-lg">{o.loja ?? `Loja ${o.idLoja}`}</span>
+                      {i === 0 && (
+                        <span className="rounded-full bg-bp-primary px-2.5 py-0.5 text-xs text-bp-neutral">
+                          Melhor preço
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="flex items-center gap-4">
+                      {o.desconto > 0 && (
+                        <span className="flex items-center gap-2 text-sm">
+                          <span className="text-bp-muted/60 line-through">{brl(o.precoOriginal)}</span>
+                          <span>-{o.desconto}%</span>
+                        </span>
+                      )}
+                      <strong className="font-head text-xl text-bp-primary">{brl(o.preco)}</strong>
+                      <span className="min-w-[88px] text-right text-sm">
+                        {o.url ? 'Ir à loja →' : 'Sem link'}
+                      </span>
+                    </span>
+                  </>
+                )
+
+                const base =
+                  'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[13px] bg-bp-neutral px-4 py-3 text-bp-muted'
+
+                return (
+                  <li key={o.idLoja}>
+                    {o.url ? (
+                      <a
+                        href={o.url}
+                        {...LINK_EXTERNO}
+                        className={`${base} transition hover:brightness-125`}
+                      >
+                        {conteudo}
+                      </a>
+                    ) : (
+                      <div className={`${base} opacity-70`}>{conteudo}</div>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
+
+            <p className="pt-4 text-xs text-bp-muted/70">
+              Os preços podem mudar. Confira o valor final na loja antes de comprar.
+            </p>
           </section>
         )}
       </main>

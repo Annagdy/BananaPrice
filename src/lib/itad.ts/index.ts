@@ -279,56 +279,59 @@ export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<str
     return resultado;
 }
 
-/* Busca no ITAD os links de compra de um jogo, um por loja ('/games/prices/v3').
+/* Cache em memória dos links por jogo, para não consultar o ITAD a cada visita. */
+const cacheLinks = new Map<string, { expira: number; links: Record<string, string> }>();
+const TTL_LINKS_MS = 10 * 60 * 1000;
 
-Roda dentro da requisição da página, então NÃO espera em caso de 429 nem lança erro: se algo falhar,
-devolve um mapa vazio e a página mostra as ofertas sem o botão de compra.
+/* Busca os links de compra de cada loja para um jogo no ITAD ('/games/prices/v3').
+
+Roda dentro da requisição do usuário, então não espera em caso de 429: em qualquer falha
+devolve {} e a página simplesmente fica sem o botão da loja.
 
 @param itadId Id do jogo no ITAD (jogo.itad_id).
-@returns Mapa { nome da loja em minúsculas -> URL https de compra }. */
-export async function buscarLinksLojas(itadId: string | null): Promise<Map<string, string>> {
+@returns Objeto { "nome da loja em minúsculas": "https://link" }.
+*/
+export async function buscarLinksOfertas(itadId: string): Promise<Record<string, string>> {
 
-    const links = new Map<string, string>();
+    const emCache = cacheLinks.get(itadId);
 
-    if (!itadId) {
-        return links;
+    if (emCache && emCache.expira > Date.now()) {
+        return emCache.links;
     }
 
     try {
 
-        const resposta = await fetch(
-            `${URL_API_ITAD}/games/prices/v3?key=${obterChaveItad()}&country=BR`,
+        const response = await axios.post(
+            `${URL_API_ITAD}/games/prices/v3`,
+            [itadId],
             {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify([itadId]),
-                cache: "no-store"
+                params: { key: obterChaveItad(), country: "BR" },
+                timeout: 5000
             }
         );
 
-        if (!resposta.ok) {
-            console.log("[itad] links das lojas: resposta", resposta.status);
-            return links;
-        }
+        const deals: any[] = response.data?.[0]?.deals ?? [];
+        const links: Record<string, string> = {};
 
-        const json = await resposta.json();
-        const ofertas: any[] = json?.[0]?.deals ?? [];
+        for (const deal of deals) {
 
-        for (const oferta of ofertas) {
+            const loja = String(deal?.shop?.name ?? "").toLowerCase();  // confira no passo 1
+            const url = String(deal?.url ?? "");                        // confira no passo 1
 
-            const nome: unknown = oferta?.shop?.name;
-            const url: unknown = oferta?.url;
-
-            // só aceita https; guarda a primeira (a mais barata) de cada loja
-            if (typeof nome === "string" && typeof url === "string" && url.startsWith("https://")) {
-                const chave = nome.toLowerCase();
-                if (!links.has(chave)) links.set(chave, url);
+            // só aceita https, para nunca expor outro tipo de link ao usuário
+            if (loja && url.startsWith("https://")) {
+                links[loja] = url;
             }
         }
 
-    } catch (erro: any) {
-        console.log("[itad] links das lojas falhou:", erro.message);
-    }
+        cacheLinks.set(itadId, { expira: Date.now() + TTL_LINKS_MS, links });
 
-    return links;
+        return links;
+
+    } catch (erro: any) {
+
+        console.log("Não foi possível buscar os links das lojas:", erro.response?.data ?? erro.message);
+
+        return {};
+    }
 }
