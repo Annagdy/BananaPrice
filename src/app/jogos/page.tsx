@@ -12,6 +12,7 @@ import { palmeira } from '../../components/assets'
 import { STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
 import type { Game } from '../../mocks/games'
 import { tema } from '../../mocks/tema'
+import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
 
 /* Formato de cada jogo devolvido por GET /api/v1/games (catálogo, RF06). */
 type JogoApi = {
@@ -24,18 +25,15 @@ type JogoApi = {
   capa: string | null
 }
 
-/* Converte o jogo da API no formato que o GameCard espera.
-O schema não guarda capa, então "cover" vai nulo. Se o tipo Game não aceitar null,
-use o mesmo valor que o mock usava quando não havia capa. */
+/* Converte o jogo da API no formato que o GameCard espera. */
 const paraCard = (j: JogoApi): Game => ({
   id: j.id,
   name: j.titulo,
-  cover: j.capa,
-  store: j.loja ?? '',
+  store: j.loja ?? 'Sem oferta',
   discount: j.desconto,
   originalPrice: j.precoOriginal ?? 0,
   price: j.melhorPreco ?? 0,
-  // cover: null,
+  cover: j.capa,
 })
 
 function Opcao({
@@ -94,6 +92,9 @@ export default function JogosPage() {
   const [lojas, setLojas] = useState<string[]>([])
   const [pagina, setPagina] = useState(1)
 
+  // conteúdo adulto: oculto por padrão, a pessoa precisa ativar (fica salvo em cookie)
+  const [adulto, setAdulto] = useState(false)
+
   // dados do catálogo vindos da API
   const [jogos, setJogos] = useState<JogoApi[]>([])
   const [total, setTotal] = useState(0)
@@ -118,6 +119,25 @@ export default function JogosPage() {
     )
     setPagina(1)
   }
+
+  const alternarAdulto = () => {
+    if (
+      !adulto &&
+      !window.confirm(
+        'Mostrar jogos com conteúdo adulto? Confirme que você tem 18 anos ou mais.',
+      )
+    ) {
+      return
+    }
+    definirAdultoNoNavegador(!adulto)
+    setAdulto(!adulto)
+    setPagina(1)
+  }
+
+  // lê a preferência salva no cookie ao abrir a página
+  useEffect(() => {
+    setAdulto(adultoAtivoNoNavegador())
+  }, [])
 
   // catálogo com filtros: GET /api/v1/games?price=&discount=&store=&page=&limit=
   useEffect(() => {
@@ -153,7 +173,7 @@ export default function JogosPage() {
       })
 
     return () => controller.abort()
-  }, [busca, precoMax, corteMin, lojas, pagina])
+  }, [busca, precoMax, corteMin, lojas, pagina, adulto])
 
   // pesquisa por nome: GET /api/v1/games?busca= (rota do Python/Gemini, sem alteração)
   useEffect(() => {
@@ -295,6 +315,14 @@ export default function JogosPage() {
                 />
               ))}
             </Grupo>
+
+            <Grupo titulo="Conteúdo" icone={<TagIcon />}>
+              <Opcao
+                label="Mostrar conteúdo adulto (18+)"
+                ativa={adulto}
+                onClick={alternarAdulto}
+              />
+            </Grupo>
           </aside>
 
           <section
@@ -317,17 +345,17 @@ export default function JogosPage() {
               </p>
             ) : (
               <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
-              {jogos.map((j) => (
-                <li key={j.id} className="h-full">
-                  <Link
-                    href={`/jogos/${j.id}`}
-                    className="block h-full transition hover:brightness-110 [&>*]:h-full [&_h2]:line-clamp-2 [&_h2]:min-h-[2lh] [&_h3]:line-clamp-2 [&_h3]:min-h-[2lh]"
-                  >
-                    <GameCard game={paraCard(j)} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                {jogos.map((j) => (
+                  <li key={j.id} className="h-full">
+                    <Link
+                      href={`/jogos/${j.id}`}
+                      className="block h-full transition hover:brightness-110"
+                    >
+                      <GameCard game={paraCard(j)} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             )}
 
             {!busca.trim() && (

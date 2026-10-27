@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
 import { urlCapaItad } from "@/lib/itad.ts";
+import { adultoPermitido } from "@/lib/adulto";
 
 const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 50;
@@ -62,7 +63,7 @@ export async function listarCatalogo(request: Request) {
   let consulta = supabase
     .from("jogo")
     .select(
-      `id_jogo, titulo, slug, genero, ${embed} ( valor_atual, percentual_desconto, id_loja, loja ( nome ) )`,
+      `id_jogo, itad_id, titulo, slug, genero, ${embed} ( valor_atual, percentual_desconto, id_loja, loja ( nome ) )`,
       { count: "exact" }
     );
 
@@ -70,6 +71,9 @@ export async function listarCatalogo(request: Request) {
   if (precoMax !== null) consulta = consulta.lte("preco_jogo.valor_atual", precoMax);
   if (descontoMin !== null) consulta = consulta.gte("preco_jogo.percentual_desconto", descontoMin);
   if (idLoja !== null) consulta = consulta.eq("preco_jogo.id_loja", idLoja);
+
+  const verAdulto = adultoPermitido(request);
+  if (!verAdulto) consulta = consulta.eq("adulto", false);
 
   const de = (pagina - 1) * limite;
   const { data, error, count } = await consulta.order("titulo").range(de, de + limite - 1);
@@ -89,7 +93,7 @@ export async function listarCatalogo(request: Request) {
 
     return {
       id: j.id_jogo,
-      capa: urlCapaItad(j.itad_id, "banner300"),
+      capa: j.itad_id ? urlCapaItad(j.itad_id) : null,
       titulo: j.titulo,
       slug: j.slug,
       genero: j.genero,
@@ -105,6 +109,8 @@ export async function listarCatalogo(request: Request) {
 
   return NextResponse.json(
     { jogos, total: count ?? 0, pagina, limite },
-    { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
+    { headers: verAdulto
+    ? { "Cache-Control": "private, no-store" }
+    : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600", Vary: "Cookie" }, }
   );
 }

@@ -6,27 +6,6 @@ const URL_API_ITAD = "https://api.isthereanydeal.com";
 /* ID da loja Steam dentro do ITAD, usado no lookup de appid -> itad_id. */
 const ID_LOJA_STEAM_ITAD = 61;
 
-/* Domínio das imagens do ITAD (confirmado com a resposta de /games/info/v2). */
-const CDN_CAPAS_ITAD = "https://assets.isthereanydeal.com";
-
-export type TamanhoCapa = "boxart" | "banner145" | "banner300" | "banner400";
-
-/* Monta a URL da capa a partir do itad_id.
-
-Alguns jogos não têm imagem no ITAD; nesse caso a URL dá 404 e o front mostra a capa padrão.
-
-@param itadId Id do jogo no ITAD (jogo.itad_id).
-@param tamanho Versão da imagem. "banner300" serve bem para cards.
-@returns A URL, ou null se não houver itad_id. */
-export function urlCapaItad(itadId: string | null, tamanho: TamanhoCapa = "banner300"): string | null {
-
-    if (!itadId) {
-        return null;
-    }
-
-    return `${CDN_CAPAS_ITAD}/${itadId}/${tamanho}.jpg`;
-}
-
 /*
 Lê a ITAD_API_KEY na hora do uso, e não na importação, para o build do Next não quebrar se ela não estiver definida.
 */
@@ -315,8 +294,8 @@ export async function buscarLinksOfertas(itadId: string): Promise<Record<string,
 
         for (const deal of deals) {
 
-            const loja = String(deal?.shop?.name ?? "").toLowerCase();  // confira no passo 1
-            const url = String(deal?.url ?? "");                        // confira no passo 1
+            const loja = String(deal?.shop?.name ?? "").toLowerCase();
+            const url = String(deal?.url ?? "");
 
             // só aceita https, para nunca expor outro tipo de link ao usuário
             if (loja && url.startsWith("https://")) {
@@ -333,5 +312,114 @@ export async function buscarLinksOfertas(itadId: string): Promise<Record<string,
         console.log("Não foi possível buscar os links das lojas:", erro.response?.data ?? erro.message);
 
         return {};
+    }
+}
+
+/* Cache em memória das capas, para não consultar o ITAD a cada visita. */
+const cacheCapas = new Map<string, { expira: number; capa: string | null }>();
+const TTL_CAPAS_MS = 24 * 60 * 60 * 1000;
+
+/* Busca a URL da capa de um jogo no ITAD ('/games/info/v2', campo 'assets').
+
+Roda dentro da requisição do usuário, então não espera em caso de 429: em qualquer falha devolve null
+e a página usa a imagem de exemplo.
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@returns URL https da capa (banner600, com reserva nos menores e na boxart), ou null se não houver.
+*/
+export async function buscarCapa(itadId: string): Promise<string | null> {
+
+    const emCache = cacheCapas.get(itadId);
+
+    if (emCache && emCache.expira > Date.now()) {
+        return emCache.capa;
+    }
+
+    try {
+
+        const response = await axios.get(
+            `${URL_API_ITAD}/games/info/v2`,
+            {
+                params: { id: itadId, key: obterChaveItad() },
+                timeout: 5000
+            }
+        );
+
+        const assets = response.data?.assets ?? {};
+        const url = assets.banner600 ?? assets.banner400 ?? assets.banner300 ?? assets.boxart ?? null;
+
+        const capa = typeof url === "string" && url.startsWith("https://") ? url : null;
+
+        cacheCapas.set(itadId, { expira: Date.now() + TTL_CAPAS_MS, capa });
+
+        return capa;
+
+    } catch (erro: any) {
+
+        console.log("Não foi possível buscar a capa:", erro.response?.data ?? erro.message);
+
+        return null;
+    }
+}
+
+/* Monta a URL da capa de um jogo direto pelo itad_id, SEM chamar a API.
+
+As imagens do ITAD seguem o padrão https://assets.isthereanydeal.com/<itad_id>/<tamanho>.jpg, então
+dá para usar em listas (catálogo, home, wishlist) sem gastar requisições nem criar coluna no banco.
+
+Nem todo jogo tem imagem publicada: se a URL não existir, o navegador recebe 404 e o card deve
+mostrar a capa de exemplo (veja o onError no GameCard).
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@param tamanho "banner145", "banner300", "banner400", "banner600" ou "boxart". Padrão: "banner300".
+@returns URL https da imagem.
+*/
+export function urlCapaItad(
+    itadId: string,
+    tamanho: "banner145" | "banner300" | "banner400" | "banner600" | "boxart" = "banner300"
+): string {
+
+    return `https://assets.isthereanydeal.com/${itadId}/${tamanho}.jpg`;
+}
+
+/* Busca gênero e classificação adulta de um jogo na API ('/games/info/v2', campos 'tags' e 'mature').
+
+Mesma lógica de retentativa de buscarGenero. Em erro que não seja 429, devolve nulos
+(adulto nulo significa "não sei": o cron não deve sobrescrever o valor que já existe).
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@returns { genero, adulto }
+*/
+export async function buscarInfoJogo(itadId: string): Promise<{ genero: string | null; adulto: boolean | null }> {
+
+    while (true) {
+
+        try {
+
+            const response = await axios.get(
+                `${URL_API_ITAD}/games/info/v2`,
+                { params: { id: itadId, key: obterChaveItad() } }
+            );
+
+            const tags: string[] = response.data?.tags ?? [];
+
+            return {
+                genero: tags.length > 0 ? tags.join(", ") : null,
+                adulto: response.data?.mature === true
+            };
+
+        } catch (erro: any) {
+
+            if (erro.response?.status === 429) {
+                const tempoEspera = calcularEspera429(erro);
+                console.log(`Limite atingido buscando info de ${itadId}, aguardando ${Math.ceil(tempoEspera / 1000)}s...`);
+                await esperar(tempoEspera);
+                continue;
+            }
+
+            console.log(`Não foi possível buscar info de ${itadId}:`, erro.response?.data ?? erro.message);
+
+            return { genero: null, adulto: null };
+        }
     }
 }

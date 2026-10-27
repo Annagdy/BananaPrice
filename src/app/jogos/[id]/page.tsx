@@ -1,10 +1,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Nav from '../../../components/Nav'
 import Footer from '../../../components/Footer'
 import { capaExemplo } from '../../../components/assets'
 import { tema } from '../../../mocks/tema'
+import PortaoAdulto from './PortaoAdulto'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -19,15 +21,26 @@ type Oferta = {
 
 type JogoResposta = {
   jogo: { id: number; titulo: string; genero: string | null }
+  capa: string | null
   melhorOferta: Oferta | null
   ofertas: Oferta[]
   menorPrecoHistorico: { valor: number; data: string } | null
 }
 
-/* Busca o jogo na API. Devolve null se o id não existir ou for inválido. */
-async function buscarJogo(id: string): Promise<JogoResposta | null> {
+/* Resultado da busca: o jogo, "bloqueado" (conteúdo adulto não liberado) ou null (não existe). */
+type Busca = JogoResposta | { bloqueado: true } | null
+
+/* Busca o jogo na API, repassando o cookie da pessoa (é ele que diz se o conteúdo adulto foi liberado). */
+async function buscarJogo(id: string): Promise<Busca> {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const res = await fetch(`${site}/api/v1/games/${encodeURIComponent(id)}`, { cache: 'no-store' })
+  const cookie = (await cookies()).toString()
+
+  const res = await fetch(`${site}/api/v1/games/${encodeURIComponent(id)}`, {
+    cache: 'no-store',
+    headers: { cookie },
+  })
+
+  if (res.status === 403) return { bloqueado: true }
   if (res.status === 404 || res.status === 400) return null
   if (!res.ok) throw new Error('Falha ao carregar o jogo.')
   return res.json()
@@ -43,8 +56,9 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const dados = await buscarJogo(id)
   if (!dados) notFound()
+  if ('bloqueado' in dados) return <PortaoAdulto />
 
-  const { jogo, melhorOferta, ofertas, menorPrecoHistorico } = dados
+  const { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico } = dados
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -58,11 +72,12 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
         >
           <div className="relative aspect-[486/273] w-full overflow-hidden rounded-[13px] bg-white">
             <Image
-              src={capaExemplo}
+              src={capa ?? capaExemplo}
               alt={jogo.titulo}
               fill
               sizes="(max-width: 900px) 100vw, 540px"
               className="object-cover"
+              unoptimized={capa !== null}
             />
           </div>
 

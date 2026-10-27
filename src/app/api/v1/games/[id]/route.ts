@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
-import { buscarLinksOfertas } from "@/lib/itad.ts";
+import { buscarLinksOfertas, buscarCapa } from "@/lib/itad.ts";
+import { adultoPermitido } from "@/lib/adulto";
 
+/* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
+/*
+GET /api/v1/games/[id] (RF07, RF08): detalhe do jogo, comparação de preços e melhor oferta.
+
+Os preços vêm do banco. O link de cada loja e a capa vêm do ITAD na hora (com cache em memória):
+se o ITAD falhar, a resposta sai normalmente com url nula e capa nula.
+
+@returns 200 { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico }; 400 id inválido;
+         404 jogo não encontrado; 500 erro no banco.
+*/
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -18,7 +29,7 @@ export async function GET(
 
   const { data: jogo, error } = await supabase
     .from("jogo")
-    .select("id_jogo, itad_id, titulo, slug, genero")
+    .select("id_jogo, itad_id, titulo, slug, genero, adulto")
     .eq("id_jogo", idJogo)
     .maybeSingle();
 
@@ -28,7 +39,15 @@ export async function GET(
   }
   if (!jogo) return NextResponse.json({ error: "Jogo não encontrado." }, { status: 404 });
 
-  const links = jogo.itad_id ? await buscarLinksOfertas(jogo.itad_id) : {};
+  // jogo adulto só é entregue a quem ativou essa preferência (cookie)
+  if (jogo.adulto && !adultoPermitido(request)) {
+    return NextResponse.json({ error: "conteudo_adulto" }, { status: 403 });
+  }
+
+  // links das lojas e capa, buscados ao mesmo tempo
+  const [links, capa] = jogo.itad_id
+    ? await Promise.all([buscarLinksOfertas(jogo.itad_id), buscarCapa(jogo.itad_id)])
+    : [{} as Record<string, string>, null as string | null];
 
   // ofertas atuais em todas as lojas, da mais barata para a mais cara (comparação de preços)
   const { data: precos } = await supabase
@@ -41,9 +60,10 @@ export async function GET(
   const ofertas = ((precos ?? []) as unknown as any[]).map((p) => {
     const atual = Number(p.valor_atual);
     const desconto = Number(p.percentual_desconto ?? 0);
+    const loja = nomeDaLoja(p.loja);
     return {
       idLoja: p.id_loja,
-      loja: nomeDaLoja(p.loja),
+      loja,
       preco: atual,
       precoOriginal:
         desconto > 0 && desconto < 100
@@ -51,7 +71,7 @@ export async function GET(
           : atual,
       desconto,
       atualizadoEm: p.atualizado_em,
-      url: links[(nomeDaLoja(p.loja) ?? "").toLowerCase()] ?? null,
+      url: links[(loja ?? "").toLowerCase()] ?? null,
     };
   });
 
@@ -74,12 +94,18 @@ export async function GET(
         slug: jogo.slug,
         genero: jogo.genero,
       },
+      capa,
       melhorOferta: ofertas[0] ?? null,
       ofertas,
       menorPrecoHistorico: minimo
         ? { valor: Number(minimo.valor), data: minimo.data, idLoja: minimo.id_loja }
         : null,
     },
-    { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
+    {
+      // resposta com conteúdo adulto nunca vai para cache compartilhado
+      headers: jogo.adulto
+        ? { "Cache-Control": "private, no-store" }
+        : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600", Vary: "Cookie" },
+    }
   );
 }
