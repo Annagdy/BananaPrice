@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
 import { buscarOfertasJogo, linksDasOfertas, buscarCapa } from "@/lib/itad.ts";
@@ -117,3 +118,5 @@ export async function GET(
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }
+=======
+>>>>>>> a3ba98ed964fa92293ec2c6faf9984b8cb07c1d2
