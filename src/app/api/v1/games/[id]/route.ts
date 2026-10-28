@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
-import { buscarLinksOfertas, buscarCapa } from "@/lib/itad.ts";
+import { buscarOfertasJogo, linksDasOfertas, buscarCapa } from "@/lib/itad.ts";
 import { adultoPermitido } from "@/lib/adulto";
+import { atualizarPrecosDoJogo } from "@/services/atualizarPrecoJogo";
+
+/* Depois de quanto tempo o preço guardado no banco é considerado velho e refeito ao abrir o jogo. */
+const TTL_PRECO_MS = 30 * 60 * 1000;
 
 /* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
 function nomeDaLoja(rel: any): string | null {
@@ -11,11 +15,12 @@ function nomeDaLoja(rel: any): string | null {
 /*
 GET /api/v1/games/[id] (RF07, RF08): detalhe do jogo, comparação de preços e melhor oferta.
 
-Os preços vêm do banco. O link de cada loja e a capa vêm do ITAD na hora (com cache em memória):
-se o ITAD falhar, a resposta sai normalmente com url nula e capa nula.
+Ao abrir o jogo, se o preço no banco tem mais de 30 minutos (ou não existe), consulta o ITAD e grava os
+preços novos em preco_jogo e preco_historico antes de responder. Se o ITAD falhar, responde com o que já
+está no banco. O mesmo retorno do ITAD também fornece os links das lojas.
 
 @returns 200 { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico }; 400 id inválido;
-         404 jogo não encontrado; 500 erro no banco.
+         403 conteúdo adulto não liberado; 404 jogo não encontrado; 500 erro no banco.
 */
 export async function GET(
   request: Request,
@@ -44,10 +49,29 @@ export async function GET(
     return NextResponse.json({ error: "conteudo_adulto" }, { status: 403 });
   }
 
-  // links das lojas e capa, buscados ao mesmo tempo
-  const [links, capa] = jogo.itad_id
-    ? await Promise.all([buscarLinksOfertas(jogo.itad_id), buscarCapa(jogo.itad_id)])
-    : [{} as Record<string, string>, null as string | null];
+  // ofertas do ITAD (uma chamada, com cache de 10 min) e capa, ao mesmo tempo
+  const [deals, capa] = jogo.itad_id
+    ? await Promise.all([buscarOfertasJogo(jogo.itad_id), buscarCapa(jogo.itad_id)])
+    : [[] as any[], null as string | null];
+
+  const links = linksDasOfertas(deals);
+
+  // atualiza o banco se o preço guardado está velho (ou não existe)
+  if (deals.length > 0) {
+    const { data: recente } = await supabase
+      .from("preco_jogo")
+      .select("atualizado_em")
+      .eq("id_jogo", idJogo)
+      .order("atualizado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const ultima = recente?.atualizado_em ? new Date(recente.atualizado_em).getTime() : 0;
+
+    if (Date.now() - ultima > TTL_PRECO_MS) {
+      await atualizarPrecosDoJogo(idJogo, deals);
+    }
+  }
 
   // ofertas atuais em todas as lojas, da mais barata para a mais cara (comparação de preços)
   const { data: precos } = await supabase
@@ -101,11 +125,7 @@ export async function GET(
         ? { valor: Number(minimo.valor), data: minimo.data, idLoja: minimo.id_loja }
         : null,
     },
-    {
-      // resposta com conteúdo adulto nunca vai para cache compartilhado
-      headers: jogo.adulto
-        ? { "Cache-Control": "private, no-store" }
-        : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600", Vary: "Cookie" },
-    }
+    // a rota pode gravar no banco, então a resposta não fica em cache compartilhado
+    { headers: { "Cache-Control": "private, no-store" } }
   );
 }

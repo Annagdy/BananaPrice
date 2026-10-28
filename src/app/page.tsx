@@ -23,19 +23,19 @@ type JogoApi = {
   precoOriginal: number | null
   desconto: number
   loja: string | null
+  capa: string | null
 }
 
 /* Converte o jogo da API no formato que o GameCard espera.
-O schema não guarda capa, então "cover" vai nulo. Se o tipo Game não aceitar null,
-use o mesmo valor que o mock usa quando não há capa. */
+A capa vem da API (URL do ITAD montada pelo itad_id); sem capa, o card usa a imagem de exemplo. */
 const paraCard = (j: JogoApi): Game => ({
   id: j.id,
   name: j.titulo,
-  store: j.loja ?? '',
+  store: j.loja ?? 'Sem oferta',
   discount: j.desconto,
   originalPrice: j.precoOriginal ?? 0,
   price: j.melhorPreco ?? 0,
-  cover: null,
+  cover: j.capa,
 })
 
 export default function HomePage() {
@@ -148,16 +148,12 @@ export default function HomePage() {
           </p>
         ) : (
           <div className="grid auto-rows-fr grid-cols-[repeat(4,minmax(0,283px))] justify-center gap-3 p-2.5 max-[1100px]:grid-cols-[repeat(2,minmax(0,283px))] max-[640px]:grid-cols-[minmax(0,283px)]">
-          {ofertas.map((j) => (
-            <Link
-              key={j.id}
-              href={`/jogos/${j.id}`}
-              className="block h-full transition hover:brightness-110 [&>*]:h-full [&_h2]:line-clamp-2 [&_h2]:min-h-[2lh] [&_h3]:line-clamp-2 [&_h3]:min-h-[2lh]"
-            >
-              <GameCard game={paraCard(j)} />
-            </Link>
-          ))}
-        </div>
+            {ofertas.map((j) => (
+              <Link key={j.id} href={`/jogos/${j.id}`} className="block h-full transition hover:brightness-110">
+                <GameCard game={paraCard(j)} />
+              </Link>
+            ))}
+          </div>
         )}
 
         <div className="flex justify-end p-2.5">

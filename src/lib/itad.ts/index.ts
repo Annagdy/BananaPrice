@@ -142,6 +142,52 @@ export async function buscarGenero(itadId: string): Promise<string | null> {
     }
 }
 
+/* Busca gênero e classificação adulta de um jogo na API ('/games/info/v2', campos 'tags' e 'mature').
+
+Mesma lógica de retentativa de buscarGenero. Em erro que não seja 429, devolve nulos
+(adulto nulo significa "não sei": o cron não deve sobrescrever o valor que já existe).
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@returns { genero, adulto }
+*/
+export async function buscarInfoJogo(itadId: string): Promise<{ genero: string | null; adulto: boolean | null }> {
+
+    while (true) {
+
+        try {
+
+            const response = await axios.get(
+                `${URL_API_ITAD}/games/info/v2`,
+                { params: { id: itadId, key: obterChaveItad() } }
+            );
+
+            const tags: string[] = response.data?.tags ?? [];
+
+            return {
+                genero: tags.length > 0 ? tags.join(", ") : null,
+                adulto: response.data?.mature === true
+            };
+
+        } catch (erro: any) {
+
+            if (erro.response?.status === 429) {
+
+                const tempoEspera = calcularEspera429(erro);
+
+                console.log(`Limite atingido buscando info de ${itadId}, aguardando ${Math.ceil(tempoEspera / 1000)}s...`);
+
+                await esperar(tempoEspera);
+
+                continue;
+            }
+
+            console.log(`Não foi possível buscar info de ${itadId}:`, erro.response?.data ?? erro.message);
+
+            return { genero: null, adulto: null };
+        }
+    }
+}
+
 /* Busca os preços atuais de um lote de jogos na API ('/games/prices/v3'), POST com até 200 ids por vez.
 
 Em caso de limite de requisições, espera o tempo indicado pela API e tenta o mesmo lote de novo. Qualquer
@@ -258,24 +304,24 @@ export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<str
     return resultado;
 }
 
-/* Cache em memória dos links por jogo, para não consultar o ITAD a cada visita. */
-const cacheLinks = new Map<string, { expira: number; links: Record<string, string> }>();
-const TTL_LINKS_MS = 10 * 60 * 1000;
+/* Cache em memória das ofertas por jogo, para não consultar o ITAD a cada visita. */
+const cacheOfertas = new Map<string, { expira: number; deals: any[] }>();
+const TTL_OFERTAS_MS = 10 * 60 * 1000;
 
-/* Busca os links de compra de cada loja para um jogo no ITAD ('/games/prices/v3').
+/* Busca as ofertas atuais de um jogo no ITAD ('/games/prices/v3').
 
-Roda dentro da requisição do usuário, então não espera em caso de 429: em qualquer falha
-devolve {} e a página simplesmente fica sem o botão da loja.
+Roda dentro da requisição do usuário, então não espera em caso de 429: em qualquer falha devolve []
+e a página segue com o que já está no banco.
 
 @param itadId Id do jogo no ITAD (jogo.itad_id).
-@returns Objeto { "nome da loja em minúsculas": "https://link" }.
+@returns A lista 'deals' crua (cada uma com shop, price, cut, url...).
 */
-export async function buscarLinksOfertas(itadId: string): Promise<Record<string, string>> {
+export async function buscarOfertasJogo(itadId: string): Promise<any[]> {
 
-    const emCache = cacheLinks.get(itadId);
+    const emCache = cacheOfertas.get(itadId);
 
     if (emCache && emCache.expira > Date.now()) {
-        return emCache.links;
+        return emCache.deals;
     }
 
     try {
@@ -290,29 +336,50 @@ export async function buscarLinksOfertas(itadId: string): Promise<Record<string,
         );
 
         const deals: any[] = response.data?.[0]?.deals ?? [];
-        const links: Record<string, string> = {};
 
-        for (const deal of deals) {
+        cacheOfertas.set(itadId, { expira: Date.now() + TTL_OFERTAS_MS, deals });
 
-            const loja = String(deal?.shop?.name ?? "").toLowerCase();
-            const url = String(deal?.url ?? "");
-
-            // só aceita https, para nunca expor outro tipo de link ao usuário
-            if (loja && url.startsWith("https://")) {
-                links[loja] = url;
-            }
-        }
-
-        cacheLinks.set(itadId, { expira: Date.now() + TTL_LINKS_MS, links });
-
-        return links;
+        return deals;
 
     } catch (erro: any) {
 
-        console.log("Não foi possível buscar os links das lojas:", erro.response?.data ?? erro.message);
+        console.log("Não foi possível buscar as ofertas:", erro.response?.data ?? erro.message);
 
-        return {};
+        return [];
     }
+}
+
+/* Extrai { "nome da loja em minúsculas": "https://link" } das ofertas. Só aceita links https,
+para nunca expor outro tipo de link ao usuário.
+
+@param deals Ofertas cruas devolvidas por buscarOfertasJogo.
+@returns Objeto nome da loja -> link.
+*/
+export function linksDasOfertas(deals: any[]): Record<string, string> {
+
+    const links: Record<string, string> = {};
+
+    for (const deal of deals) {
+
+        const loja = String(deal?.shop?.name ?? "").toLowerCase();
+        const url = String(deal?.url ?? "");
+
+        if (loja && url.startsWith("https://")) {
+            links[loja] = url;
+        }
+    }
+
+    return links;
+}
+
+/* Mantida por compatibilidade: links das lojas de um jogo.
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@returns Objeto nome da loja em minúsculas -> link.
+*/
+export async function buscarLinksOfertas(itadId: string): Promise<Record<string, string>> {
+
+    return linksDasOfertas(await buscarOfertasJogo(itadId));
 }
 
 /* Cache em memória das capas, para não consultar o ITAD a cada visita. */
@@ -367,8 +434,8 @@ export async function buscarCapa(itadId: string): Promise<string | null> {
 As imagens do ITAD seguem o padrão https://assets.isthereanydeal.com/<itad_id>/<tamanho>.jpg, então
 dá para usar em listas (catálogo, home, wishlist) sem gastar requisições nem criar coluna no banco.
 
-Nem todo jogo tem imagem publicada: se a URL não existir, o navegador recebe 404 e o card deve
-mostrar a capa de exemplo (veja o onError no GameCard).
+Nem todo jogo tem imagem publicada: se a URL não existir, o navegador recebe 404 e o card mostra
+a capa de exemplo.
 
 @param itadId Id do jogo no ITAD (jogo.itad_id).
 @param tamanho "banner145", "banner300", "banner400", "banner600" ou "boxart". Padrão: "banner300".
@@ -380,46 +447,4 @@ export function urlCapaItad(
 ): string {
 
     return `https://assets.isthereanydeal.com/${itadId}/${tamanho}.jpg`;
-}
-
-/* Busca gênero e classificação adulta de um jogo na API ('/games/info/v2', campos 'tags' e 'mature').
-
-Mesma lógica de retentativa de buscarGenero. Em erro que não seja 429, devolve nulos
-(adulto nulo significa "não sei": o cron não deve sobrescrever o valor que já existe).
-
-@param itadId Id do jogo no ITAD (jogo.itad_id).
-@returns { genero, adulto }
-*/
-export async function buscarInfoJogo(itadId: string): Promise<{ genero: string | null; adulto: boolean | null }> {
-
-    while (true) {
-
-        try {
-
-            const response = await axios.get(
-                `${URL_API_ITAD}/games/info/v2`,
-                { params: { id: itadId, key: obterChaveItad() } }
-            );
-
-            const tags: string[] = response.data?.tags ?? [];
-
-            return {
-                genero: tags.length > 0 ? tags.join(", ") : null,
-                adulto: response.data?.mature === true
-            };
-
-        } catch (erro: any) {
-
-            if (erro.response?.status === 429) {
-                const tempoEspera = calcularEspera429(erro);
-                console.log(`Limite atingido buscando info de ${itadId}, aguardando ${Math.ceil(tempoEspera / 1000)}s...`);
-                await esperar(tempoEspera);
-                continue;
-            }
-
-            console.log(`Não foi possível buscar info de ${itadId}:`, erro.response?.data ?? erro.message);
-
-            return { genero: null, adulto: null };
-        }
-    }
 }
