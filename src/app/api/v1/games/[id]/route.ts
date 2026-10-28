@@ -56,21 +56,9 @@ export async function GET(
 
   const links = linksDasOfertas(deals);
 
-  // atualiza o banco se o preço guardado está velho (ou não existe)
+  // atualiza os preços sempre que o jogo é aberto, para refletir o estado mais recente da loja
   if (deals.length > 0) {
-    const { data: recente } = await supabase
-      .from("preco_jogo")
-      .select("atualizado_em")
-      .eq("id_jogo", idJogo)
-      .order("atualizado_em", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const ultima = recente?.atualizado_em ? new Date(recente.atualizado_em).getTime() : 0;
-
-    if (Date.now() - ultima > TTL_PRECO_MS) {
-      await atualizarPrecosDoJogo(idJogo, deals);
-    }
+    await atualizarPrecosDoJogo(idJogo, deals);
   }
 
   // ofertas atuais em todas as lojas, da mais barata para a mais cara (comparação de preços)
