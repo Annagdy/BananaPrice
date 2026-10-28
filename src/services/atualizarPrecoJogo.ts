@@ -10,10 +10,11 @@ function hojeBrasil(): string {
 
 /* Atualiza no banco os preços de UM jogo, a partir das ofertas que o ITAD acabou de devolver.
 
-Usado quando o usuário abre o jogo (não há cron rodando o tempo todo). Faz três coisas:
+Usado quando o usuário abre o jogo (não há cron rodando o tempo todo). Faz quatro coisas:
 1. Garante que cada loja exista em `loja` (a chave é o nome).
 2. Grava o preço atual em `preco_jogo` (upsert por jogo + loja) e remove lojas que deixaram de ter oferta.
-3. Registra o preço de hoje em `preco_historico`, no máximo uma linha por jogo, loja e dia.
+3. Registra em `preco_historico` um valor novo sempre que o preço da loja muda (os anteriores são mantidos).
+4. Se o menor preço caiu pelo menos 5%, cria notificações para quem tem o jogo na lista de desejos.
 
 Nunca lança erro: se algo falhar, registra no console e devolve false, e a página segue com o que já está no banco.
 
@@ -54,6 +55,18 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
         if (porLoja.size === 0) {
             return false;
         }
+
+        // menor preço que estava guardado ANTES desta atualização (base da comparação para notificar)
+        const anteriores = await chamarSupabase(
+            "consultar preço anterior",
+            () => supabase.from("preco_jogo").select("valor_atual").eq("id_jogo", idJogo)
+        );
+
+        const valoresAnteriores = (anteriores ?? [])
+            .map((p: any) => Number(p.valor_atual))
+            .filter((v: number) => Number.isFinite(v));
+
+        const menorAnterior = valoresAnteriores.length > 0 ? Math.min(...valoresAnteriores) : null;
 
         // 1) lojas
         const lojas = await chamarSupabase(
@@ -116,18 +129,28 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
                 .not("id_loja", "in", `(${idsAtuais.join(",")})`)
         );
 
-        // 3) histórico: uma linha por loja por dia
-        const jaRegistrados = await chamarSupabase(
-            "consultar histórico de hoje",
-            () => supabase
-                .from("preco_historico")
-                .select("id_loja")
-                .eq("id_jogo", idJogo)
-                .eq("data", hoje)
-        );
+        // 3) histórico: grava um registro SEMPRE que o valor muda em relação ao último registro da loja.
+        // Nada é sobrescrito: os valores passados ficam como estão, e preços repetidos não geram linhas novas.
+        const novas: typeof linhasHistorico = [];
 
-        const lojasComHistorico = new Set((jaRegistrados ?? []).map((l: any) => l.id_loja));
-        const novas = linhasHistorico.filter((l) => !lojasComHistorico.has(l.id_loja));
+        for (const linha of linhasHistorico) {
+
+            const ultimo = await chamarSupabase(
+                "consultar último histórico da loja",
+                () => supabase
+                    .from("preco_historico")
+                    .select("valor")
+                    .eq("id_jogo", idJogo)
+                    .eq("id_loja", linha.id_loja)
+                    .order("id_historico", { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+            );
+
+            if (!ultimo || Number(ultimo.valor) !== linha.valor) {
+                novas.push(linha);
+            }
+        }
 
         if (novas.length > 0) {
             await chamarSupabase(
