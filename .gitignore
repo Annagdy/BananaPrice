@@ -2,11 +2,7 @@ node_modules/
 
 .next/
 
-# arquivos de ambiente com credenciais
-.env
-.env.*
-!.env.example
-!.env.*.example
+.env*.local
 
 *.log
 
