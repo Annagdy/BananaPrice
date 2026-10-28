@@ -10,12 +10,10 @@ import { BellIcon, SteamIcon } from '../../components/Icons'
 import { macacobanana } from '../../components/assets'
 import { createClient } from '@/lib/supabase.ts/client.ts'
 
-
 const Divider = () => <div className="my-2 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
 
 /* Página /conta: mostra os dados da sessão atual e permite alterá-los (PATCH /api/v1/conta).
-Também conecta a conta à Steam (/api/v1/auth/steam), encerra a sessão e mostra avisos vindos
-da URL (?erro=steam_em_uso, ?email=confirmado). */
+Também conecta a conta à Steam (/api/v1/auth/steam), encerra a sessão e gerencia preferências de notificação. */
 export default function ContaPage() {
   const router = useRouter()
   const [salvo, setSalvo] = useState({ nome: '', email: '' })
@@ -34,7 +32,6 @@ export default function ContaPage() {
         return
       }
       const dados = {
-        // o trigger grava nome_usuario no user_metadata, então não precisa consultar a tabela (nem de RLS)
         nome: user.user_metadata?.nome_usuario ?? '',
         email: user.email ?? '',
       }
@@ -42,6 +39,16 @@ export default function ContaPage() {
       setNome(dados.nome)
       setEmail(dados.email)
       setCarregando(false)
+
+      // Carrega preferências do usuário
+      fetch('/api/v1/conta')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((dadosConta) => {
+          if (dadosConta && typeof dadosConta.notificarEmail === 'boolean') {
+            setNotificarEmail(dadosConta.notificarEmail)
+          }
+        })
+        .catch(() => {})
     })
 
     // o callback da Steam redireciona para /conta?erro=steam_em_uso
@@ -50,11 +57,18 @@ export default function ContaPage() {
     }
   }, [router])
 
-  {aviso && (
-    <p role="alert" className="rounded-xl bg-bp-nav px-4 py-3 text-bp-muted">
-      {aviso}
-    </p>
-  )}
+  const alternarNotificarEmail = async (novoValor: boolean) => {
+    setNotificarEmail(novoValor)
+    try {
+      await fetch('/api/v1/conta', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificarEmail: novoValor }),
+      })
+    } catch {
+      // silencioso
+    }
+  }
 
   const confirmar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -63,7 +77,7 @@ export default function ContaPage() {
     const res = await fetch('/api/v1/conta', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nomeUsuario: nome, email }),
+      body: JSON.stringify({ nomeUsuario: nome, email, notificarEmail }),
     })
     const json = await res.json().catch(() => null)
 
@@ -74,32 +88,17 @@ export default function ContaPage() {
     setSalvo({ nome, email })
     setAviso(json?.aviso ?? 'Dados salvos!')
   }
-  // const confirmar = (e: FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault()
-  //   // TODO: salvar na API (Supabase).
-  //   setSalvo({ nome, email })
-  // }
-  
+
   const cancelar = () => {
     setNome(salvo.nome)
     setEmail(salvo.email)
   }
-
-  // const cancelar = () => {
-  //   setNome(salvo.nome)
-  //   setEmail(salvo.email)
-  // }
 
   const sair = async () => {
     await createClient().auth.signOut()
     router.push('/login')
     router.refresh()
   }
-
-  // const sair = () => {
-  //   // TODO: encerrar a sessão de verdade.
-  //   router.push('/login')
-  // }
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -124,6 +123,12 @@ export default function ContaPage() {
             className="pointer-events-none absolute right-16 top-1/2 h-[215px] w-[215px] -translate-y-1/2 max-[900px]:hidden"
           />
         </section>
+
+        {aviso && (
+          <p role="alert" className="rounded-xl bg-bp-nav px-4 py-3 text-bp-primary text-center">
+            {aviso}
+          </p>
+        )}
 
         <div className="grid grid-cols-2 items-start gap-6 max-[1000px]:grid-cols-1">
           {/* Dados da conta */}
@@ -171,8 +176,10 @@ export default function ContaPage() {
               </div>
               <button
                 type="button"
-                onClick={() => { window.location.href = '/api/v1/auth/steam' }}
-                className="..."
+                onClick={() => {
+                  window.location.href = '/api/v1/auth/steam'
+                }}
+                className="inline-flex h-[38px] cursor-pointer items-center rounded-[9px] bg-bp-primary px-4 text-xs font-bold text-bp-neutral transition hover:brightness-110"
               >
                 Conectar
               </button>
@@ -216,7 +223,9 @@ export default function ContaPage() {
                   id="notificar-email"
                   type="checkbox"
                   checked={notificarEmail}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNotificarEmail(e.target.checked)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    alternarNotificarEmail(e.target.checked)
+                  }
                   className="peer sr-only"
                 />
                 <span className="mr-2.5 grid size-9 shrink-0 place-items-center rounded-[9px] border-2 border-bp-primary text-bp-neutral transition peer-checked:bg-bp-primary peer-focus-visible:ring-2 peer-focus-visible:ring-bp-text [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100">
@@ -254,14 +263,6 @@ type CampoProps = {
   autoComplete?: string
 }
 
-/* Campo de formulário com rótulo.
-
-@param id Id e name do input.
-@param label Texto do rótulo.
-@param type "text" ou "email".
-@param value Valor atual.
-@param onChange Chamado a cada alteração.
-@param autoComplete Dica de preenchimento automático (opcional). */
 function Campo({ id, label, type, value, onChange, autoComplete }: CampoProps) {
   return (
     <div className="flex flex-col gap-2.5">
@@ -281,7 +282,6 @@ function Campo({ id, label, type, value, onChange, autoComplete }: CampoProps) {
   )
 }
 
-/* Ícones locais desta tela (os demais vêm de components/Icons) */
 type IconProps = SVGProps<SVGSVGElement>
 
 function UserIcon(props: IconProps) {

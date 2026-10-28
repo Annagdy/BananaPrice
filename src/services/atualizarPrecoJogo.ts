@@ -1,4 +1,5 @@
 import { supabase, chamarSupabase } from "../lib/supabase.ts/index.ts";
+import { notificarQuedaDePreco } from "./notificacoes";
 
 /* Jogos que estão sendo atualizados agora, para duas visitas ao mesmo tempo não gravarem em duplicidade. */
 const emAtualizacao = new Set<number>();
@@ -10,10 +11,11 @@ function hojeBrasil(): string {
 
 /* Atualiza no banco os preços de UM jogo, a partir das ofertas que o ITAD acabou de devolver.
 
-Usado quando o usuário abre o jogo (não há cron rodando o tempo todo). Faz três coisas:
+Usado quando o usuário abre o jogo (não há cron rodando o tempo todo). Faz quatro coisas:
 1. Garante que cada loja exista em `loja` (a chave é o nome).
 2. Grava o preço atual em `preco_jogo` (upsert por jogo + loja) e remove lojas que deixaram de ter oferta.
 3. Registra o preço de hoje em `preco_historico`, no máximo uma linha por jogo, loja e dia.
+4. Se o menor preço do jogo caiu ou entrou um novo desconto substancial, notifica usuários da wishlist.
 
 Nunca lança erro: se algo falhar, registra no console e devolve false, e a página segue com o que já está no banco.
 
@@ -98,11 +100,62 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
             return false;
         }
 
+        // Consulta o menor preço anterior para verificar se houve redução
+        let menorAnterior: number | null = null;
+        let descontoAnterior = 0;
+        try {
+            const precosAnteriores = await chamarSupabase(
+                "consultar menor preco anterior",
+                () => supabase
+                    .from("preco_jogo")
+                    .select("valor_atual, percentual_desconto")
+                    .eq("id_jogo", idJogo)
+                    .not("valor_atual", "is", null)
+                    .order("valor_atual", { ascending: true })
+                    .limit(1)
+            );
+            if (precosAnteriores && precosAnteriores.length > 0) {
+                menorAnterior = Number(precosAnteriores[0].valor_atual);
+                descontoAnterior = Number(precosAnteriores[0].percentual_desconto ?? 0);
+            }
+        } catch {
+            // falha na verificação de preço anterior não impede o upsert
+        }
+
         // 2) preço atual
         await chamarSupabase(
             "gravar preco_jogo",
             () => supabase.from("preco_jogo").upsert(linhasPreco, { onConflict: "id_jogo,id_loja" })
         );
+
+        // Dispara notificações se detectou menor preço ou desconto novo
+        let menorNovoValor = Infinity;
+        let maiorDesconto = 0;
+        let melhorLoja = "";
+
+        for (const [nome, oferta] of porLoja) {
+            if (oferta.valor < menorNovoValor) {
+                menorNovoValor = oferta.valor;
+                maiorDesconto = oferta.corte;
+                melhorLoja = nome;
+            }
+        }
+
+        if (
+            Number.isFinite(menorNovoValor) &&
+            menorAnterior !== null &&
+            (menorNovoValor < menorAnterior || (maiorDesconto > descontoAnterior && maiorDesconto >= 10))
+        ) {
+            notificarQuedaDePreco({
+                idJogo,
+                novoPreco: menorNovoValor,
+                desconto: maiorDesconto,
+                loja: melhorLoja,
+                precoAnterior: menorAnterior,
+            }).catch((err) =>
+                console.error("[atualizarPrecosDoJogo] Erro ao disparar notificações:", err)
+            );
+        }
 
         // lojas que deixaram de ter oferta saem da lista (senão ficariam com preço velho)
         const idsAtuais = linhasPreco.map((l) => l.id_loja as number);
