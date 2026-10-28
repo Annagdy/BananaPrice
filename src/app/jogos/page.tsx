@@ -1,7 +1,6 @@
-
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -10,19 +9,31 @@ import Footer from '../../components/Footer'
 import GameCard from '../../components/GameCard'
 import { StoreIcon, TagIcon } from '../../components/Icons'
 import { palmeira } from '../../components/assets'
-import { promos, STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
-import type { Promo } from '../../mocks/promos'
+import { STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
 import type { Game } from '../../mocks/games'
 import { tema } from '../../mocks/tema'
+import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
 
-const paraCard = (p: Promo): Game => ({
-  id: p.id,
-  name: p.name,
-  store: p.store,
-  discount: p.discount,
-  originalPrice: p.original,
-  price: p.price,
-  cover: p.capa,
+/* Formato de cada jogo devolvido por GET /api/v1/games (catálogo, RF06). */
+type JogoApi = {
+  id: number
+  titulo: string
+  melhorPreco: number | null
+  precoOriginal: number | null
+  desconto: number
+  loja: string | null
+  capa: string | null
+}
+
+/* Converte o jogo da API no formato que o GameCard espera. */
+const paraCard = (j: JogoApi): Game => ({
+  id: j.id,
+  name: j.titulo,
+  store: j.loja ?? 'Sem oferta',
+  discount: j.desconto,
+  originalPrice: j.precoOriginal ?? 0,
+  price: j.melhorPreco ?? 0,
+  cover: j.capa,
 })
 
 function Opcao({
@@ -71,28 +82,27 @@ function Grupo({
 }
 
 export default function JogosPage() {
+  // pesquisa por nome (código original, usa ?busca=)
   const [resultadoBusca, setResultadoBusca] = useState('')
   const [busca, setBusca] = useState('')
+
+  // filtros do catálogo
   const [precoMax, setPrecoMax] = useState<number | null>(null)
   const [corteMin, setCorteMin] = useState<number | null>(null)
   const [lojas, setLojas] = useState<string[]>([])
   const [pagina, setPagina] = useState(1)
 
-  const filtrados = useMemo(
-    () =>
-      promos.filter(
-        (p) =>
-          p.name.toLowerCase().includes(busca.toLowerCase()) &&
-          (precoMax === null || p.price < precoMax) &&
-          (corteMin === null || p.discount >= corteMin) &&
-          (lojas.length === 0 || lojas.includes(p.store)),
-      ),
-    [busca, precoMax, corteMin, lojas],
-  )
+  // conteúdo adulto: oculto por padrão, a pessoa precisa ativar (fica salvo em cookie)
+  const [adulto, setAdulto] = useState(false)
 
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PER_PAGE))
+  // dados do catálogo vindos da API
+  const [jogos, setJogos] = useState<JogoApi[]>([])
+  const [total, setTotal] = useState(0)
+  const [carregando, setCarregando] = useState(true)
+  const [erroCatalogo, setErroCatalogo] = useState<string | null>(null)
+
+  const totalPaginas = Math.max(1, Math.ceil(total / PER_PAGE))
   const atual = Math.min(pagina, totalPaginas)
-  const visiveis = filtrados.slice((atual - 1) * PER_PAGE, atual * PER_PAGE)
 
   const escolher = (
     definir: (v: number | null) => void,
@@ -110,6 +120,62 @@ export default function JogosPage() {
     setPagina(1)
   }
 
+  const alternarAdulto = () => {
+    if (
+      !adulto &&
+      !window.confirm(
+        'Mostrar jogos com conteúdo adulto? Confirme que você tem 18 anos ou mais.',
+      )
+    ) {
+      return
+    }
+    definirAdultoNoNavegador(!adulto)
+    setAdulto(!adulto)
+    setPagina(1)
+  }
+
+  // lê a preferência salva no cookie ao abrir a página
+  useEffect(() => {
+    setAdulto(adultoAtivoNoNavegador())
+  }, [])
+
+  // catálogo com filtros: GET /api/v1/games?price=&discount=&store=&page=&limit=
+  useEffect(() => {
+    // com texto digitado, quem responde é a pesquisa por nome
+    if (busca.trim()) return undefined
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({
+      page: String(pagina),
+      limit: String(PER_PAGE),
+    })
+    if (precoMax !== null) params.set('price', String(precoMax))
+    if (corteMin !== null) params.set('discount', String(corteMin))
+    if (lojas.length) params.set('store', lojas.join(','))
+
+    setCarregando(true)
+    setErroCatalogo(null)
+
+    fetch(`/api/v1/games?${params}`, { signal: controller.signal })
+      .then(async (res) => {
+        const json = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(json?.error ?? 'Erro ao carregar as ofertas.')
+        }
+        setJogos(json.jogos ?? [])
+        setTotal(json.total ?? 0)
+      })
+      .catch((e: Error) => {
+        if (e.name !== 'AbortError') setErroCatalogo(e.message)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarregando(false)
+      })
+
+    return () => controller.abort()
+  }, [busca, precoMax, corteMin, lojas, pagina, adulto])
+
+  // pesquisa por nome: GET /api/v1/games?busca= (rota do Python/Gemini, sem alteração)
   useEffect(() => {
     const termo = busca.trim()
 
@@ -249,6 +315,14 @@ export default function JogosPage() {
                 />
               ))}
             </Grupo>
+
+            <Grupo titulo="Conteúdo" icone={<TagIcon />}>
+              <Opcao
+                label="Mostrar conteúdo adulto (18+)"
+                ativa={adulto}
+                onClick={alternarAdulto}
+              />
+            </Grupo>
           </aside>
 
           <section
@@ -259,49 +333,57 @@ export default function JogosPage() {
               <p className="py-16 text-center text-bp-muted">
                 {resultadoBusca || 'Aguardando pesquisa...'}
               </p>
-            ) : visiveis.length === 0 ? (
+            ) : carregando ? (
+              <p className="py-16 text-center text-bp-muted">Carregando...</p>
+            ) : erroCatalogo ? (
+              <p role="alert" className="py-16 text-center text-red-400">
+                {erroCatalogo}
+              </p>
+            ) : jogos.length === 0 ? (
               <p className="py-16 text-center text-bp-muted">
                 Nenhuma oferta encontrada com esses filtros.
               </p>
             ) : (
-              <ul className="grid w-full list-none grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
-                {visiveis.map((p) => (
-                  <li key={p.id}>
+              <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
+                {jogos.map((j) => (
+                  <li key={j.id} className="h-full">
                     <Link
-                      href={`/turbo/${p.id}`}
-                      className="block transition hover:brightness-110"
+                      href={`/jogos/${j.id}`}
+                      className="block h-full transition hover:brightness-110"
                     >
-                      <GameCard game={paraCard(p)} />
+                      <GameCard game={paraCard(j)} />
                     </Link>
                   </li>
                 ))}
               </ul>
             )}
 
-            <nav
-              aria-label="Paginação"
-              className="flex items-center gap-[73px] rounded-3xl bg-bp-nav p-2.5 max-[640px]:gap-10"
-            >
-              <button
-                type="button"
-                onClick={() => setPagina(atual - 1)}
-                disabled={atual === 1}
-                aria-label="Página anterior"
-                className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
-              />
+            {!busca.trim() && (
+              <nav
+                aria-label="Paginação"
+                className="flex items-center gap-[73px] rounded-3xl bg-bp-nav p-2.5 max-[640px]:gap-10"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPagina(atual - 1)}
+                  disabled={atual === 1}
+                  aria-label="Página anterior"
+                  className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
+                />
 
-              <span className="sr-only" aria-live="polite">
-                Página {atual} de {totalPaginas}
-              </span>
+                <span className="sr-only" aria-live="polite">
+                  Página {atual} de {totalPaginas}
+                </span>
 
-              <button
-                type="button"
-                onClick={() => setPagina(atual + 1)}
-                disabled={atual === totalPaginas}
-                aria-label="Próxima página"
-                className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(0_0,100%_50%,0_100%)]"
-              />
-            </nav>
+                <button
+                  type="button"
+                  onClick={() => setPagina(atual + 1)}
+                  disabled={atual === totalPaginas}
+                  aria-label="Próxima página"
+                  className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(0_0,100%_50%,0_100%)]"
+                />
+              </nav>
+            )}
           </section>
         </div>
       </main>
