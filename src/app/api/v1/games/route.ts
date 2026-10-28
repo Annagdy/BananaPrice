@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { listarCatalogo } from './catalogo'
 import path from 'path'
 
 const execFileAsync = promisify(execFile)
@@ -39,12 +38,6 @@ async function pesquisarGoogle(busca: string): Promise<string[]> {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-
-    // sem "busca" => catálogo com filtros (RF06). Com "busca" => pesquisa por nome (código original)
-    if (!searchParams.has('busca')) {
-      return listarCatalogo(request)
-    }
-    
     const busca = searchParams.get('busca')?.trim()
 
     if (!busca) {

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase.ts/server.ts";
+import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
-import { urlCapaItad } from "@/lib/itad.ts";
 
-/* Descobre o id_usuario (da nossa tabela) de quem está logado. */
+/*
+Descobre o id_usuario (tabela "usuario") de quem está logado.
+
+@returns O id_usuario, ou null se não houver sessão ou o usuário não existir na tabela.
+*/
 async function usuarioLogado(): Promise<number | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -21,10 +24,10 @@ async function usuarioLogado(): Promise<number | null> {
 /*
 GET /api/v1/wishlist (RF10): lista a wishlist do usuário logado.
 
-Para cada jogo devolve a melhor oferta atual (menor valor_atual em preco_jogo), a capa (montada pelo
-itad_id) e o link da página interna do jogo. O preço original é calculado a partir do valor atual e do desconto.
+Para cada jogo devolve a melhor oferta atual (menor valor_atual em preco_jogo). O preço original
+é calculado a partir do valor atual e do percentual de desconto.
 
-@returns 200 { jogos: [{ id, nome, capa, precoOriginal, precoComDesconto, desconto, loja, url }] };
+@returns 200 { jogos: [{ id, nome, precoOriginal, precoComDesconto, desconto, loja, url }] };
          401 não autenticado; 500 erro ao ler o banco.
 */
 export async function GET() {
@@ -42,7 +45,7 @@ export async function GET() {
 
   const { data: itens, error } = await supabaseAdmin
     .from("lista_jogo")
-    .select("jogo ( id_jogo, itad_id, titulo, slug, genero )")
+    .select("jogo ( id_jogo, titulo, slug, genero )")
     .eq("id_lista", lista.id_lista);
   if (error) {
     console.error("[wishlist GET] lista_jogo:", error);
@@ -61,32 +64,31 @@ export async function GET() {
 
   const resultado = jogos.map((j: any) => {
     const melhor: any = (precos ?? [])
-      .filter((p: any) => p.id_jogo === j.id_jogo && p.valor_atual != null)
-      .sort((a: any, b: any) => a.valor_atual - b.valor_atual)[0];
+        .filter((p: any) => p.id_jogo === j.id_jogo && p.valor_atual != null)
+        .sort((a: any, b: any) => a.valor_atual - b.valor_atual)[0];
 
     const atual: number | null = melhor?.valor_atual != null ? Number(melhor.valor_atual) : null;
     const desconto = Number(melhor?.percentual_desconto ?? 0);
     const original =
-      atual !== null && desconto > 0 && desconto < 100
+        atual !== null && desconto > 0 && desconto < 100
         ? Math.round((atual / (1 - desconto / 100)) * 100) / 100
         : atual;
 
     const lojaRel = melhor?.loja;
     const nomeLoja: string | null = Array.isArray(lojaRel)
-      ? (lojaRel[0]?.nome ?? null)
-      : (lojaRel?.nome ?? null);
+        ? (lojaRel[0]?.nome ?? null)
+        : (lojaRel?.nome ?? null);
 
-    return {
-      id: j.id_jogo,
-      nome: j.titulo,
-      capa: j.itad_id ? urlCapaItad(j.itad_id) : null,
-      precoOriginal: original,
-      precoComDesconto: atual,
-      desconto,
-      loja: nomeLoja,
-      url: `/jogos/${j.id_jogo}`, // página interna do jogo (detalhe + comparação de preços)
-    };
-  });
+        return {
+            id: j.id_jogo,
+            nome: j.titulo,
+            precoOriginal: original,
+            precoComDesconto: atual,
+            desconto,
+            loja: nomeLoja,
+            url: `/jogos/${j.id_jogo}`, // página interna do jogo (detalhe + comparação de preços)
+        };
+    });
 
   return NextResponse.json({ jogos: resultado });
 }
@@ -143,7 +145,7 @@ export async function POST(request: Request) {
   const { error } = await supabaseAdmin
     .from("lista_jogo")
     .upsert(
-      { id_lista: lista!.id_lista, id_jogo: idJogo },
+      { id_lista: lista.id_lista, id_jogo: idJogo },
       { onConflict: "id_lista,id_jogo", ignoreDuplicates: true }
     );
   if (error) {

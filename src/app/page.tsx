@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import Nav from '../components/Nav'
 import Hero from '../components/Hero'
@@ -8,85 +8,20 @@ import GameCard from '../components/GameCard'
 import Footer from '../components/Footer'
 import { BoltIcon, TagIcon } from '../components/Icons'
 import { games } from '../mocks/games'
-import type { Game } from '../mocks/games'
 
 const Divider = () => <div className="m-2.5 h-[2px] rounded-[2px] bg-bp-muted/35" />
-
-/* Quantas ofertas aparecem na home. */
-const OFERTAS_NA_HOME = 8
-
-/* Formato de cada jogo devolvido por GET /api/v1/games (catálogo, RF06). */
-type JogoApi = {
-  id: number
-  titulo: string
-  melhorPreco: number | null
-  precoOriginal: number | null
-  desconto: number
-  loja: string | null
-  capa: string | null
-}
-
-/* Converte o jogo da API no formato que o GameCard espera.
-A capa vem da API (URL do ITAD montada pelo itad_id); sem capa, o card usa a imagem de exemplo. */
-const paraCard = (j: JogoApi): Game => ({
-  id: j.id,
-  name: j.titulo,
-  store: j.loja ?? 'Sem oferta',
-  discount: j.desconto,
-  originalPrice: j.precoOriginal ?? 0,
-  price: j.melhorPreco ?? 0,
-  cover: j.capa,
-})
 
 export default function HomePage() {
   const [query, setQuery] = useState('')
   const [start, setStart] = useState(0)
 
-  // ofertas vindas da API
-  const [ofertas, setOfertas] = useState<JogoApi[]>([])
-  const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState<string | null>(null)
-
-  // Vitrine Turbo: continua com dados de exemplo.
-  // TODO: vir de GET /api/v1/highlights/active quando existir (RF12, jogos que pagaram destaque).
-  const featured = useMemo(() => games.slice(0, 6), [])
+  const filtered = useMemo(
+    () => games.filter((g) => g.name.toLowerCase().includes(query.toLowerCase())),
+    [query],
+  )
+  const featured = games.slice(0, 6)
   const visible = [0, 1].map((o) => featured[(start + o) % featured.length])
   const move = (d: number) => setStart((s) => (s + d + featured.length) % featured.length)
-
-  // Ofertas do Momento: GET /api/v1/games (só jogos com desconto), com busca por título.
-  // O "search" espera 300 ms depois da última tecla para não chamar a API a cada letra.
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const timer = setTimeout(() => {
-      const params = new URLSearchParams({
-        limit: String(OFERTAS_NA_HOME),
-        discount: '1',
-      })
-      if (query.trim()) params.set('search', query.trim())
-
-      setCarregando(true)
-      setErro(null)
-
-      fetch(`/api/v1/games?${params}`, { signal: controller.signal })
-        .then(async (res) => {
-          const json = await res.json().catch(() => null)
-          if (!res.ok) throw new Error(json?.error ?? 'Erro ao carregar as ofertas.')
-          setOfertas(json.jogos ?? [])
-        })
-        .catch((e: Error) => {
-          if (e.name !== 'AbortError') setErro(e.message)
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setCarregando(false)
-        })
-    }, 300)
-
-    return () => {
-      clearTimeout(timer)
-      controller.abort()
-    }
-  }, [query])
 
   return (
     <>
@@ -135,27 +70,11 @@ export default function HomePage() {
             <TagIcon /> Ofertas do Momento
           </h2>
         </div>
-
-        {carregando ? (
-          <p className="py-10 text-center text-bp-muted">Carregando...</p>
-        ) : erro ? (
-          <p role="alert" className="py-10 text-center text-red-400">
-            {erro}
-          </p>
-        ) : ofertas.length === 0 ? (
-          <p className="py-10 text-center text-bp-muted">
-            {query.trim() ? 'Nenhuma oferta encontrada para essa busca.' : 'Nenhuma oferta no momento.'}
-          </p>
-        ) : (
-          <div className="grid auto-rows-fr grid-cols-[repeat(4,minmax(0,283px))] justify-center gap-3 p-2.5 max-[1100px]:grid-cols-[repeat(2,minmax(0,283px))] max-[640px]:grid-cols-[minmax(0,283px)]">
-            {ofertas.map((j) => (
-              <Link key={j.id} href={`/jogos/${j.id}`} className="block h-full transition hover:brightness-110">
-                <GameCard game={paraCard(j)} />
-              </Link>
-            ))}
-          </div>
-        )}
-
+        <div className="grid grid-cols-[repeat(4,minmax(0,283px))] justify-center gap-3 p-2.5 max-[1100px]:grid-cols-[repeat(2,minmax(0,283px))] max-[640px]:grid-cols-[minmax(0,283px)]">
+          {filtered.slice(0, 8).map((g) => (
+            <GameCard key={g.id} game={g} />
+          ))}
+        </div>
         <div className="flex justify-end p-2.5">
           <Link
             href="/jogos"
