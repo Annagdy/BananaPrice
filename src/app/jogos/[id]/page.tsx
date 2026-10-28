@@ -7,6 +7,7 @@ import Footer from '../../../components/Footer'
 import { capaExemplo } from '../../../components/assets'
 import { tema } from '../../../mocks/tema'
 import PortaoAdulto from './PortaoAdulto'
+import HistoricoPrecos from '../../../components/HistoricoPrecos'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -260,11 +261,14 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                       <span className="text-sm text-bp-muted">Loja</span>
                       <span className="font-body text-sm text-bp-muted">{melhorOferta.loja ?? 'Loja'}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
+                    {/* <div className="flex items-center justify-between gap-3">
                       <span className="text-sm text-bp-muted">Menor preço já registrado</span>
                       <span className="font-head text-sm text-bp-primary">
                         {menorPrecoHistorico ? brl(menorPrecoHistorico.valor) : 'Sem registro'}
                       </span>
+                    </div> */}
+                    <div className="w-full max-w-[1100px] rounded-3xl p-6" style={{ background: tema.painel }}>
+                      <HistoricoPrecos idJogo={jogo.id} />
                     </div>
                   </div>
                 ) : (
