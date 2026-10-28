@@ -3,15 +3,14 @@
 import { useEffect, useState } from 'react'
 import type { SVGProps } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import { capaExemplo, macacoFeliz } from '../../components/assets'
+import Link from 'next/link'
 
 type ItemDesejo = {
   id: number
   nome: string
-  capa: string | null
   precoOriginal: number | null
   precoComDesconto: number | null
   desconto: number
@@ -19,8 +18,22 @@ type ItemDesejo = {
   url: string
 }
 
+// // TODO: vir da API (/api/v1/wishlist). Por enquanto são dados de exemplo.
+// const ITENS: ItemDesejo[] = Array.from({ length: 9 }, (_, i) => ({
+//   id: i + 1,
+//   nome: 'Game Name',
+//   precoOriginal: 100,
+//   precoComDesconto: 60,
+//   desconto: 40,
+//   url: '#',
+// }))
+
 const POR_PAGINA = 3
 
+/* Formata um valor em reais (BRL).
+
+@param valor Número a formatar.
+@returns Texto como "R$ 59,90". */
 const brl = (valor: number): string =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -150,8 +163,8 @@ export default function ListaDeDesejosPage() {
   )
 }
 
-/* Cartão de um jogo da lista: capa (com reserva se a imagem falhar), preço (com o original riscado quando
-há desconto), loja, faixa de desconto, botão "Remover" e link "Ver ofertas" para a página do jogo.
+/* Cartão de um jogo da lista: preço (com o original riscado quando há desconto), loja, faixa de
+desconto, botão "Remover" e link "Ver ofertas" para a página do jogo.
 
 @param item Dados do jogo.
 @param onRemover Chamado com o id do jogo ao clicar em "Remover". */
@@ -164,28 +177,18 @@ function CartaoDesejo({
 }) {
   const temDesconto = item.desconto > 0 && item.precoOriginal !== null
 
-  // Se a imagem remota falhar (jogo sem arte no ITAD, por exemplo), cai na capa de exemplo.
-  const [falhou, setFalhou] = useState(false)
-  useEffect(() => setFalhou(false), [item.capa])
-  const capaRemota = !!item.capa && !falhou
-
   return (
     <li className="relative flex min-h-[208px] items-center gap-2.5 overflow-hidden rounded-3xl bg-[#3d322e] p-2.5 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[640px]:flex-col max-[640px]:items-stretch">
       <Image
-        src={capaRemota ? (item.capa as string) : capaExemplo}
-        alt={item.nome}
+        src={capaExemplo}
+        alt=""
         width={177}
         height={177}
-        // URL externa: carrega direto do navegador, sem passar pelo otimizador do Next
-        unoptimized={capaRemota}
-        onError={() => setFalhou(true)}
         className="size-[177px] shrink-0 rounded-3xl object-cover max-[640px]:w-full"
       />
 
       <div className="flex flex-1 flex-col justify-between gap-6 self-stretch py-5 pr-2.5 max-[640px]:py-2">
-        <h2 className="line-clamp-2 pr-28 font-head text-4xl font-extrabold text-bp-muted max-[640px]:text-2xl">
-          {item.nome}
-        </h2>
+        <h2 className="pr-28 font-head text-4xl font-extrabold text-bp-muted max-[640px]:text-2xl">{item.nome}</h2>
 
         <div className="flex items-end justify-between gap-4 max-[640px]:flex-wrap">
           <div className="flex flex-col gap-2.5">
