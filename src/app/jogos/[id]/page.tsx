@@ -6,7 +6,6 @@ import Footer from '../../../components/Footer'
 import { capaExemplo } from '../../../components/assets'
 import { promos } from '../../../mocks/promos'
 import { tema } from '../../../mocks/tema'
-<<<<<<< HEAD
 import PortaoAdulto from './PortaoAdulto'
 import HistoricoPrecos from '../../../components/HistoricoPrecos'
 
@@ -98,16 +97,6 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
       }))
     )
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
-=======
-
-const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-// TODO: buscar o jogo pelo id (/api/v1/games/[id]). Por enquanto usa os dados de exemplo.
-export default async function JogoPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const jogo = promos.find((p) => String(p.id) === id)
-  if (!jogo) notFound()
->>>>>>> a3ba98ed964fa92293ec2c6faf9984b8cb07c1d2
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -119,7 +108,6 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
           className="w-full max-w-[1200px] rounded-3xl p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)]"
           style={{ background: tema.painel }}
         >
-<<<<<<< HEAD
           <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
             <div className="space-y-6">
               <div className="rounded-[20px] bg-bp-neutral/70 p-4">
@@ -287,43 +275,6 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                   <p className="text-sm text-bp-muted">Sem ofertas no momento.</p>
                 )}
               </div>
-=======
-          <div className="relative aspect-[486/273] w-full overflow-hidden rounded-[13px] bg-white">
-            <Image
-              src={jogo.capa ?? capaExemplo}
-              alt={jogo.name}
-              fill
-              sizes="(max-width: 900px) 100vw, 540px"
-              className="object-cover"
-              unoptimized={jogo.capa !== null}
-            />
-          </div>
-
-          <div className="flex flex-col justify-center gap-4">
-            <h1 className="font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">{jogo.name}</h1>
-            <p className="flex items-center gap-3 text-base text-bp-muted">
-              <span className="h-[18px] w-[27px] rounded-full bg-bp-primary" />
-              {jogo.store}
-            </p>
-            <div className="flex flex-col gap-1">
-              <span className="text-sm text-bp-muted/60 line-through">{brl(jogo.original)}</span>
-              <span className="font-head text-3xl font-extrabold text-bp-primary">{brl(jogo.price)}</span>
-              <span className="text-sm text-bp-muted">{jogo.discount}% de desconto</span>
-            </div>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link
-                href={`/turbo/${jogo.id}`}
-                className="rounded-[9px] bg-bp-primary px-6 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
-              >
-                Dar um turbo
-              </Link>
-              <Link
-                href="/jogos"
-                className="rounded-[9px] bg-bp-muted px-6 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
-              >
-                Voltar às ofertas
-              </Link>
->>>>>>> a3ba98ed964fa92293ec2c6faf9984b8cb07c1d2
             </div>
           </div>
 
