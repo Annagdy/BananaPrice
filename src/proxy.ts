@@ -25,78 +25,35 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    // Token stale/inválido
+    // Token inválido/inexistente
   }
 
-  const { pathname } = request.nextUrl
+  const pathname = request.nextUrl.pathname
+
+  // 1. Se NÃO está autenticado e tenta aceder a /completar-cadastro, manda para o login
+  if (!user && pathname === '/completar-cadastro') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
 
   if (user) {
-    // Identifica se a autenticação foi feita via Steam
     const loginViaSteam =
       user.app_metadata?.provider === 'steam' ||
-      user.app_metadata?.providers?.includes('steam')
+      user.app_metadata?.providers?.includes('steam') ||
+      user.email?.endsWith('@steam.local')
 
-    // Só exige completar cadastro se NÃO TIVER e-mail ou se for um login Steam com onboarding pendente
     const cadastroIncompleto =
-      !user.email || (loginViaSteam && user.user_metadata?.cadastro_completo !== true)
+      !user.email ||
+      user.email.endsWith('@steam.local') ||
+      (loginViaSteam && user.user_metadata?.cadastro_completo !== true)
 
-    // Redireciona para /completar-cadastro apenas se o cadastro estiver realmente incompleto
+    // 2. Se o cadastro está incompleto e NÃO está na página /completar-cadastro, redireciona
     if (cadastroIncompleto && pathname !== '/completar-cadastro') {
       return NextResponse.redirect(new URL('/completar-cadastro', request.url))
     }
 
-    // Se o cadastro estiver completo (e-mail/senha padrão ou Steam já concluído), impede de acessar as telas de auth
-    if (!cadastroIncompleto) {
-      if (
-        pathname === '/login' ||
-        pathname === '/cadastro' ||
-        pathname === '/completar-cadastro'
-      ) {
-        return NextResponse.redirect(new URL('/conta', request.url))
-      }
-    }
-  } else {
-    // Rotas protegidas para visitantes não autenticados
-    const rotasProtegidas = ['/conta', '/lista-de-desejos', '/notificacoes']
-
-    if (rotasProtegidas.some((rota) => pathname.startsWith(rota))) {
-      const urlLogin = new URL('/login', request.url)
-      urlLogin.searchParams.set('next', pathname)
-      return NextResponse.redirect(urlLogin)
-    }
-  }
-
-  // Se o usuário está logado
-  if (user) {
-    // Verifica se o e-mail não existe ou se a flag cadastro_completo não está true nos metadados
-    const cadastroIncompleto =
-      !user.email || user.user_metadata?.cadastro_completo !== true
-
-    // 1. Usuário logado via Steam que AINDA NÃO completou o cadastro:
-    // Força o redirecionamento para /completar-cadastro
-    if (cadastroIncompleto && pathname !== '/completar-cadastro') {
-      return NextResponse.redirect(new URL('/completar-cadastro', request.url))
-    }
-
-    // 2. Usuário que JÁ completou o cadastro e tenta acessar telas de Onboarding/Auth:
-    // Redireciona para /conta ou /jogos
-    if (!cadastroIncompleto) {
-      if (
-        pathname === '/login' ||
-        pathname === '/cadastro' ||
-        pathname === '/completar-cadastro'
-      ) {
-        return NextResponse.redirect(new URL('/conta', request.url))
-      }
-    }
-  } else {
-    // Rotas que exigem autenticação obrigatória
-    const rotasProtegidas = ['/conta', '/lista-de-desejos', '/notificacoes']
-
-    if (rotasProtegidas.some((rota) => pathname.startsWith(rota))) {
-      const urlLogin = new URL('/login', request.url)
-      urlLogin.searchParams.set('next', pathname)
-      return NextResponse.redirect(urlLogin)
+    // 3. Se o cadastro já ESTÁ completo, impede de aceder a /completar-cadastro, /login e /cadastro
+    if (!cadastroIncompleto && (pathname === '/login' || pathname === '/cadastro' || pathname === '/completar-cadastro')) {
+      return NextResponse.redirect(new URL('/conta', request.url))
     }
   }
 
@@ -104,5 +61,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    /*
+     * Ignora ficheiros estáticos, imagens e rotas de API/Auth para evitar loops
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
