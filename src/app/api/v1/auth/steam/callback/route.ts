@@ -10,11 +10,6 @@ Valida a assinatura com a Steam e trata três casos:
 1. Steam já vinculada: entra na conta dona dela.
 2. Usuário já logado: vincula a Steam à conta atual (conta_steam).
 3. Steam nova e ninguém logado: cria usuário, conta_steam e abre a sessão.
-
-Ao final tenta importar a wishlist, sem nunca derrubar o login se a importação falhar.
-
-@returns Redirecionamento para /conta; /conta?erro=steam_em_uso se a Steam pertence a outro
-         usuário; /login?erro=steam em qualquer falha (o motivo vai para o console do servidor).
 */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -22,14 +17,14 @@ export async function GET(request: Request) {
 
   const falhou = (motivo: string, detalhe?: unknown) => {
     console.error("[steam callback] falhou em:", motivo, detalhe ?? "");
-    return NextResponse.redirect(`${origin}/login?erro=steam`);
+    return NextResponse.redirect(new URL("/login?erro=steam", origin));
   };
 
-  // 1) valida a resposta da Steam e extrai o SteamID64 (ESTAVA FALTANDO)
+  // 1) Valida a resposta da Steam e extrai o SteamID64
   const steamId = await validarLoginSteam(searchParams, site);
   if (!steamId) return falhou("validação OpenID", { site });
 
-  // importa sem nunca derrubar o fluxo
+  // Importa a wishlist sem derrubar o fluxo em caso de falha
   const importar = async (idUsuario: number) => {
     try {
       await importarWishlistSteam(idUsuario, steamId);
@@ -38,40 +33,44 @@ export async function GET(request: Request) {
     }
   };
 
-  const supabase = await createClient(); // client com cookies
+  const supabase = await createClient();
   const { data: { user: logado } } = await supabase.auth.getUser();
 
   const { data: conta, error: erroBuscaConta } = await supabaseAdmin
     .from("conta_steam")
     .select("id_usuario")
-    .eq("id_steam", steamId) // sempre como string: o int8 passa de 2^53
+    .eq("id_steam", steamId)
     .maybeSingle();
+
   if (erroBuscaConta) return falhou("buscar conta_steam", erroBuscaConta);
 
-  // CASO 2: já está logado -> vincular a Steam a essa conta
+  // CASO 2: Já está logado -> vincular a Steam a essa conta
   if (logado) {
     const { data: usuarioLogado } = await supabaseAdmin
       .from("usuario")
       .select("id_usuario")
       .eq("auth_id", logado.id)
       .maybeSingle();
+
     if (!usuarioLogado) return falhou("usuario do logado não encontrado");
 
     if (conta && conta.id_usuario !== usuarioLogado.id_usuario) {
-      return NextResponse.redirect(`${origin}/conta?erro=steam_em_uso`);
+      return NextResponse.redirect(new URL("/conta?erro=steam_em_uso", origin));
     }
+
     if (!conta) {
       const { error } = await supabaseAdmin
         .from("conta_steam")
         .insert({ id_steam: steamId, id_usuario: usuarioLogado.id_usuario });
+
       if (error) return falhou("insert conta_steam (logado)", error);
     }
 
     await importar(usuarioLogado.id_usuario);
-    return NextResponse.redirect(`${origin}/conta`);
+    return NextResponse.redirect(new URL("/conta", origin));
   }
 
-  // CASO 1 ou 3: não está logado
+  // CASO 1 ou 3: Não está logado
   let idUsuario: number | null = conta?.id_usuario ?? null;
 
   if (!idUsuario) {
@@ -79,8 +78,13 @@ export async function GET(request: Request) {
     const { data: criado, error: erroCriar } = await supabaseAdmin.auth.admin.createUser({
       email: `${steamId}@steam.local`,
       email_confirm: true,
-      user_metadata: { provider: "steam", nome_usuario: `steam_${steamId}` },
+      user_metadata: { 
+        provider: "steam", 
+        nome_usuario: `steam_${steamId}`,
+        cadastro_completo: false 
+      },
     });
+
     if (erroCriar || !criado.user) return falhou("createUser", erroCriar);
 
     const { data: novo } = await supabaseAdmin
@@ -96,34 +100,50 @@ export async function GET(request: Request) {
       : { error: new Error("usuario não criado pelo trigger") };
 
     if (erroConta || !novo) {
-      // não deixa usuário órfão (o cascade apaga a linha em "usuario")
       await supabaseAdmin.auth.admin.deleteUser(criado.user.id);
       return falhou("conta_steam/usuario", erroConta);
     }
+
     idUsuario = novo.id_usuario;
   }
 
-  // abre a sessão usando o e-mail da conta dona dessa Steam
+  // Abre a sessão usando o e-mail da conta vinculada a essa Steam
   const { data: usuario } = await supabaseAdmin
     .from("usuario")
     .select("email")
     .eq("id_usuario", idUsuario)
     .maybeSingle();
+
   if (!usuario?.email) return falhou("email do usuario não encontrado");
 
   const { data: link, error: erroLink } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",
     email: usuario.email,
   });
+
   if (erroLink || !link.properties?.hashed_token) return falhou("generateLink", erroLink);
 
   const { error: erroOtp } = await supabase.auth.verifyOtp({
     type: "magiclink",
     token_hash: link.properties.hashed_token,
   });
-  if (erroOtp) return falhou("verifyOtp", erroOtp);
 
+  if (erroOtp) return falhou("verifyOtp", erroOtp);
   if (idUsuario === null) return falhou("idUsuario nulo");
+
   await importar(idUsuario);
-  return NextResponse.redirect(`${origin}/conta`);
+
+  // -------------------------------------------------------------------------
+  // REDIRECIONAMENTO LIMPO COM NEXTRESPONSE:
+  // -------------------------------------------------------------------------
+  const { data: { user: usuarioSessao } } = await supabase.auth.getUser();
+
+  const ehEmailFakeSteam = usuarioSessao?.email?.endsWith("@steam.local");
+  const cadastroIncompleto = usuarioSessao?.user_metadata?.cadastro_completo !== true;
+
+  if (ehEmailFakeSteam || cadastroIncompleto) {
+    return NextResponse.redirect(new URL("/completar-cadastro", origin));
+  }
+
+  return NextResponse.redirect(new URL("/conta", origin));
 }

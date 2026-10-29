@@ -1,16 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase.ts/client' // Ajuste para a sua instância do client no navegador
+import { createClient } from '@/lib/supabase.ts/client'
 
 export default function CompletarCadastroPage() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [confirmarSenha, setConfirmarSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  const [sucesso, setSucesso] = useState(false)
   const [carregando, setCarregando] = useState(false)
-  const router = useRouter()
 
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,34 +29,51 @@ export default function CompletarCadastroPage() {
     const supabase = createClient()
 
     try {
-      // 1. Atualiza a conta do usuário no Supabase Auth associando e-mail e senha
+      // 1. Atualiza e-mail, senha e marca cadastro_completo nos metadados do Auth
       const { data, error } = await supabase.auth.updateUser({
         email: email,
         password: senha,
         data: {
-          cadastro_completo: true, // Marca no metadata do usuário que ele já vinculou os dados
+          cadastro_completo: true,
         },
       })
 
-      if (error) {
-        throw error
+      if (error) throw error
+
+      // 2. Atualiza apenas o e-mail na tabela pública (sem a coluna cadastro_completo)
+      if (data?.user?.id) {
+        await supabase
+          .from('usuario')
+          .update({ email: email })
+          .eq('auth_id', data.user.id)
       }
 
-      // 2. Opcional: Atualiza também a sua tabela pública de usuários (ex: perfil/usuario)
-      const userId = data.user.id
-      await supabase
-        .from('usuario')
-        .update({ email: email, cadastro_completo: true })
-        .eq('id_usuario', userId)
+      // 3. Exibe mensagem avisando sobre a confirmação de e-mail
+      setSucesso(true)
 
-      // 3. Redireciona para a página principal de jogos
-      router.push('/jogos')
-      router.refresh()
     } catch (err: any) {
       setErro(err?.message || 'Ocorreu um erro ao atualizar os dados.')
     } finally {
       setCarregando(false)
     }
+  }
+
+  if (sucesso) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-bp-bg p-4 text-bp-neutral">
+        <div className="w-full max-w-md rounded-2xl bg-bp-neutral/80 p-6 shadow-xl border border-bp-muted/20 text-center">
+          <h1 className="font-head text-2xl font-bold text-bp-primary">
+            📧 Confirme seu e-mail!
+          </h1>
+          <p className="mt-4 text-sm text-bp-muted">
+            Enviamos um link de confirmação para <strong>{email}</strong>.
+          </p>
+          <p className="mt-2 text-xs text-bp-muted/80">
+            Acesse sua caixa de entrada e clique no link para concluir o vínculo e acessar sua conta.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -67,7 +83,7 @@ export default function CompletarCadastroPage() {
           🍌 Bem-vindo ao BananaPrice!
         </h1>
         <p className="mt-2 text-center text-sm text-bp-muted">
-          Como você entrou via Steam, precisamos que você cadastre um <strong>e-mail</strong> e uma <strong>senha</strong> para receber os alertas de desconto e poder logar de outras formas.
+          Cadastre um e-mail e uma senha para receber seus alertas de desconto.
         </p>
 
         {erro && (

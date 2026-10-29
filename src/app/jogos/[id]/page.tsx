@@ -27,8 +27,8 @@ type JogoResposta = {
   melhorOferta: Oferta | null
   ofertas: Oferta[]
   menorPrecoHistorico: { valor: number; data: string } | null
-  /* DLCs do jogo; a API ainda não envia esse campo, então o botão e a seção só aparecem quando ele vier preenchido. */
-  dlcs?: Array<{ id: number; titulo: string }>
+  /* DLCs do jogo que existem no catálogo (a API envia só quando o jogo tem); abrem no pop-up do botão. */
+  dlcs?: Array<{ id: number; titulo: string; preco: number | null; desconto: number }>
 }
 
 /* Resultado da busca: o jogo, "bloqueado" (conteúdo adulto não liberado) ou null (não existe). */
@@ -109,7 +109,7 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
 
       <main className="flex flex-1 flex-col items-center gap-6 px-5 py-10">
         <div className="relative flex w-full max-w-[1200px] flex-col gap-4">
-        <BotoesJogo idJogo={jogo.id} temDlcs={dlcs.length > 0} />
+        <BotoesJogo idJogo={jogo.id} dlcs={dlcs} />
         <section
           className="w-full max-w-[1200px] rounded-3xl p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)]"
           style={{ background: tema.painel }}
@@ -262,7 +262,7 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                       <span className="font-body text-sm text-bp-muted">{melhorOferta.loja ?? 'Loja'}</span>
                     </div>
                     <div className="w-full max-w-[1100px] rounded-3xl p-6" style={{ background: tema.painel }}>
-                      <HistoricoPrecos idJogo={jogo.id} series={historico?.series ?? []} />
+                      <HistoricoPrecos idJogo={jogo.id} />
                     </div>
                   </div>
                 ) : (
@@ -301,25 +301,6 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
               </div>
             )}
           </div>
-
-          {dlcs.length > 0 && (
-            <div id="dlcs" className="mt-6 scroll-mt-6 rounded-[20px] bg-bp-neutral/70 p-5">
-              <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">DLCs</h2>
-              <ul className="space-y-3">
-                {dlcs.map((dlc) => (
-                  <li
-                    key={dlc.id}
-                    className="flex items-center justify-between gap-3 rounded-[12px] border border-bp-muted/20 bg-bp-bg/40 px-3 py-2.5"
-                  >
-                    <span className="text-sm text-bp-muted">{dlc.titulo}</span>
-                    <Link href={`/jogos/${dlc.id}`} className="text-sm text-bp-primary hover:brightness-125">
-                      Ver →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </section>
         </div>
       </main>
