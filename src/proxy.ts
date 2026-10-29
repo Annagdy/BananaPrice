@@ -66,8 +66,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  const { pathname } = request.nextUrl
-
   // Se o usuário está logado
   if (user) {
     // Verifica se o e-mail não existe ou se a flag cadastro_completo não está true nos metadados
