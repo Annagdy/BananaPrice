@@ -28,7 +28,7 @@ Sistema responsável por monitorar flutuações nos preços de jogos, registrar 
    - Uma notificação in-app é gravada no Supabase para visualização na central de notificações.
 5. **Onboarding / Fluxo Steam:** Caso um usuário faça login via Steam (que não retorna e-mail por padrão), o middleware/proxy o redireciona para `/completar-cadastro` para vincular e-mail e senha antes de receber alertas.
 
-### Ainda não implementado
+- Cards de Jogos: Foi adicionada uma lógica para buscar e exibir as capas/imagens oficiais dos jogos diretamente nos cards.
 
 - Disparo automático via Cron Job agendado (atualmente a atualização depende da navegação do usuário).
 - Fila de mensageria (ex: Redis/BullMQ) para processamento em lotes (*bulk mail*) de grandes bases de usuários.
