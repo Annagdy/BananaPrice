@@ -66,6 +66,42 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const { pathname } = request.nextUrl
+
+  // Se o usuário está logado
+  if (user) {
+    // Verifica se o e-mail não existe ou se a flag cadastro_completo não está true nos metadados
+    const cadastroIncompleto =
+      !user.email || user.user_metadata?.cadastro_completo !== true
+
+    // 1. Usuário logado via Steam que AINDA NÃO completou o cadastro:
+    // Força o redirecionamento para /completar-cadastro
+    if (cadastroIncompleto && pathname !== '/completar-cadastro') {
+      return NextResponse.redirect(new URL('/completar-cadastro', request.url))
+    }
+
+    // 2. Usuário que JÁ completou o cadastro e tenta acessar telas de Onboarding/Auth:
+    // Redireciona para /conta ou /jogos
+    if (!cadastroIncompleto) {
+      if (
+        pathname === '/login' ||
+        pathname === '/cadastro' ||
+        pathname === '/completar-cadastro'
+      ) {
+        return NextResponse.redirect(new URL('/conta', request.url))
+      }
+    }
+  } else {
+    // Rotas que exigem autenticação obrigatória
+    const rotasProtegidas = ['/conta', '/lista-de-desejos', '/notificacoes']
+
+    if (rotasProtegidas.some((rota) => pathname.startsWith(rota))) {
+      const urlLogin = new URL('/login', request.url)
+      urlLogin.searchParams.set('next', pathname)
+      return NextResponse.redirect(urlLogin)
+    }
+  }
+
   return response
 }
 

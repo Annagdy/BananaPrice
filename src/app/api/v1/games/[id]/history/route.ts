@@ -49,32 +49,52 @@ export async function GET(
   const hoje = dataBrasil(Date.now());
   const desde = dataBrasil(Date.now() - dias * 24 * 60 * 60 * 1000);
 
-  let consulta = supabase
-    .from("preco_historico")
-    .select("data, valor, id_loja, loja ( nome )")
-    .eq("id_jogo", idJogo)
-    .gte("data", desde)
-    .order("data", { ascending: true })
-    .order("id_historico", { ascending: true })
-    .limit(5000);
+  // O Supabase limita cada resposta (padrão 1000 linhas), então busca em páginas até acabar.
+  const TAMANHO_PAGINA = 1000;
+  const MAX_LINHAS = 20000;
+  const registros: any[] = [];
 
-  if (filtraLoja) consulta = consulta.eq("id_loja", idLoja);
+  for (let de = 0; de < MAX_LINHAS; de += TAMANHO_PAGINA) {
+    let consulta = supabase
+      .from("preco_historico")
+      .select("data, valor, id_loja, loja ( nome )")
+      .eq("id_jogo", idJogo)
+      .gte("data", desde)
+      .order("data", { ascending: true })
+      .order("id_historico", { ascending: true })
+      .range(de, de + TAMANHO_PAGINA - 1);
 
-  const { data, error } = await consulta;
-  if (error) {
-    console.error("[games/id/history GET]:", error);
-    return NextResponse.json({ error: "Erro ao buscar o histórico." }, { status: 500 });
+    if (filtraLoja) consulta = consulta.eq("id_loja", idLoja);
+
+    const { data, error } = await consulta;
+    if (error) {
+      console.error("[games/id/history GET]:", error);
+      return NextResponse.json({ error: "Erro ao buscar o histórico." }, { status: 500 });
+    }
+
+    registros.push(...(data ?? []));
+    if ((data ?? []).length < TAMANHO_PAGINA) break;
   }
 
   // agrupa por loja: uma linha do gráfico por loja
   const porLoja = new Map<number, { idLoja: number; loja: string | null; pontos: Ponto[] }>();
 
-  for (const h of (data ?? []) as unknown as any[]) {
+  for (const h of registros) {
     if (h.valor == null) continue;
     if (!porLoja.has(h.id_loja)) {
       porLoja.set(h.id_loja, { idLoja: h.id_loja, loja: nomeDaLoja(h.loja), pontos: [] });
     }
-    porLoja.get(h.id_loja)!.pontos.push({ data: h.data, valor: Number(h.valor) });
+    
+    const serie = porLoja.get(h.id_loja)!;
+    const ultimo = serie.pontos[serie.pontos.length - 1];
+
+    // Se já existe um ponto para esta mesma data, apenas atualize o valor 
+    // para evitar que o gráfico quebre tentando renderizar datas duplicadas no eixo X.
+    if (ultimo && ultimo.data === h.data) {
+        ultimo.valor = Number(h.valor);
+    } else {
+        serie.pontos.push({ data: h.data, valor: Number(h.valor) });
+    }
   }
 
   // Preço atual de cada loja: entra como ponto de hoje (se já não for o último ponto registrado)
@@ -99,12 +119,23 @@ export async function GET(
 
     // não apaga nada do que foi registrado: só acrescenta o ponto de hoje quando ele ainda não existe igual
     if (!ultimo || ultimo.data !== hoje || ultimo.valor !== valor) {
-      serie.pontos.push({ data: hoje, valor });
+      if (ultimo && ultimo.data === hoje) {
+         ultimo.valor = valor; // Evita duplicar o dia de "hoje"
+      } else {
+         serie.pontos.push({ data: hoje, valor });
+      }
     }
   }
 
   // resumo por loja, sobre o período pedido
   const series = Array.from(porLoja.values()).map((s) => {
+    
+    // Se o histórico tem só 1 ponto (preço estagnado ou jogo novo), 
+    // clona o ponto na data inicial para o gráfico conseguir desenhar a linha.
+    if (s.pontos.length === 1) {
+       s.pontos.unshift({ data: desde, valor: s.pontos[0].valor });
+    }
+
     let menor = s.pontos[0];
     let maior = s.pontos[0];
 

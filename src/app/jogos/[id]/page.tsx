@@ -261,14 +261,8 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                       <span className="text-sm text-bp-muted">Loja</span>
                       <span className="font-body text-sm text-bp-muted">{melhorOferta.loja ?? 'Loja'}</span>
                     </div>
-                    {/* <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-bp-muted">Menor preço já registrado</span>
-                      <span className="font-head text-sm text-bp-primary">
-                        {menorPrecoHistorico ? brl(menorPrecoHistorico.valor) : 'Sem registro'}
-                      </span>
-                    </div> */}
                     <div className="w-full max-w-[1100px] rounded-3xl p-6" style={{ background: tema.painel }}>
-                      <HistoricoPrecos idJogo={jogo.id} />
+                      <HistoricoPrecos idJogo={jogo.id} series={historico?.series ?? []} />
                     </div>
                   </div>
                 ) : (
