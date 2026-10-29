@@ -1,58 +1,37 @@
-# BananaPrice: Autenticação, Conta, Lista de Desejos e Notificações
+# BananaPrice: Sistema de Notificações e Alertas por E-mail
 
-Registro das rotas e mudanças já implementadas. Tudo o que não aparece aqui ainda não foi feito.
+Sistema responsável por monitorar flutuações nos preços de jogos, registrar históricos e notificar os usuários via e-mail (SMTP/Google) e interface sempre que uma oferta relevante é detectada na wishlist.
 
 ## Rotas implementadas
 
 | Método | Rota | O que faz | RF |
 |---|---|---|---|
-| POST | `/api/v1/auth/register` | Cadastro por e-mail com nome de usuário único | RF02 |
-| POST | `/api/v1/auth/login` | Login por e-mail **ou** nome de usuário | RF03 |
-| GET | `/api/v1/auth/steam` | Inicia o login com a Steam (OpenID 2.0) | RF04 |
-| GET | `/api/v1/auth/steam/callback` | Valida a Steam, cria/vincula a conta, abre a sessão e importa a wishlist | RF04, RF05 |
-| GET | `/api/v1/auth/confirm` | Recebe o link de confirmação de e-mail | - |
-| GET | `/api/v1/conta` | Retorna os dados e preferências da conta logada | - |
-| PATCH | `/api/v1/conta` | Altera nome de usuário, e-mail (com confirmação), senha e preferências | - |
-| GET | `/api/v1/wishlist` | Lista a wishlist do usuário logado com melhor preço atual | RF10 |
-| POST | `/api/v1/wishlist` | Adiciona um jogo à wishlist (`{ "idJogo": 1 }`) | RF10 |
-| DELETE | `/api/v1/wishlist/[gameId]` | Remove um jogo da wishlist | RF10 |
-| GET | `/api/v1/notifications` | Lista as notificações e contagem de não lidas do usuário | RF11 |
-| PATCH | `/api/v1/notifications` | Marca notificação(ões) como lida(s) | RF11 |
-| DELETE | `/api/v1/notifications` | Exclui notificação(ões) do usuário | RF11 |
-| POST | `/api/v1/notifications` | Cria uma notificação manual/teste | - |
+| `GET` | `/api/v1/games/[id]` | Consulta o jogo, aciona a atualização de preços assíncrona e retorna ofertas atuais. | RF01 |
+| `GET` | `/api/v1/games/[id]/history` | Retorna o histórico de preços agrupado por loja em séries temporais para o gráfico. | RF09 |
+| `GET/POST` | `/api/v1/wishlist` | Gerencia a lista de desejos do usuário autenticado. | RF05 |
+| `GET` | `/api/v1/notifications` | Lista as notificações de queda de preço pendentes e lidas do usuário. | RF06 |
 
-### Comportamento do login com a Steam
+### Comportamento de Notificações
 
-O callback cobre três casos:
+- **Critério de Disparo:** A notificação é gerada se o novo valor for menor que o preço anterior guardado (`menorNovoValor < menorAnterior`) OU se houver um aumento de desconto substancial (`maiorDesconto >= 10%`).
+- **Antispam / Rate Limiting:** Atualizações com variações irrelevantes (menos de 10% de desconto adicional ou preços sem redução) não geram disparos de e-mail.
+- **Assincronismo:** O envio de e-mails é executado em segundo plano (`.catch()`), garantindo que falhas no provedor SMTP não afetem o tempo de resposta das requisições para o usuário.
 
-1. **Steam já vinculada:** entra na conta dona dela.
-2. **Usuário já logado:** vincula a Steam à conta atual.
-3. **Steam nova e ninguém logado:** cria usuário, vínculo em `conta_steam` e sessão.
+### Fluxo
 
-Quem entra pela Steam recebe um e-mail provisório (`<steamid>@steam.local`). Em `/conta` ele pode trocar por um e-mail real e continua vinculado à mesma Steam, podendo entrar pelos dois meios.
-
-### Sistema de Notificações
-
-- Gera alertas automáticos sempre que houver redução de preço ou novas ofertas em jogos que o usuário possui na **Lista de Desejos**.
-- Interface em `/notificacoes` com suporte a filtros (todas / não lidas), ações em lote ("marcar todas como lidas", "limpar todas"), marcação individual e exclusão.
-- Indicador visual numérico no sino da barra de navegação (`Nav`) com contagem de itens não lidos.
-- Suporte a disparo de e-mails via SMTP (`lib/email.ts`) com opção configurável em `/conta`.
+1. **Gatilho de Acesso:** O usuário abre a página do jogo `/jogo/[id]`.
+2. **Atualização ITAD:** A função `atualizarPrecosDoJogo` faz o fetch das ofertas via API do IsThereAnyDeal.
+3. **Comparação de Histórico:** O sistema busca o menor preço anterior registrado em `preco_jogo` e persiste o novo valor no histórico.
+4. **Disparo de Alerta:** Caso seja identificada uma queda de preço válida:
+   - A função `notificarQuedaDePreco` identifica todos os usuários com o jogo na wishlist.
+   - O serviço `enviarEmailAlertaPreco` monta o HTML e realiza o disparo transacional via SMTP do Gmail.
+   - Uma notificação in-app é gravada no Supabase para visualização na central de notificações.
+5. **Onboarding / Fluxo Steam:** Caso um usuário faça login via Steam (que não retorna e-mail por padrão), o middleware/proxy o redireciona para `/completar-cadastro` para vincular e-mail e senha antes de receber alertas.
 
 ### Ainda não implementado
 
-`games`, `games/[id]`, `games/[id]/history`, `highlights`, `payments/pix`, `webhooks/pix` e a rota de logout (hoje o botão **Sair** usa o `signOut()` do navegador).
-
-## Mudanças no banco
-
-- `usuario` passou a se ligar ao Supabase Auth pela coluna `auth_id`. A coluna `senha` foi removida (a senha fica só no Auth).
-- `usuario.id_usuario` virou identity (autoincremento).
-- `usuario.notificar_email` define se o usuário recebe alertas por e-mail (default `true`).
-- `conta_steam.id_steam` virou `text` e deixou de ser identity (o SteamID64 passa de 2^53).
-- E-mail e nome de usuário únicos em `usuario`; uma `lista_desejo` por usuário.
-- `notificacao` estendida com colunas para `titulo`, `mensagem`, `preco`, `desconto`, `loja` e `lida` (ver `supabase/migrations/20261028_notificacoes.sql`).
-- Triggers em `auth.users`:
-  - cria a linha em `usuario` quando nasce um usuário;
-  - mantém `usuario.email` sincronizado quando o e-mail muda.
+- Disparo automático via Cron Job agendado (atualmente a atualização depende da navegação do usuário).
+- Fila de mensageria (ex: Redis/BullMQ) para processamento em lotes (*bulk mail*) de grandes bases de usuários.
 
 ## Como rodar
 
@@ -60,39 +39,45 @@ Quem entra pela Steam recebe um e-mail provisório (`<steamid>@steam.local`). Em
    ```bash
    npm install
    ```
-2. Configure o `.env.local`:
-   ```env
+2. Configure o .env.local:
+   ```bash
    NEXT_PUBLIC_SUPABASE_URL=
    NEXT_PUBLIC_SUPABASE_ANON_KEY=
    SUPABASE_SERVICE_ROLE_KEY=
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
    STEAM_API_KEY=
+
    ITAD_API_KEY=
-   # Opcional (para envio real de e-mails):
-   # SMTP_HOST=
-   # SMTP_PORT=587
-   # SMTP_USER=
-   # SMTP_PASS=
-   # SMTP_FROM=
+
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=seuemail@gmail.com
+   SMTP_PASS=sua_senha_de_aplicativo
+   SMTP_FROM=BananaPrice <seuemail@gmail.com>
    ```
-   `NEXT_PUBLIC_SITE_URL` deve ser idêntica à URL aberta no navegador (host e porta), senão a validação da Steam falha.
-3. Aplique as mudanças do banco (migration em `supabase/migrations` ou pelo SQL Editor do Supabase).
-4. Inicie:
+3. Aplique as mudanças do banco (migration em supabase/migrations ou pelo SQL Editor do Supabase).
+4. Rode:
    ```bash
    npm run dev
    ```
 
-## Como testar
+## Como Testar
+- Teste Unitário de E-mail: Crie uma rota temporária app/api/teste-email/route.ts chamando enviarEmailAlertaPreco para validar o recebimento da mensagem formatada na caixa de entrada.
 
-- **Cadastro e login:** crie uma conta em `/cadastro` e entre em `/login` (por e-mail e por usuário).
-- **Steam:** clique em **Continuar com Steam**. Deve cair em `/conta` e criar linhas em `usuario` e `conta_steam`. Entrar de novo deve levar à mesma conta.
-- **Vincular e-mail:** em `/conta`, troque o e-mail provisório por um real e confirme pelo link recebido.
-- **Wishlist:** a importação só grava jogos que **já existem** na tabela `jogo`, então o catálogo precisa estar populado (`atualizarBD`) e a wishlist da Steam precisa estar **pública**. Entre pela Steam de novo depois de popular o catálogo para reimportar. Para testar só a página, insira linhas em `lista_jogo` manualmente.
-- **Notificações:** acesse `/notificacoes` com login ativo para visualizar suas notificações e testar marcação de lida/não lida e exclusão. O sino no cabeçalho exibirá o total de não lidas.
+- Teste do Fluxo de Queda de Preço:
 
-## Pendências conhecidas
+1. Adicione um jogo à wishlist da sua conta de teste.
 
-- A importação da wishlist depende do endpoint `IWishlistService/GetWishlist` da Steam e do lookup de IDs do ITAD (`/lookup/id/shop/61/v1`). Ambos precisam ser conferidos na prática.
-- O envio de e-mails do Supabase tem limites no plano padrão. Para uso real, configure um SMTP próprio.
-- Capa dos jogos e link externo da loja não existem no schema atual; a lista usa imagem de exemplo e leva à página interna `/jogos/<id>`.
-- Ativar RLS nas tabelas antes de qualquer acesso direto pelo navegador (as rotas atuais usam a service role no servidor).
+2. No painel do Supabase, altere manualmente o valor na tabela preco_jogo desse jogo para um valor alto (ex: R$ 200,00).
+
+3. Crie um mock do ITAD com preço menor (ex: R$ 99,90) e execute a função atualizarPrecosDoJogo.
+
+4. Verifique no console do servidor o log de sucesso e confirme o recebimento do e-mail.
+
+- Teste de Login Steam sem E-mail: Faça login com uma conta Steam nova e certifique-se de que o middleware redireciona obrigatoriamente para a rota /completar-cadastro.
+
+## Pendências Conhecidas
+- Limite da Conta Gmail: O uso do SMTP gratuito do Google restringe o volume a ~500 e-mails por dia.
+
+- Single Point History: Jogos sem alteração de preço nos últimos 90 dias exigem duplicação visual do primeiro ponto no histórico para permitir a renderização da linha reta nos gráficos.
