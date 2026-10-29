@@ -60,29 +60,51 @@ export async function enviarEmailAlertaPreco({
   const texto = `Olá, ${nomeUsuario}!\n\nO jogo "${tituloJogo}", que está na sua lista de desejos, teve uma redução de preço!\nPreço atual: ${precoFormatado}${desconto > 0 ? ` (${desconto}% OFF)` : ''} na ${loja}.\n\nAcesse: ${urlJogo}\n\nAtenciosamente,\nEquipe BananaPrice`
 
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #1a1614; color: #f5eedb; padding: 24px; border-radius: 12px; max-width: 600px; margin: 0 auto;">
-      <h1 style="color: #f7b731; margin-bottom: 8px;">🍌 BananaPrice</h1>
-      <h2 style="color: #ffffff; font-size: 20px;">O preço caiu!</h2>
-      <p style="font-size: 16px; color: #d0c7b7;">Olá, <strong>${nomeUsuario}</strong>,</p>
-      <p style="font-size: 15px; color: #d0c7b7;">O jogo <strong>${tituloJogo}</strong> que está na sua Lista de Desejos recebeu uma nova oferta especial:</p>
-      
-      <div style="background-color: #2b221e; border: 1px solid #3d322e; border-radius: 8px; padding: 16px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 14px; color: #a89f8d;">Loja: <strong style="color: #ffffff;">${loja}</strong></p>
-        <p style="margin: 8px 0 0 0; font-size: 24px; font-weight: bold; color: #f7b731;">
+  <div style="font-family: Arial, sans-serif; background-color: #1a1614; color: #f5eedb; padding: 32px 24px; border-radius: 16px; max-width: 600px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+    
+    <div style="text-align: center; padding-bottom: 16px; border-bottom: 1px solid #3d322e;">
+      <h1 style="color: #f7b731; margin: 0; font-size: 28px; font-weight: 800;">🍌 BananaPrice</h1>
+    </div>
+
+    <div style="padding: 24px 0;">
+      <h2 style="color: #ffffff; font-size: 22px; margin-top: 0;">🔥 O preço caiu!</h2>
+      <p style="font-size: 15px; color: #d0c7b7; line-height: 1.6;">
+        Olá, <strong>${nomeUsuario}</strong>!
+      </p>
+      <p style="font-size: 15px; color: #d0c7b7; line-height: 1.6;">
+        O jogo <strong>${tituloJogo}</strong>, que está na sua Lista de Desejos, acabou de receber uma nova oferta especial:
+      </p>
+
+      <div style="background-color: #2b221e; border: 1px solid #3d322e; border-radius: 12px; padding: 20px; margin: 24px 0;">
+        <p style="margin: 0; font-size: 14px; color: #a89f8d;">
+          Loja: <strong style="color: #ffffff;">${loja}</strong>
+        </p>
+        <p style="margin: 12px 0 0 0; font-size: 28px; font-weight: bold; color: #f7b731; display: flex; align-items: center;">
           ${precoFormatado}
-          ${desconto > 0 ? `<span style="font-size: 14px; background-color: #f7b731; color: #1a1614; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">-${desconto}%</span>` : ''}
+          ${
+            desconto > 0 
+              ? `<span style="font-size: 14px; background-color: #f7b731; color: #1a1614; padding: 3px 8px; border-radius: 6px; margin-left: 10px; font-weight: bold;">-${desconto}% OFF</span>` 
+              : ''
+          }
         </p>
       </div>
 
-      <a href="${urlJogo}" style="display: inline-block; background-color: #f7b731; color: #1a1614; text-decoration: none; font-weight: bold; padding: 12px 24px; border-radius: 8px; margin-top: 10px;">
-        Ver Oferta no BananaPrice
-      </a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${urlJogo}" style="display: inline-block; background-color: #f7b731; color: #1a1614; text-decoration: none; font-weight: bold; font-size: 16px; padding: 14px 32px; border-radius: 10px; transition: background-color 0.2s;">
+          Ver Oferta no BananaPrice
+        </a>
+      </div>
+    </div>
 
-      <p style="font-size: 12px; color: #887d6d; margin-top: 28px; border-top: 1px solid #3d322e; padding-top: 12px;">
-        Você está recebendo este e-mail porque cadastrou ${tituloJogo} na sua lista de desejos e optou por receber alertas. Para alterar suas preferências, acesse sua conta no BananaPrice.
+    <div style="border-top: 1px solid #3d322e; padding-top: 16px; text-align: center;">
+      <p style="font-size: 12px; color: #887d6d; margin: 0; line-height: 1.5;">
+        Você está recebendo este e-mail porque cadastrou <strong>${tituloJogo}</strong> na sua lista de desejos.<br>
+        Para gerenciar seus alertas, acesse sua conta no BananaPrice.
       </p>
     </div>
-  `
+
+  </div>
+`;
 
   const remetente = process.env.SMTP_FROM || 'BananaPrice <onboarding@resend.dev>'
 
