@@ -83,8 +83,34 @@ function Grupo({
 
 export default function JogosPage() {
   // pesquisa por nome (código original, usa ?busca=)
-  const [resultadoBusca, setResultadoBusca] = useState('')
+
+  type PromocaoBusca = {
+    valor_atual: number | null
+    percentual_desconto: number | null
+    atualizado_em: string
+    loja: { nome: string } | { nome: string }[] | null
+  }
+
+  type JogoEncontrado = {
+    id_jogo: number
+    titulo: string
+    itad_id: string | null
+    promocoes: PromocaoBusca[]
+  }
+
+  type ResultadoBuscaJogo = {
+    nomePesquisado: string
+    jogosEncontrados: JogoEncontrado[]
+  }
+
+  // Pesquisa por nome e resultados encontrados no Supabase.
+  const [resultadoBusca, setResultadoBusca] =
+    useState<ResultadoBuscaJogo[]>([])
+
   const [busca, setBusca] = useState('')
+  const [carregandoBusca, setCarregandoBusca] = useState(false)
+  const [erroBusca, setErroBusca] = useState<string | null>(null)
+
 
   // filtros do catálogo
   const [precoMax, setPrecoMax] = useState<number | null>(null)
@@ -176,74 +202,64 @@ export default function JogosPage() {
   }, [busca, precoMax, corteMin, lojas, pagina, adulto])
 
   // pesquisa por nome: GET /api/v1/games?busca= (rota do Python/Gemini, sem alteração)
+
   useEffect(() => {
     const termo = busca.trim()
 
     if (!termo) {
-      setResultadoBusca('')
+      setResultadoBusca([])
+      setErroBusca(null)
+      setCarregandoBusca(false)
       return
     }
 
-    let cancelado = false
     const controller = new AbortController()
 
-    setResultadoBusca('Consultando API...')
-
     async function pesquisar() {
+      setCarregandoBusca(true)
+      setErroBusca(null)
+      setResultadoBusca([])
+
       try {
         const resposta = await fetch(
           `/api/v1/games?busca=${encodeURIComponent(termo)}`,
-          { signal: controller.signal },
+          { signal: controller.signal }
         )
 
         const dados = await resposta.json()
 
         if (!resposta.ok) {
-          throw new Error(dados.erro || `Erro HTTP: ${resposta.status}`)
-        }
-
-        const nomes =
-          typeof dados.resultado === 'string'
-            ? dados.resultado
-            : Array.isArray(dados.nomes)
-              ? dados.nomes.join(', ')
-              : typeof dados.nomes === 'string'
-                ? dados.nomes
-                : null
-
-        if (nomes === null) {
           throw new Error(
-            `Formato inesperado da API: ${JSON.stringify(dados)}`,
+            dados.erro || `Erro HTTP: ${resposta.status}`
           )
         }
 
-        if (!cancelado) {
-          setResultadoBusca(
-            nomes.trim() ? nomes : 'Nenhum jogo encontrado.',
-          )
+        if (!controller.signal.aborted) {
+          setResultadoBusca(dados.resultados ?? [])
         }
       } catch (erro) {
         if (
-          !cancelado &&
+          !controller.signal.aborted &&
           !(erro instanceof Error && erro.name === 'AbortError')
         ) {
-          console.error('Erro na pesquisa:', erro)
-          setResultadoBusca(
-            `Falha na pesquisa: ${
-              erro instanceof Error ? erro.message : 'Erro desconhecido'
-            }`,
+          setErroBusca(
+            erro instanceof Error
+              ? erro.message
+              : 'Erro desconhecido ao pesquisar.'
           )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setCarregandoBusca(false)
         }
       }
     }
 
     pesquisar()
 
-    return () => {
-      cancelado = true
-      controller.abort()
-    }
+    return () => controller.abort()
   }, [busca])
+
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -329,12 +345,128 @@ export default function JogosPage() {
             aria-label="Ofertas"
             className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8"
           >
+
             {busca.trim() ? (
-              <p className="py-16 text-center text-bp-muted">
-                {resultadoBusca || 'Aguardando pesquisa...'}
-              </p>
+              carregandoBusca ? (
+                <p className="py-16 text-center text-bp-muted">
+                  Buscando jogos e consultando promoções no Supabase...
+                </p>
+              ) : erroBusca ? (
+                <p role="alert" className="py-16 text-center text-red-400">
+                  {erroBusca}
+                </p>
+              ) : resultadoBusca.length === 0 ? (
+                <p className="py-16 text-center text-bp-muted">
+                  Nenhum jogo relacionado foi encontrado.
+                </p>
+              ) : (
+                <div className="flex w-full flex-col gap-6">
+                  {resultadoBusca.map((resultado, indice) => (
+                    <article
+                      key={`${resultado.nomePesquisado}-${indice}`}
+                      className="w-full rounded-2xl border border-bp-muted/20 p-5 shadow-sm"
+                    >
+                      <h2 className="mb-4 text-xl font-bold text-bp-primary">
+                        {resultado.nomePesquisado}
+                      </h2>
+
+                      {(resultado.jogosEncontrados ?? []).length === 0 ? (
+                        <p className="text-bp-muted">
+                          Nenhuma correspondência encontrada no banco de dados.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-5">
+                          {(resultado.jogosEncontrados ?? []).map((jogo) => (
+                            <div
+                              key={jogo.id_jogo}
+                              className="rounded-xl bg-bp-muted/5 p-4"
+                            >
+                              <h3 className="mb-3 font-semibold">
+                                {jogo.titulo}
+                              </h3>
+
+                              <p className="mb-3 text-sm text-bp-muted">
+                                ID no banco: {jogo.id_jogo}
+                                {jogo.itad_id
+                                  ? ` | ITAD: ${jogo.itad_id}`
+                                  : ''}
+                              </p>
+
+                              {jogo.promocoes.length === 0 ? (
+                                <p className="text-sm text-bp-muted">
+                                  Nenhuma promoção cadastrada.
+                                </p>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-sm">
+                                    <thead>
+                                      <tr className="border-b border-bp-muted/20">
+                                        <th className="p-2">Loja</th>
+                                        <th className="p-2">Preço atual</th>
+                                        <th className="p-2">Desconto</th>
+                                        <th className="p-2">Atualizado em</th>
+                                      </tr>
+                                    </thead>
+
+                                    <tbody>
+                                      {jogo.promocoes.map((promocao, i) => {
+                                        const loja = Array.isArray(promocao.loja)
+                                          ? promocao.loja[0]?.nome
+                                          : promocao.loja?.nome
+
+                                        return (
+                                          <tr
+                                            key={`${jogo.id_jogo}-${loja ?? 'loja'}-${i}`}
+                                            className="border-b border-bp-muted/10"
+                                          >
+                                            <td className="p-2">
+                                              {loja ?? 'Loja não identificada'}
+                                            </td>
+
+                                            <td className="p-2 font-semibold">
+                                              {promocao.valor_atual == null
+                                                ? 'Não informado'
+                                                : promocao.valor_atual.toLocaleString(
+                                                    'pt-BR',
+                                                    {
+                                                      style: 'currency',
+                                                      currency: 'BRL',
+                                                    }
+                                                  )}
+                                            </td>
+
+                                            <td className="p-2">
+                                              {promocao.percentual_desconto == null
+                                                ? 'Não informado'
+                                                : `${promocao.percentual_desconto}%`}
+                                            </td>
+
+                                            <td className="p-2">
+                                              {promocao.atualizado_em
+                                                ? new Date(
+                                                    promocao.atualizado_em
+                                                  ).toLocaleString('pt-BR')
+                                                : 'Não informado'}
+                                            </td>
+                                          </tr>
+                                        )
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )
             ) : carregando ? (
-              <p className="py-16 text-center text-bp-muted">Carregando...</p>
+              <p className="py-16 text-center text-bp-muted">
+                Carregando...
+              </p>
             ) : erroCatalogo ? (
               <p role="alert" className="py-16 text-center text-red-400">
                 {erroCatalogo}
@@ -357,6 +489,7 @@ export default function JogosPage() {
                 ))}
               </ul>
             )}
+
 
             {!busca.trim() && (
               <nav
