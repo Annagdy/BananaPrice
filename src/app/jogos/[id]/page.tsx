@@ -7,6 +7,7 @@ import Footer from '../../../components/Footer'
 import { capaExemplo } from '../../../components/assets'
 import { tema } from '../../../mocks/tema'
 import PortaoAdulto from './PortaoAdulto'
+import BotoesJogo from './BotoesJogo'
 import HistoricoPrecos from '../../../components/HistoricoPrecos'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -26,6 +27,8 @@ type JogoResposta = {
   melhorOferta: Oferta | null
   ofertas: Oferta[]
   menorPrecoHistorico: { valor: number; data: string } | null
+  /* DLCs do jogo; a API ainda não envia esse campo, então o botão e a seção só aparecem quando ele vier preenchido. */
+  dlcs?: Array<{ id: number; titulo: string }>
 }
 
 /* Resultado da busca: o jogo, "bloqueado" (conteúdo adulto não liberado) ou null (não existe). */
@@ -74,6 +77,7 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
 
   const { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico } = dados
   const historico = await buscarHistoricoJogo(id)
+  const dlcs = dados.dlcs ?? []
 
   const listaDoJogo = [
     { label: 'Categoria', value: jogo.genero ?? 'Não informada' },
@@ -104,6 +108,8 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
       <div className="h-[5px]" style={{ background: tema.divisor }} />
 
       <main className="flex flex-1 flex-col items-center gap-6 px-5 py-10">
+        <div className="relative flex w-full max-w-[1200px] flex-col gap-4">
+        <BotoesJogo idJogo={jogo.id} temDlcs={dlcs.length > 0} />
         <section
           className="w-full max-w-[1200px] rounded-3xl p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)]"
           style={{ background: tema.painel }}
@@ -144,12 +150,6 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                         Ir para {melhorOferta.loja ?? 'a loja'}
                       </a>
                     )}
-                    <Link
-                      href={`/turbo/${jogo.id}`}
-                      className="rounded-[9px] bg-bp-muted px-5 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
-                    >
-                      Dar um turbo
-                    </Link>
                     <Link
                       href="/jogos"
                       className="rounded-[9px] border border-bp-muted px-5 py-2.5 text-[15px] text-bp-muted transition hover:brightness-125"
@@ -301,7 +301,27 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
               </div>
             )}
           </div>
+
+          {dlcs.length > 0 && (
+            <div id="dlcs" className="mt-6 scroll-mt-6 rounded-[20px] bg-bp-neutral/70 p-5">
+              <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">DLCs</h2>
+              <ul className="space-y-3">
+                {dlcs.map((dlc) => (
+                  <li
+                    key={dlc.id}
+                    className="flex items-center justify-between gap-3 rounded-[12px] border border-bp-muted/20 bg-bp-bg/40 px-3 py-2.5"
+                  >
+                    <span className="text-sm text-bp-muted">{dlc.titulo}</span>
+                    <Link href={`/jogos/${dlc.id}`} className="text-sm text-bp-primary hover:brightness-125">
+                      Ver →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
+        </div>
       </main>
 
       <div className="h-[5px]" style={{ background: tema.divisor }} />
