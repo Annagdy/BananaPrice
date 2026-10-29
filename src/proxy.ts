@@ -1,17 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-/*
-Roda antes de cada requisição: renova a sessão do Supabase, protege as rotas
-e obriga usuários com login incompleto (ex: Steam) a cadastrar e-mail e senha.
-
-- Sem login: páginas protegidas redirecionam para /login?next=<rota>.
-- Com login incompleto: qualquer rota (exceto /completar-cadastro e APIs) redireciona para /completar-cadastro.
-- Com login completo: /login, /cadastro e /completar-cadastro redirecionam para /conta (ou /jogos).
-
-@param request Requisição recebida pelo Next.
-@returns A resposta com os cookies de sessão atualizados, ou um redirecionamento.
-*/
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
@@ -36,7 +25,45 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    // Token stale/inválido — ignora, o usuário vai se logar de novo
+    // Token stale/inválido
+  }
+
+  const { pathname } = request.nextUrl
+
+  if (user) {
+    // Identifica se a autenticação foi feita via Steam
+    const loginViaSteam =
+      user.app_metadata?.provider === 'steam' ||
+      user.app_metadata?.providers?.includes('steam')
+
+    // Só exige completar cadastro se NÃO TIVER e-mail ou se for um login Steam com onboarding pendente
+    const cadastroIncompleto =
+      !user.email || (loginViaSteam && user.user_metadata?.cadastro_completo !== true)
+
+    // Redireciona para /completar-cadastro apenas se o cadastro estiver realmente incompleto
+    if (cadastroIncompleto && pathname !== '/completar-cadastro') {
+      return NextResponse.redirect(new URL('/completar-cadastro', request.url))
+    }
+
+    // Se o cadastro estiver completo (e-mail/senha padrão ou Steam já concluído), impede de acessar as telas de auth
+    if (!cadastroIncompleto) {
+      if (
+        pathname === '/login' ||
+        pathname === '/cadastro' ||
+        pathname === '/completar-cadastro'
+      ) {
+        return NextResponse.redirect(new URL('/conta', request.url))
+      }
+    }
+  } else {
+    // Rotas protegidas para visitantes não autenticados
+    const rotasProtegidas = ['/conta', '/lista-de-desejos', '/notificacoes']
+
+    if (rotasProtegidas.some((rota) => pathname.startsWith(rota))) {
+      const urlLogin = new URL('/login', request.url)
+      urlLogin.searchParams.set('next', pathname)
+      return NextResponse.redirect(urlLogin)
+    }
   }
 
   const { pathname } = request.nextUrl
