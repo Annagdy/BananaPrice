@@ -4,6 +4,30 @@ import { supabase } from "@/lib/supabase.ts";
 const DIAS_PADRAO = 90;
 const DIAS_MAXIMO = 3650;
 
+/* Data (YYYY-MM-DD) no fuso de Brasília, a mesma usada ao gravar em preco_historico. */
+function dataBrasil(ms: number): string {
+  return new Date(ms).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
+/* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
+function nomeDaLoja(rel: any): string | null {
+  return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
+}
+
+type Ponto = { data: string; valor: number };
+
+/*
+GET /api/v1/games/[id]/history (RF09): histórico de preços para o gráfico, uma série por loja.
+
+Cada ponto é um valor registrado (o histórico guarda um registro sempre que o preço muda). O último ponto de
+cada série é o preço atual de preco_jogo, com a data de hoje, para o gráfico terminar no valor mais recente.
+Cada série traz também um resumo { atual, menor, maior } calculado sobre o período pedido.
+A resposta não fica em cache, para refletir o preço que acabou de ser atualizado.
+
+@query dias Quantos dias para trás (padrão 90, máximo 3650).
+@query store Id da loja, para ver só uma série (opcional).
+@returns 200 { idJogo, dias, menorGeral, series: [{ idLoja, loja, pontos, resumo }] }; 400 id inválido; 500 erro no banco.
+*/
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,43 +44,120 @@ export async function GET(
     Math.max(1, Math.floor(Number(searchParams.get("dias")) || DIAS_PADRAO))
   );
   const idLoja = Number(searchParams.get("store"));
+  const filtraLoja = Number.isInteger(idLoja) && idLoja > 0;
 
-  const desde = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const hoje = dataBrasil(Date.now());
+  const desde = dataBrasil(Date.now() - dias * 24 * 60 * 60 * 1000);
 
-  let consulta = supabase
-    .from("preco_historico")
-    .select("data, valor, id_loja, loja ( nome )")
-    .eq("id_jogo", idJogo)
-    .gte("data", desde)
-    .order("data", { ascending: true })
-    .limit(5000);
+  // O Supabase limita cada resposta (padrão 1000 linhas), então busca em páginas até acabar.
+  const TAMANHO_PAGINA = 1000;
+  const MAX_LINHAS = 20000;
+  const registros: any[] = [];
 
-  if (Number.isInteger(idLoja) && idLoja > 0) consulta = consulta.eq("id_loja", idLoja);
+  for (let de = 0; de < MAX_LINHAS; de += TAMANHO_PAGINA) {
+    let consulta = supabase
+      .from("preco_historico")
+      .select("data, valor, id_loja, loja ( nome )")
+      .eq("id_jogo", idJogo)
+      .gte("data", desde)
+      .order("data", { ascending: true })
+      .order("id_historico", { ascending: true })
+      .range(de, de + TAMANHO_PAGINA - 1);
 
-  const { data, error } = await consulta;
-  if (error) {
-    console.error("[games/id/history GET]:", error);
-    return NextResponse.json({ error: "Erro ao buscar o histórico." }, { status: 500 });
+    if (filtraLoja) consulta = consulta.eq("id_loja", idLoja);
+
+    const { data, error } = await consulta;
+    if (error) {
+      console.error("[games/id/history GET]:", error);
+      return NextResponse.json({ error: "Erro ao buscar o histórico." }, { status: 500 });
+    }
+
+    registros.push(...(data ?? []));
+    if ((data ?? []).length < TAMANHO_PAGINA) break;
   }
 
   // agrupa por loja: uma linha do gráfico por loja
-  const porLoja = new Map<number, { idLoja: number; loja: string | null; pontos: { data: string; valor: number }[] }>();
+  const porLoja = new Map<number, { idLoja: number; loja: string | null; pontos: Ponto[] }>();
 
-  for (const h of (data ?? []) as unknown as any[]) {
+  for (const h of registros) {
     if (h.valor == null) continue;
     if (!porLoja.has(h.id_loja)) {
-      const rel = h.loja;
-      porLoja.set(h.id_loja, {
-        idLoja: h.id_loja,
-        loja: Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null),
-        pontos: [],
-      });
+      porLoja.set(h.id_loja, { idLoja: h.id_loja, loja: nomeDaLoja(h.loja), pontos: [] });
     }
-    porLoja.get(h.id_loja)!.pontos.push({ data: h.data, valor: Number(h.valor) });
+    
+    const serie = porLoja.get(h.id_loja)!;
+    const ultimo = serie.pontos[serie.pontos.length - 1];
+
+    // Se já existe um ponto para esta mesma data, apenas atualize o valor 
+    // para evitar que o gráfico quebre tentando renderizar datas duplicadas no eixo X.
+    if (ultimo && ultimo.data === h.data) {
+        ultimo.valor = Number(h.valor);
+    } else {
+        serie.pontos.push({ data: h.data, valor: Number(h.valor) });
+    }
   }
 
+  // Preço atual de cada loja: entra como ponto de hoje (se já não for o último ponto registrado)
+  let consultaAtual = supabase
+    .from("preco_jogo")
+    .select("id_loja, valor_atual, loja ( nome )")
+    .eq("id_jogo", idJogo)
+    .not("valor_atual", "is", null);
+
+  if (filtraLoja) consultaAtual = consultaAtual.eq("id_loja", idLoja);
+
+  const { data: atuais } = await consultaAtual;
+
+  for (const p of (atuais ?? []) as unknown as any[]) {
+    if (!porLoja.has(p.id_loja)) {
+      porLoja.set(p.id_loja, { idLoja: p.id_loja, loja: nomeDaLoja(p.loja), pontos: [] });
+    }
+
+    const serie = porLoja.get(p.id_loja)!;
+    const valor = Number(p.valor_atual);
+    const ultimo = serie.pontos[serie.pontos.length - 1];
+
+    // não apaga nada do que foi registrado: só acrescenta o ponto de hoje quando ele ainda não existe igual
+    if (!ultimo || ultimo.data !== hoje || ultimo.valor !== valor) {
+      if (ultimo && ultimo.data === hoje) {
+         ultimo.valor = valor; // Evita duplicar o dia de "hoje"
+      } else {
+         serie.pontos.push({ data: hoje, valor });
+      }
+    }
+  }
+
+  // resumo por loja, sobre o período pedido
+  const series = Array.from(porLoja.values()).map((s) => {
+    
+    // Se o histórico tem só 1 ponto (preço estagnado ou jogo novo), 
+    // clona o ponto na data inicial para o gráfico conseguir desenhar a linha.
+    if (s.pontos.length === 1) {
+       s.pontos.unshift({ data: desde, valor: s.pontos[0].valor });
+    }
+
+    let menor = s.pontos[0];
+    let maior = s.pontos[0];
+
+    for (const ponto of s.pontos) {
+      if (ponto.valor < menor.valor) menor = ponto;
+      if (ponto.valor > maior.valor) maior = ponto;
+    }
+
+    return {
+      ...s,
+      resumo: { atual: s.pontos[s.pontos.length - 1].valor, menor, maior },
+    };
+  });
+
+  // menor valor entre todas as lojas (para a linha de referência do gráfico)
+  const menorGeral = series.reduce<Ponto | null>(
+    (menor, s) => (!menor || s.resumo.menor.valor < menor.valor ? s.resumo.menor : menor),
+    null
+  );
+
   return NextResponse.json(
-    { idJogo, dias, series: Array.from(porLoja.values()) },
-    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } }
+    { idJogo, dias, menorGeral, series },
+    { headers: { "Cache-Control": "private, no-store" } }
   );
 }
