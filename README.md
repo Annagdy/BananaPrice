@@ -1,37 +1,42 @@
-# BananaPrice: Sistema de Notificações e Alertas por E-mail
+# BananaPrice: Wishlist interna do site, adição de botão para DLCs e Bug de Login/Cadastro via Steam tratado
 
-Sistema responsável por monitorar flutuações nos preços de jogos, registrar históricos e notificar os usuários via e-mail (SMTP/Google) e interface sempre que uma oferta relevante é detectada na wishlist.
+Implementou-se melhorias na sincronização da lista de desejos (wishlist), suporte nativo para conteúdos adicionais (DLCs), além de refatorações estruturais no fluxo de autenticação via Steam e onboarding.
 
 ## Rotas implementadas
 
 | Método | Rota | O que faz | RF |
 |---|---|---|---|
-| `GET` | `/api/v1/games/[id]` | Consulta o jogo, aciona a atualização de preços assíncrona e retorna ofertas atuais. | RF01 |
-| `GET` | `/api/v1/games/[id]/history` | Retorna o histórico de preços agrupado por loja em séries temporais para o gráfico. | RF09 |
-| `GET/POST` | `/api/v1/wishlist` | Gerencia a lista de desejos do usuário autenticado. | RF05 |
-| `GET` | `/api/v1/notifications` | Lista as notificações de queda de preço pendentes e lidas do usuário. | RF06 |
+| `GET` | `/api/v1/auth/steam` | Redireciona o usuário para o fluxo de autenticação OpenID da Steam. | RF04 |
+| `GET` | `/api/v1/auth/steam/callback` | Processa o retorno da Steam, vincula/cria o usuário no Supabase e abre a sessão via `magiclink`. | RF04, RF05 |
+| `POST` | `/completar-cadastro` | Formulário para usuários da Steam cadastrarem um e-mail e senha definitivos. | RF05 |
+| `GET` | `/api/v1/games/[id]` | Busca os detalhes do jogo e atualiza os preços das lojas em tempo real via ITAD. | RF01, RF02 |
+| `GET/POST` | `/api/v1/wishlist` | Consulta, adiciona ou remove jogos e DLCs da lista de desejos do usuário. | RF03 |
 
 ### Comportamento de Notificações
 
-- **Critério de Disparo:** A notificação é gerada se o novo valor for menor que o preço anterior guardado (`menorNovoValor < menorAnterior`) OU se houver um aumento de desconto substancial (`maiorDesconto >= 10%`).
-- **Antispam / Rate Limiting:** Atualizações com variações irrelevantes (menos de 10% de desconto adicional ou preços sem redução) não geram disparos de e-mail.
-- **Assincronismo:** O envio de e-mails é executado em segundo plano (`.catch()`), garantindo que falhas no provedor SMTP não afetem o tempo de resposta das requisições para o usuário.
+- **Gatilho de Queda de Preço (`atualizarPrecosDoJogo`)**: Sempre que uma oferta é atualizada, a aplicação compara o novo valor com o menor preço anterior registrado na tabela `preco_jogo`.
+- **Disparo de Alertas**: Se o novo valor for inferior ao menor valor histórico conhecido ou se houver um desconto novo relevante (≥ 10%), o serviço `notificarQuedaDePreco` dispara um e-mail via SMTP com layout dark personalizado.
+- **Histórico Incremental**: Os preços históricos por loja só registram uma nova linha na tabela `preco_historico` se o valor realmente tiver mudado em relação ao último registro daquela loja.
 
 ### Fluxo
 
-1. **Gatilho de Acesso:** O usuário abre a página do jogo `/jogo/[id]`.
-2. **Atualização ITAD:** A função `atualizarPrecosDoJogo` faz o fetch das ofertas via API do IsThereAnyDeal.
-3. **Comparação de Histórico:** O sistema busca o menor preço anterior registrado em `preco_jogo` e persiste o novo valor no histórico.
-4. **Disparo de Alerta:** Caso seja identificada uma queda de preço válida:
-   - A função `notificarQuedaDePreco` identifica todos os usuários com o jogo na wishlist.
-   - O serviço `enviarEmailAlertaPreco` monta o HTML e realiza o disparo transacional via SMTP do Gmail.
-   - Uma notificação in-app é gravada no Supabase para visualização na central de notificações.
-5. **Onboarding / Fluxo Steam:** Caso um usuário faça login via Steam (que não retorna e-mail por padrão), o middleware/proxy o redireciona para `/completar-cadastro` para vincular e-mail e senha antes de receber alertas.
+1. **Autenticação Steam & Onboarding**:
+   - O usuário inicia o login via Steam (`/api/v1/auth/steam`).
+   - Após a validação no callback, o usuário é cadastrado com um e-mail temporário (`{steamId}@steam.local`) e metadata `cadastro_completo: false`.
+   - O middleware (`proxy.ts`) intercepta requisições de contas com e-mail temporário e redireciona para `/completar-cadastro`.
+   - Após registrar o e-mail e a senha, a conta tem o metadata atualizado para `cadastro_completo: true` e a página redireciona o usuário para `/jogos`.
 
-- Cards de Jogos: Foi adicionada uma lógica para buscar e exibir as capas/imagens oficiais dos jogos diretamente nos cards.
+2. **Diferenciação de DLCs e Jogos Base**:
+   - Adicionado suporte a botões de ação e visualização para expansões e DLCs.
+   - Sincronização automática com a wishlist da Steam tratando de forma distinta conteúdos adicionais em relação ao jogo base.
 
-- Disparo automático via Cron Job agendado (atualmente a atualização depende da navegação do usuário).
-- Fila de mensageria (ex: Redis/BullMQ) para processamento em lotes (*bulk mail*) de grandes bases de usuários.
+### Bugs Solucionados
+
+- **`ERR_TOO_MANY_REDIRECTS` no Proxy**: Corrigido o loop de redirecionamentos no `proxy.ts`, garantindo que requisições para `/completar-cadastro` e assets estáticos fossem liberadas corretamente antes do término do onboarding.
+- **Conflitos de Variáveis Duplicadas (`pathname` e `menorAnterior`)**: Resolvidas exceções de compilação em `proxy.ts` e `atualizarPrecoJogo.ts` provocadas por múltiplas declarações no mesmo escopo.
+- **Incompatibilidade de Import do `NextResponse`**: Corrigida a importação incorreta de `NextResponse` proveniente do pacote `"next"`, migrando para `"next/server"` e ajustando o uso de construtores de URL em App Routes.
+- **Schema Cache Error (`PGRST204`) no Supabase**: Removida a tentativa de escrita na coluna `cadastro_completo` diretamente na tabela pública `usuario`, mantendo a flag exclusivamente nos metadados (`user_metadata`) do Supabase Auth.
+- **Sincronização de Sessão**: Atualizado o formulário de cadastro para utilizar `supabase.auth.refreshSession()` e navegação forçada via `window.location.href`, garantindo a leitura limpa dos novos cookies pelo middleware.
 
 ## Como rodar
 
@@ -39,6 +44,7 @@ Sistema responsável por monitorar flutuações nos preços de jogos, registrar 
    ```bash
    npm install
    ```
+
 2. Configure o .env.local:
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=
@@ -50,34 +56,45 @@ Sistema responsável por monitorar flutuações nos preços de jogos, registrar 
 
    ITAD_API_KEY=
 
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=465
-   SMTP_USER=seuemail@gmail.com
-   SMTP_PASS=sua_senha_de_aplicativo
-   SMTP_FROM=BananaPrice <seuemail@gmail.com>
+   # SMTP_HOST=
+   # SMTP_PORT=587
+   # SMTP_USER=
+   # SMTP_PASS=
+   # SMTP_FROM=
    ```
+
 3. Aplique as mudanças do banco (migration em supabase/migrations ou pelo SQL Editor do Supabase).
+
 4. Rode:
    ```bash
-   npm run dev
+   npm run dev 
    ```
 
-## Como Testar
-- Teste Unitário de E-mail: Crie uma rota temporária app/api/teste-email/route.ts chamando enviarEmailAlertaPreco para validar o recebimento da mensagem formatada na caixa de entrada.
+## Como testar
+- Login com a Steam e Onboarding:
+   1. Clique em "Entrar com a Steam".
 
-- Teste do Fluxo de Queda de Preço:
+   2. Após autorizar, confirme se o sistema redireciona automaticamente para /completar-cadastro.
 
-1. Adicione um jogo à wishlist da sua conta de teste.
+   3. Preencha o e-mail e a senha desejados.
 
-2. No painel do Supabase, altere manualmente o valor na tabela preco_jogo desse jogo para um valor alto (ex: R$ 200,00).
+   4. Confirme seu e-mail.
 
-3. Crie um mock do ITAD com preço menor (ex: R$ 99,90) e execute a função atualizarPrecosDoJogo.
+   5. Valide se a aplicação redireciona com sucesso para /jogos e libera o acesso às demais páginas.
 
-4. Verifique no console do servidor o log de sucesso e confirme o recebimento do e-mail.
+- Verificação da Wishlist e DLCs:
+   1. Acesse a página de um jogo ou DLC.
 
-- Teste de Login Steam sem E-mail: Faça login com uma conta Steam nova e certifique-se de que o middleware redireciona obrigatoriamente para a rota /completar-cadastro.
+   2. Teste a inclusão e remoção do item na lista de desejos.
 
-## Pendências Conhecidas
-- Limite da Conta Gmail: O uso do SMTP gratuito do Google restringe o volume a ~500 e-mails por dia.
+   3. Verifique se o botão correspondente para DLC exibe as informações e ações adequadas.
 
-- Single Point History: Jogos sem alteração de preço nos últimos 90 dias exigem duplicação visual do primeiro ponto no histórico para permitir a renderização da linha reta nos gráficos.
+- Atualização de Preços e Alertas:
+
+   1. Abra a página de detalhes de um jogo com ofertas para acionar a rota /api/v1/games/[id].
+
+   2. Verifique se os registros de preço atual e histórico foram gravados na tabela preco_jogo.
+
+## Pendências conhecidas
+- Tratamento de Turbo como pagina;
+- Pagamento via webhook.
