@@ -128,11 +128,11 @@ async function buscarJogos() {
                 break;
             }
 
-            if (jogos.length < 10000) {
-                console.log("");
-                console.log("Última página encontrada.");
-                break;
-            }
+            // if (jogos.length < 10000) {
+            //     console.log("");
+            //     console.log("Última página encontrada.");
+            //     break;
+            // }
 
             console.log("");
             console.log("Página concluída. Buscando próxima...");

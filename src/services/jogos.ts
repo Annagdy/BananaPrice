@@ -61,21 +61,21 @@ export async function salvarJogos(
 
         // Busca na API se falta o gênero ou se a classificação adulta ainda não foi verificada
         if (BUSCAR_GENERO && (!genero || adulto === null)) {
-
             const info = await buscarInfoJogo(jogo.id);
-
             genero = genero ?? info.genero;
             adulto = info.adulto ?? adulto;
         }
 
-        // `adulto` entra em TODAS as linhas: o supabase-js preenche com null as colunas que faltam em
-        // algumas linhas do lote, o que apagaria o valor já gravado.
+        // Garante que 'adulto' seja sempre um booleano (false como padrão se continuar null)
+        const adultoTratado = adulto ?? false;
+
+        // `adulto` entra em TODAS as linhas
         linhas.push({
             itad_id: jogo.id,
             titulo: jogo.title,
             slug,
             genero,
-            adulto
+            adulto: adultoTratado
         });
     }
 

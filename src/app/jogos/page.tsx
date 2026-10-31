@@ -14,7 +14,10 @@ import type { Game } from '../../mocks/games'
 import { tema } from '../../mocks/tema'
 import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
 
-/* Formato de cada jogo devolvido por GET /api/v1/games (catálogo, RF06). */
+/* Mínimo de letras para pesquisar (a busca do servidor usa trigramas e precisa de 3). */
+const MIN_BUSCA = 3
+
+/* Formato de cada jogo devolvido por GET /api/v1/games (catálogo e pesquisa, RF06). */
 type JogoApi = {
   id: number
   titulo: string
@@ -81,36 +84,11 @@ function Grupo({
   )
 }
 
+/* Página /jogos: catálogo com filtros e pesquisa por nome, tudo em GET /api/v1/games.
+A pesquisa e os filtros valem juntos e usam a mesma lista de cards e a mesma paginação. */
 export default function JogosPage() {
-  // pesquisa por nome (código original, usa ?busca=)
-
-  type PromocaoBusca = {
-    valor_atual: number | null
-    percentual_desconto: number | null
-    atualizado_em: string
-    loja: { nome: string } | { nome: string }[] | null
-  }
-
-  type JogoEncontrado = {
-    id_jogo: number
-    titulo: string
-    itad_id: string | null
-    promocoes: PromocaoBusca[]
-  }
-
-  type ResultadoBuscaJogo = {
-    nomePesquisado: string
-    jogosEncontrados: JogoEncontrado[]
-  }
-
-  // Pesquisa por nome e resultados encontrados no Supabase.
-  const [resultadoBusca, setResultadoBusca] =
-    useState<ResultadoBuscaJogo[]>([])
-
+  // texto da pesquisa (vem da barra de busca do Nav)
   const [busca, setBusca] = useState('')
-  const [carregandoBusca, setCarregandoBusca] = useState(false)
-  const [erroBusca, setErroBusca] = useState<string | null>(null)
-
 
   // filtros do catálogo
   const [precoMax, setPrecoMax] = useState<number | null>(null)
@@ -121,11 +99,14 @@ export default function JogosPage() {
   // conteúdo adulto: oculto por padrão, a pessoa precisa ativar (fica salvo em cookie)
   const [adulto, setAdulto] = useState(false)
 
-  // dados do catálogo vindos da API
+  // dados vindos da API
   const [jogos, setJogos] = useState<JogoApi[]>([])
   const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(true)
-  const [erroCatalogo, setErroCatalogo] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const termo = busca.trim()
+  const buscaCurta = termo.length > 0 && termo.length < MIN_BUSCA
 
   const totalPaginas = Math.max(1, Math.ceil(total / PER_PAGE))
   const atual = Math.min(pagina, totalPaginas)
@@ -165,101 +146,55 @@ export default function JogosPage() {
     setAdulto(adultoAtivoNoNavegador())
   }, [])
 
-  // catálogo com filtros: GET /api/v1/games?price=&discount=&store=&page=&limit=
+  // GET /api/v1/games?search=&price=&discount=&store=&page=&limit=
+  // A pesquisa espera 300 ms depois da última tecla para não chamar a API a cada letra.
   useEffect(() => {
-    // com texto digitado, quem responde é a pesquisa por nome
-    if (busca.trim()) return undefined
-
-    const controller = new AbortController()
-    const params = new URLSearchParams({
-      page: String(pagina),
-      limit: String(PER_PAGE),
-    })
-    if (precoMax !== null) params.set('price', String(precoMax))
-    if (corteMin !== null) params.set('discount', String(corteMin))
-    if (lojas.length) params.set('store', lojas.join(','))
-
-    setCarregando(true)
-    setErroCatalogo(null)
-
-    fetch(`/api/v1/games?${params}`, { signal: controller.signal })
-      .then(async (res) => {
-        const json = await res.json().catch(() => null)
-        if (!res.ok) {
-          throw new Error(json?.error ?? 'Erro ao carregar as ofertas.')
-        }
-        setJogos(json.jogos ?? [])
-        setTotal(json.total ?? 0)
-      })
-      .catch((e: Error) => {
-        if (e.name !== 'AbortError') setErroCatalogo(e.message)
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setCarregando(false)
-      })
-
-    return () => controller.abort()
-  }, [busca, precoMax, corteMin, lojas, pagina, adulto])
-
-  // pesquisa por nome: GET /api/v1/games?busca= (rota do Python/Gemini, sem alteração)
-
-  useEffect(() => {
-    const termo = busca.trim()
-
-    if (!termo) {
-      setResultadoBusca([])
-      setErroBusca(null)
-      setCarregandoBusca(false)
-      return
+    // 1 ou 2 letras: ainda não pesquisa, só avisa
+    if (buscaCurta) {
+      setJogos([])
+      setTotal(0)
+      setErro(null)
+      setCarregando(false)
+      return undefined
     }
 
     const controller = new AbortController()
 
-    async function pesquisar() {
-      setCarregandoBusca(true)
-      setErroBusca(null)
-      setResultadoBusca([])
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({
+        page: String(pagina),
+        limit: String(PER_PAGE),
+      })
+      if (termo) params.set('search', termo)
+      if (precoMax !== null) params.set('price', String(precoMax))
+      if (corteMin !== null) params.set('discount', String(corteMin))
+      if (lojas.length) params.set('store', lojas.join(','))
 
-      try {
-        const resposta = await fetch(
-          `/api/v1/games?busca=${encodeURIComponent(termo)}`,
-          { signal: controller.signal }
-        )
+      setCarregando(true)
+      setErro(null)
 
-        const dados = await resposta.json()
+      fetch(`/api/v1/games?${params}`, { signal: controller.signal })
+        .then(async (res) => {
+          const json = await res.json().catch(() => null)
+          if (!res.ok) {
+            throw new Error(json?.error ?? 'Erro ao carregar as ofertas.')
+          }
+          setJogos(json.jogos ?? [])
+          setTotal(json.total ?? 0)
+        })
+        .catch((e: Error) => {
+          if (e.name !== 'AbortError') setErro(e.message)
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setCarregando(false)
+        })
+    }, termo ? 300 : 0)
 
-        if (!resposta.ok) {
-          throw new Error(
-            dados.erro || `Erro HTTP: ${resposta.status}`
-          )
-        }
-
-        if (!controller.signal.aborted) {
-          setResultadoBusca(dados.resultados ?? [])
-        }
-      } catch (erro) {
-        if (
-          !controller.signal.aborted &&
-          !(erro instanceof Error && erro.name === 'AbortError')
-        ) {
-          setErroBusca(
-            erro instanceof Error
-              ? erro.message
-              : 'Erro desconhecido ao pesquisar.'
-          )
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setCarregandoBusca(false)
-        }
-      }
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
     }
-
-    pesquisar()
-
-    return () => controller.abort()
-  }, [busca])
-
+  }, [termo, buscaCurta, precoMax, corteMin, lojas, pagina, adulto])
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -275,7 +210,8 @@ export default function JogosPage() {
 
       <section className="px-[55px] pt-2.5 max-[640px]:px-4">
         <h1 className="flex items-center gap-3 p-5 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
-          <TagIcon width={56} height={56} /> Ofertas do Momento
+          <TagIcon width={56} height={56} />
+          {termo && !buscaCurta ? `Resultados para “${termo}”` : 'Ofertas do Momento'}
         </h1>
       </section>
 
@@ -345,135 +281,23 @@ export default function JogosPage() {
             aria-label="Ofertas"
             className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8"
           >
-
-            {busca.trim() ? (
-              carregandoBusca ? (
-                <p className="py-16 text-center text-bp-muted">
-                  Buscando jogos e consultando promoções no Supabase...
-                </p>
-              ) : erroBusca ? (
-                <p role="alert" className="py-16 text-center text-red-400">
-                  {erroBusca}
-                </p>
-              ) : resultadoBusca.length === 0 ? (
-                <p className="py-16 text-center text-bp-muted">
-                  Nenhum jogo relacionado foi encontrado.
-                </p>
-              ) : (
-                <div className="flex w-full flex-col gap-6">
-                  {resultadoBusca.map((resultado, indice) => (
-                    <article
-                      key={`${resultado.nomePesquisado}-${indice}`}
-                      className="w-full rounded-2xl border border-bp-muted/20 p-5 shadow-sm"
-                    >
-                      <h2 className="mb-4 text-xl font-bold text-bp-primary">
-                        {resultado.nomePesquisado}
-                      </h2>
-
-                      {(resultado.jogosEncontrados ?? []).length === 0 ? (
-                        <p className="text-bp-muted">
-                          Nenhuma correspondência encontrada no banco de dados.
-                        </p>
-                      ) : (
-                        <div className="flex flex-col gap-5">
-                          {(resultado.jogosEncontrados ?? []).map((jogo) => (
-                            <div
-                              key={jogo.id_jogo}
-                              className="rounded-xl bg-bp-muted/5 p-4"
-                            >
-                              <h3 className="mb-3 font-semibold">
-                                {jogo.titulo}
-                              </h3>
-
-                              <p className="mb-3 text-sm text-bp-muted">
-                                ID no banco: {jogo.id_jogo}
-                                {jogo.itad_id
-                                  ? ` | ITAD: ${jogo.itad_id}`
-                                  : ''}
-                              </p>
-
-                              {jogo.promocoes.length === 0 ? (
-                                <p className="text-sm text-bp-muted">
-                                  Nenhuma promoção cadastrada.
-                                </p>
-                              ) : (
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-left text-sm">
-                                    <thead>
-                                      <tr className="border-b border-bp-muted/20">
-                                        <th className="p-2">Loja</th>
-                                        <th className="p-2">Preço atual</th>
-                                        <th className="p-2">Desconto</th>
-                                        <th className="p-2">Atualizado em</th>
-                                      </tr>
-                                    </thead>
-
-                                    <tbody>
-                                      {jogo.promocoes.map((promocao, i) => {
-                                        const loja = Array.isArray(promocao.loja)
-                                          ? promocao.loja[0]?.nome
-                                          : promocao.loja?.nome
-
-                                        return (
-                                          <tr
-                                            key={`${jogo.id_jogo}-${loja ?? 'loja'}-${i}`}
-                                            className="border-b border-bp-muted/10"
-                                          >
-                                            <td className="p-2">
-                                              {loja ?? 'Loja não identificada'}
-                                            </td>
-
-                                            <td className="p-2 font-semibold">
-                                              {promocao.valor_atual == null
-                                                ? 'Não informado'
-                                                : promocao.valor_atual.toLocaleString(
-                                                    'pt-BR',
-                                                    {
-                                                      style: 'currency',
-                                                      currency: 'BRL',
-                                                    }
-                                                  )}
-                                            </td>
-
-                                            <td className="p-2">
-                                              {promocao.percentual_desconto == null
-                                                ? 'Não informado'
-                                                : `${promocao.percentual_desconto}%`}
-                                            </td>
-
-                                            <td className="p-2">
-                                              {promocao.atualizado_em
-                                                ? new Date(
-                                                    promocao.atualizado_em
-                                                  ).toLocaleString('pt-BR')
-                                                : 'Não informado'}
-                                            </td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )
+            {buscaCurta ? (
+              <p className="py-16 text-center text-bp-muted">
+                Digite pelo menos {MIN_BUSCA} letras para pesquisar.
+              </p>
             ) : carregando ? (
               <p className="py-16 text-center text-bp-muted">
-                Carregando...
+                {termo ? 'Pesquisando...' : 'Carregando...'}
               </p>
-            ) : erroCatalogo ? (
+            ) : erro ? (
               <p role="alert" className="py-16 text-center text-red-400">
-                {erroCatalogo}
+                {erro}
               </p>
             ) : jogos.length === 0 ? (
               <p className="py-16 text-center text-bp-muted">
-                Nenhuma oferta encontrada com esses filtros.
+                {termo
+                  ? `Nenhum jogo encontrado para “${termo}”.`
+                  : 'Nenhuma oferta encontrada com esses filtros.'}
               </p>
             ) : (
               <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
@@ -490,8 +314,7 @@ export default function JogosPage() {
               </ul>
             )}
 
-
-            {!busca.trim() && (
+            {!buscaCurta && (
               <nav
                 aria-label="Paginação"
                 className="flex items-center gap-[73px] rounded-3xl bg-bp-nav p-2.5 max-[640px]:gap-10"
