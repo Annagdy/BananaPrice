@@ -7,7 +7,6 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -49,7 +48,6 @@ def inserir_texto(elemento, texto):
     elemento.send_keys(Keys.BACKSPACE)
     elemento.send_keys(texto)
 
-    # Confirma se o texto foi inserido no campo.
     conteudo = (
         elemento.get_attribute("value")
         or elemento.get_attribute("textContent")
@@ -67,7 +65,6 @@ def inserir_texto(elemento, texto):
 def enviar_pergunta(driver, caixa):
     time.sleep(1)
 
-    # Tenta enviar pelo botão da interface.
     clicou = driver.execute_script("""
         const botoes = [...document.querySelectorAll('button')];
 
@@ -92,7 +89,6 @@ def enviar_pergunta(driver, caixa):
         return false;
     """)
 
-    # Alternativa caso o botão não seja encontrado.
     if not clicou:
         caixa.send_keys(Keys.CONTROL, Keys.ENTER)
 
@@ -112,78 +108,170 @@ def pesquisarGoogle(busca):
 
         caixa = encontrar_caixa_de_texto(driver)
 
-        # String original da pergunta.
         pergunta = (
-            f'Atualmente quais são os nomes exatos dos jogos da {busca}, os relacionados diretamente ao {busca} e os que são continuação deles que consigo encontrar no isthereanydeal?'
-            'OBS: Apenas o nome do jogo (caso seja mais de um, '
-            'colocar apenas os nomes separados por ","). Caso não encontre nada, responda apenas "NOT JOGO"'
+            f'Pesquise no catálogo do IsThereAnyDeal (ITAD) todos os jogos relacionados ao termo "{busca}". '
+
+            'A pesquisa deve seguir obrigatoriamente estas etapas: '
+
+            '1. Encontre todos os jogos cujo título corresponda ao termo pesquisado, preservando seus nomes oficiais e exatos. '
+
+            '2. Encontre todos os outros jogos pertencentes à mesma franquia, série ou universo dos jogos encontrados, incluindo spin-offs e títulos derivados. '
+
+            '3. Encontre todas as continuações (sequências), prequelas e demais jogos que deem continuidade à franquia ou à história dos jogos identificados. '
+
+            f'4. Pesquise também todos os jogos disponíveis no IsThereAnyDeal que contenham "{busca}" em qualquer parte do título, mesmo que não tenham relação com a franquia ou com o jogo original. '
+
+            'REGRAS OBRIGATÓRIAS: '
+            '- Consulte exclusivamente jogos que estejam disponíveis no catálogo do IsThereAnyDeal. '
+            '- Não invente nomes nem inclua jogos que não estejam no catálogo. '
+            '- Não limite a pesquisa aos primeiros resultados. '
+            '- Não ignore jogos relacionados, continuações, prequelas ou spin-offs. '
+            '- Elimine nomes duplicados. '
+            '- Preserve a grafia oficial dos títulos, incluindo números, subtítulos e caracteres especiais. '
+            '- Se não encontrar resultados inicialmente, repita a pesquisa usando variações do termo pesquisado e verificando outras grafias. '
+
+            'FORMATO DA RESPOSTA: '
+            'Retorne exclusivamente os nomes exatos dos jogos encontrados, separados por vírgulas. '
+            'Não inclua explicações, categorias, numeração, links ou qualquer texto adicional. '
+            'Se, após repetir a pesquisa, nenhum jogo for encontrado, responda exatamente: NOT JOGO.'
         )
 
-        inserir_texto(caixa, pergunta)
-        enviar_pergunta(driver, caixa)
+        pergunta_repetida = (
+            f'Verifique novamente de forma bem minuciosa se no catálogo do IsThereAnyDeal (ITAD) há algum jogo que contenha o nome "{busca}" em seu título, ou que seja relacionado ao termo "{busca}" ou ao jogo {busca}! '
+            'Se houver, traga os nomes dos jogos separados por vírgulas (,), caso não tenha, retorne apenas a string "NOT JOGO".'
+        )
 
-        # Aguarda uma resposta diferente da pergunta enviada.
+        pergunta_final = (
+            f'Há algum jogo de {busca} na isthereanydeall? Procure a resposta em todos os sites que puder.'
+            'Se houver, traga os nomes dos jogos separados por vírgulas (,), caso não tenha, retorne apenas a string "NOT JOGO".'
+        )
+
         seletores_resposta = [
             (By.CSS_SELECTOR, "model-response"),
             (By.CSS_SELECTOR, "[data-message-author-role='assistant']"),
             (By.CSS_SELECTOR, ".message-content"),
         ]
 
-        def obter_resposta(d):
+        def obter_blocos_resposta(d):
+            blocos_encontrados = []
+
             for tipo, seletor in seletores_resposta:
                 try:
                     blocos = d.find_elements(tipo, seletor)
 
-                    for bloco in reversed(blocos):
-                        if not bloco.is_displayed():
-                            continue
+                    for bloco in blocos:
+                        if bloco.is_displayed():
+                            if bloco not in blocos_encontrados:
+                                blocos_encontrados.append(bloco)
 
-                        texto = (bloco.text or "").strip()
-
-                        if (
-                            texto
-                            and texto != pergunta
-                            and "Buscando fontes" not in texto
-                            and texto != "Pesquisando na internet"
-                        ):
-                            return texto
+                    if blocos_encontrados:
+                        return blocos_encontrados
 
                 except StaleElementReferenceException:
                     continue
 
-            return False
+            return []
+
+        def obter_resposta_nova(d, quantidade_anterior):
+            blocos = obter_blocos_resposta(d)
+
+            if len(blocos) <= quantidade_anterior:
+                return False
+
+            try:
+                bloco = blocos[-1]
+                texto = (bloco.text or "").strip()
+
+                if (
+                    not texto
+                    or texto == pergunta
+                    or texto == pergunta_repetida
+                    or "Buscando fontes" in texto
+                    or "Pesquisando na internet" in texto
+                ):
+                    return False
+
+                return texto
+
+            except StaleElementReferenceException:
+                return False
 
         espera = WebDriverWait(driver, 120, poll_frequency=1)
-        texto_resposta = espera.until(obter_resposta)
 
-        # Espera a resposta parar de mudar antes de capturá-la.
-        anterior = ""
-        repeticoes = 0
+        for tentativa in range(1, 4):
 
-        for _ in range(20):
-            atual = obter_resposta(driver)
+            quantidade_anterior = len(obter_blocos_resposta(driver))
 
-            if atual and atual == anterior:
-                repeticoes += 1
+            caixa = encontrar_caixa_de_texto(driver)
 
-                if repeticoes >= 3:
-                    texto_resposta = atual
-                    break
+            # Primeira tentativa usa a pergunta original.
+            # Segunda e terceira usam a pergunta de verificação.
+            
+            if tentativa == 1:
+                pergunta_atual = pergunta
+            elif tentativa == 2:
+                pergunta_atual = pergunta_repetida
             else:
-                repeticoes = 0
+                pergunta_atual = pergunta_final
 
-                if atual:
-                    texto_resposta = atual
+            inserir_texto(caixa, pergunta_atual)
+            enviar_pergunta(driver, caixa)
 
-            anterior = atual or ""
-            time.sleep(1)
-
-        texto_resposta = texto_resposta.strip()
-
-        if not texto_resposta:
-            raise TimeoutException(
-                "O Gemini não retornou uma resposta válida."
+            print(
+                f"Pergunta enviada. Tentativa {tentativa}/3.",
+                file=sys.stderr
             )
+
+            texto_resposta = espera.until(
+                lambda d: obter_resposta_nova(d, quantidade_anterior)
+            )
+
+            anterior = ""
+            repeticoes = 0
+
+            for _ in range(30):
+                atual = obter_resposta_nova(
+                    driver,
+                    quantidade_anterior
+                )
+
+                if atual and atual == anterior:
+                    repeticoes += 1
+
+                    if repeticoes >= 3:
+                        texto_resposta = atual
+                        break
+                else:
+                    repeticoes = 0
+
+                    if atual:
+                        texto_resposta = atual
+
+                anterior = atual or ""
+                time.sleep(1)
+
+            texto_resposta = texto_resposta.strip()
+
+            if not texto_resposta:
+                raise TimeoutException(
+                    "O Gemini não retornou uma resposta válida."
+                )
+
+            # Na terceira tentativa, aceita qualquer resposta.
+            if tentativa == 3:
+                return texto_resposta
+
+            # Só repete se a resposta contiver NOT JOGO.
+            if "NOT JOGO" not in texto_resposta.upper():
+                return texto_resposta
+
+            print(
+                f"NOT JOGO recebido. Preparando tentativa "
+                f"{tentativa + 1}/3...",
+                file=sys.stderr
+            )
+
+            time.sleep(2)
 
         return texto_resposta
 

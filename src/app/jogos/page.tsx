@@ -87,25 +87,20 @@ export default function JogosPage() {
   type PromocaoBusca = {
     valor_atual: number | null
     percentual_desconto: number | null
-    atualizado_em: string
+    atualizado_em: string | null
     loja: { nome: string } | { nome: string }[] | null
   }
 
   type JogoEncontrado = {
     id_jogo: number
     titulo: string
-    itad_id: string | null
+    itad_id: string | number
     promocoes: PromocaoBusca[]
-  }
-
-  type ResultadoBuscaJogo = {
-    nomePesquisado: string
-    jogosEncontrados: JogoEncontrado[]
   }
 
   // Pesquisa por nome e resultados encontrados no Supabase.
   const [resultadoBusca, setResultadoBusca] =
-    useState<ResultadoBuscaJogo[]>([])
+    useState<JogoEncontrado[]>([])
 
   const [busca, setBusca] = useState('')
   const [carregandoBusca, setCarregandoBusca] = useState(false)
@@ -235,7 +230,11 @@ export default function JogosPage() {
         }
 
         if (!controller.signal.aborted) {
-          setResultadoBusca(dados.resultados ?? [])
+          setResultadoBusca(
+            Array.isArray(dados.jogosEncontrados)
+              ? dados.jogosEncontrados
+              : []
+          )
         }
       } catch (erro) {
         if (
@@ -360,108 +359,87 @@ export default function JogosPage() {
                   Nenhum jogo relacionado foi encontrado.
                 </p>
               ) : (
-                <div className="flex w-full flex-col gap-6">
-                  {resultadoBusca.map((resultado, indice) => (
-                    <article
-                      key={`${resultado.nomePesquisado}-${indice}`}
-                      className="w-full rounded-2xl border border-bp-muted/20 p-5 shadow-sm"
-                    >
-                      <h2 className="mb-4 text-xl font-bold text-bp-primary">
-                        {resultado.nomePesquisado}
-                      </h2>
+                  <div className="flex w-full flex-col gap-6">
+                    {resultadoBusca.map((jogo) => (
+                      <article
+                        key={jogo.id_jogo}
+                        className="w-full rounded-2xl border border-bp-muted/20 p-5 shadow-sm"
+                      >
+                        <h2 className="mb-3 text-xl font-bold text-bp-primary">
+                          {jogo.titulo}
+                        </h2>
 
-                      {(resultado.jogosEncontrados ?? []).length === 0 ? (
-                        <p className="text-bp-muted">
-                          Nenhuma correspondência encontrada no banco de dados.
+                        <p className="mb-4 text-sm text-bp-muted">
+                          ID no banco: {jogo.id_jogo}
+                          {jogo.itad_id ? ` | ITAD: ${jogo.itad_id}` : ''}
                         </p>
-                      ) : (
-                        <div className="flex flex-col gap-5">
-                          {(resultado.jogosEncontrados ?? []).map((jogo) => (
-                            <div
-                              key={jogo.id_jogo}
-                              className="rounded-xl bg-bp-muted/5 p-4"
-                            >
-                              <h3 className="mb-3 font-semibold">
-                                {jogo.titulo}
-                              </h3>
 
-                              <p className="mb-3 text-sm text-bp-muted">
-                                ID no banco: {jogo.id_jogo}
-                                {jogo.itad_id
-                                  ? ` | ITAD: ${jogo.itad_id}`
-                                  : ''}
-                              </p>
+                        {jogo.promocoes.length === 0 ? (
+                          <p className="text-sm text-bp-muted">
+                            Nenhuma promoção cadastrada.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                              <thead>
+                                <tr className="border-b border-bp-muted/20">
+                                  <th className="p-2">Loja</th>
+                                  <th className="p-2">Preço atual</th>
+                                  <th className="p-2">Desconto</th>
+                                  <th className="p-2">Atualizado em</th>
+                                </tr>
+                              </thead>
 
-                              {jogo.promocoes.length === 0 ? (
-                                <p className="text-sm text-bp-muted">
-                                  Nenhuma promoção cadastrada.
-                                </p>
-                              ) : (
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-left text-sm">
-                                    <thead>
-                                      <tr className="border-b border-bp-muted/20">
-                                        <th className="p-2">Loja</th>
-                                        <th className="p-2">Preço atual</th>
-                                        <th className="p-2">Desconto</th>
-                                        <th className="p-2">Atualizado em</th>
-                                      </tr>
-                                    </thead>
+                              <tbody>
+                                {jogo.promocoes.map((promocao, i) => {
+                                  const loja = Array.isArray(promocao.loja)
+                                    ? promocao.loja[0]?.nome
+                                    : promocao.loja?.nome
 
-                                    <tbody>
-                                      {jogo.promocoes.map((promocao, i) => {
-                                        const loja = Array.isArray(promocao.loja)
-                                          ? promocao.loja[0]?.nome
-                                          : promocao.loja?.nome
+                                  return (
+                                    <tr
+                                      key={`${jogo.id_jogo}-${loja ?? 'loja'}-${i}`}
+                                      className="border-b border-bp-muted/10"
+                                    >
+                                      <td className="p-2">
+                                        {loja ?? 'Loja não identificada'}
+                                      </td>
 
-                                        return (
-                                          <tr
-                                            key={`${jogo.id_jogo}-${loja ?? 'loja'}-${i}`}
-                                            className="border-b border-bp-muted/10"
-                                          >
-                                            <td className="p-2">
-                                              {loja ?? 'Loja não identificada'}
-                                            </td>
+                                      <td className="p-2 font-semibold">
+                                        {promocao.valor_atual == null
+                                          ? 'Não informado'
+                                          : promocao.valor_atual.toLocaleString(
+                                              'pt-BR',
+                                              {
+                                                style: 'currency',
+                                                currency: 'BRL',
+                                              }
+                                            )}
+                                      </td>
 
-                                            <td className="p-2 font-semibold">
-                                              {promocao.valor_atual == null
-                                                ? 'Não informado'
-                                                : promocao.valor_atual.toLocaleString(
-                                                    'pt-BR',
-                                                    {
-                                                      style: 'currency',
-                                                      currency: 'BRL',
-                                                    }
-                                                  )}
-                                            </td>
+                                      <td className="p-2">
+                                        {promocao.percentual_desconto == null
+                                          ? 'Não informado'
+                                          : `${promocao.percentual_desconto}%`}
+                                      </td>
 
-                                            <td className="p-2">
-                                              {promocao.percentual_desconto == null
-                                                ? 'Não informado'
-                                                : `${promocao.percentual_desconto}%`}
-                                            </td>
-
-                                            <td className="p-2">
-                                              {promocao.atualizado_em
-                                                ? new Date(
-                                                    promocao.atualizado_em
-                                                  ).toLocaleString('pt-BR')
-                                                : 'Não informado'}
-                                            </td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
+                                      <td className="p-2">
+                                        {promocao.atualizado_em
+                                          ? new Date(
+                                              promocao.atualizado_em
+                                            ).toLocaleString('pt-BR')
+                                          : 'Não informado'}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
               )
             ) : carregando ? (
               <p className="py-16 text-center text-bp-muted">

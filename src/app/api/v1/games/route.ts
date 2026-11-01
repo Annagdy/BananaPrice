@@ -74,7 +74,7 @@ async function pesquisarNomesOficiais(
     'api',
     'v1',
     'games',
-    'pesquisaNomeJogo.py'
+    'pesquisaNomeGPT.py'//NOME ARQUIVO SELENIUM
   );
 
   const { stdout } = await execFileAsync(
