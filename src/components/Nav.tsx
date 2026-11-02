@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { logo } from './assets'
 import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons'
+import { createClient } from '@/lib/supabase.ts/client.ts'
 
 type NavProps = {
   /** Só a página do catálogo passa isto: a pesquisa é tratada ali mesmo. As demais páginas não passam,
@@ -87,10 +88,22 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
         </button>
       </form>
 
-      {logado ? (
+      {estaLogado ? (
         <div className="flex shrink-0 items-center gap-[19px] pr-2.5 max-[640px]:gap-3">
-          <Link href="/notificacoes" aria-label="Notificações" className="text-bp-muted/70 hover:text-bp-primary">
+          <Link
+            href="/notificacoes"
+            aria-label="Notificações"
+            className="relative text-bp-muted/70 hover:text-bp-primary"
+          >
             <BellIcon />
+            {naoLidas > 0 && (
+              <span
+                className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-bp-primary px-1 text-[10px] font-extrabold text-bp-neutral ring-2 ring-bp-nav"
+                aria-label={`${naoLidas} notificações não lidas`}
+              >
+                {naoLidas > 99 ? '99+' : naoLidas}
+              </span>
+            )}
           </Link>
           <Link
             href="/lista-de-desejos"

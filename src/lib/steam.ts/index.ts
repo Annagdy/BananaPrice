@@ -255,3 +255,38 @@ export async function importarWishlistSteam(idUsuario: number, steamId: string):
 
     return idsJogos.length;
 }
+
+/* Busca os appids dos DLCs de um jogo na loja da Steam ('/api/appdetails', campo 'dlc').
+
+Endpoint não oficial e sem chave. Usa o chamarSteam do arquivo (retentativas em 429/5xx) com limite de 4 s.
+Em qualquer falha devolve lista vazia, para a página do jogo seguir sem DLCs.
+
+@param appid Código do jogo na Steam.
+@returns appids dos DLCs (vazia se o jogo não tem DLCs ou a busca falhou).
+*/
+export async function buscarDlcsSteam(appid: number): Promise<number[]> {
+
+    try {
+
+        const resposta = await chamarSteam(
+            "DLCs Steam",
+            `https://store.steampowered.com/api/appdetails?appids=${appid}`,
+            { signal: AbortSignal.timeout(4000) }
+        );
+
+        if (!resposta.ok) {
+            return [];
+        }
+
+        const json = await resposta.json();
+        const dlcs = json?.[String(appid)]?.data?.dlc;
+
+        return Array.isArray(dlcs) ? dlcs.filter((n: unknown) => Number.isInteger(n)) : [];
+
+    } catch (erro: any) {
+
+        console.log("Não foi possível buscar os DLCs na Steam:", erro?.message ?? erro);
+
+        return [];
+    }
+}

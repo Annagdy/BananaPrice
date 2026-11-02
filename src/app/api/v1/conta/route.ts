@@ -3,14 +3,44 @@ import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
 /*
+GET /api/v1/conta: retorna os dados e preferências da conta logada.
+@returns 200 { id, nomeUsuario, email, notificarEmail }; 401 não autenticado; 404 usuário não encontrado.
+*/
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const { data: atual } = await supabaseAdmin
+    .from("usuario")
+    .select("id_usuario, nome_usuario, email, notificar_email")
+    .eq("auth_id", user.id)
+    .maybeSingle();
+
+  if (!atual) {
+    return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    id: atual.id_usuario,
+    nomeUsuario: atual.nome_usuario,
+    email: user.email ?? atual.email,
+    notificarEmail: atual.notificar_email ?? true,
+  });
+}
+
+/*
 PATCH /api/v1/conta: altera os dados da conta logada. Todos os campos são opcionais.
 
 - nomeUsuario: valida formato e unicidade; atualiza "usuario" e o user_metadata.
 - email: o Supabase envia um link de confirmação ao NOVO endereço; só vale depois do clique.
   Não aceita endereços @steam.local.
 - senha: mínimo 8 caracteres. Permite entrar por e-mail em contas criadas pela Steam.
+- notificarEmail: boolean com preferência de recebimento de e-mails de alerta.
 
-@body { nomeUsuario?, email?, senha? }
+@body { nomeUsuario?, email?, senha?, notificarEmail? }
 @returns 200 { ok, aviso }; 400 dado inválido; 401 não autenticado; 404 usuário não encontrado;
          409 nome de usuário em uso.
 */
@@ -28,6 +58,7 @@ export async function PATCH(request: Request) {
   const nomeUsuario = String(body?.nomeUsuario ?? "").trim().toLowerCase();
   const email = String(body?.email ?? "").trim().toLowerCase();
   const senha = String(body?.senha ?? "");
+  const notificarEmail = typeof body?.notificarEmail === "boolean" ? body.notificarEmail : undefined;
 
   const { data: atual } = await supabaseAdmin
     .from("usuario")
@@ -97,6 +128,17 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     avisos.push("Senha definida.");
+  }
+
+  // --- preferência de e-mail de alerta ---
+  if (notificarEmail !== undefined) {
+    const { error } = await supabaseAdmin
+      .from("usuario")
+      .update({ notificar_email: notificarEmail })
+      .eq("id_usuario", atual.id_usuario);
+    if (error) {
+      console.error("[PATCH conta] update notificar_email:", error);
+    }
   }
 
   return NextResponse.json({ ok: true, aviso: avisos.join(" ") || "Dados salvos!" });

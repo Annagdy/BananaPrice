@@ -429,6 +429,55 @@ export async function buscarCapa(itadId: string): Promise<string | null> {
     }
 }
 
+/* Cache em memória das informações básicas (capa e appid da Steam). */
+const cacheInfoBasica = new Map<string, { expira: number; info: { capa: string | null; appid: number | null } }>();
+const TTL_INFO_MS = 24 * 60 * 60 * 1000;
+
+/* Busca capa e appid da Steam de um jogo no ITAD ('/games/info/v2', campos 'assets' e 'appid').
+
+Roda dentro da requisição do usuário, então não espera em caso de 429: em qualquer falha devolve
+{ capa: null, appid: null }.
+
+@param itadId Id do jogo no ITAD (jogo.itad_id).
+@returns { capa, appid }: capa é a URL https (banner600, com reserva nos menores e na boxart) e appid é o
+         código do jogo na Steam (nulo se não estiver na Steam).
+*/
+export async function buscarInfoBasica(itadId: string): Promise<{ capa: string | null; appid: number | null }> {
+
+    const emCache = cacheInfoBasica.get(itadId);
+
+    if (emCache && emCache.expira > Date.now()) {
+        return emCache.info;
+    }
+
+    try {
+
+        const response = await axios.get(
+            `${URL_API_ITAD}/games/info/v2`,
+            { params: { id: itadId, key: obterChaveItad() }, timeout: 5000 }
+        );
+
+        const assets = response.data?.assets ?? {};
+        const url = assets.banner600 ?? assets.banner400 ?? assets.banner300 ?? assets.boxart ?? null;
+        const appid = Number(response.data?.appid);
+
+        const info = {
+            capa: typeof url === "string" && url.startsWith("https://") ? url : null,
+            appid: Number.isInteger(appid) && appid > 0 ? appid : null
+        };
+
+        cacheInfoBasica.set(itadId, { expira: Date.now() + TTL_INFO_MS, info });
+
+        return info;
+
+    } catch (erro: any) {
+
+        console.log("Não foi possível buscar as informações do jogo:", erro.response?.data ?? erro.message);
+
+        return { capa: null, appid: null };
+    }
+}
+
 /* Monta a URL da capa de um jogo direto pelo itad_id, SEM chamar a API.
 
 As imagens do ITAD seguem o padrão https://assets.isthereanydeal.com/<itad_id>/<tamanho>.jpg, então

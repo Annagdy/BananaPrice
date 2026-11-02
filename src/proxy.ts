@@ -1,18 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-/*
-Roda antes de cada requisição: renova a sessão do Supabase e protege as rotas.
-
-- Sem login, páginas protegidas (/conta, /lista-de-desejos, /notificacoes) redirecionam para
-  /login?next=<rota>.
-- Com login, /login e /cadastro redirecionam para /conta.
-
-Usa getUser() (valida o token no servidor) em vez de getSession().
-
-@param request Requisição recebida pelo Next.
-@returns A resposta com os cookies de sessão atualizados, ou um redirecionamento.
-*/
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
@@ -31,15 +19,52 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  let user = null
+
   try {
-    await supabase.auth.getUser()
+    const { data } = await supabase.auth.getUser()
+    user = data.user
   } catch {
-    // Token stale/inválido — ignora, o usuário vai se logar de novo
+    // Token inválido/inexistente
+  }
+
+  const pathname = request.nextUrl.pathname
+
+  // 1. Se NÃO está autenticado e tenta aceder a /completar-cadastro, manda para o login
+  if (!user && pathname === '/completar-cadastro') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (user) {
+    const loginViaSteam =
+      user.app_metadata?.provider === 'steam' ||
+      user.app_metadata?.providers?.includes('steam') ||
+      user.email?.endsWith('@steam.local')
+
+    const cadastroIncompleto =
+      !user.email ||
+      user.email.endsWith('@steam.local') ||
+      (loginViaSteam && user.user_metadata?.cadastro_completo !== true)
+
+    // 2. Se o cadastro está incompleto e NÃO está na página /completar-cadastro, redireciona
+    if (cadastroIncompleto && pathname !== '/completar-cadastro') {
+      return NextResponse.redirect(new URL('/completar-cadastro', request.url))
+    }
+
+    // 3. Se o cadastro já ESTÁ completo, impede de aceder a /completar-cadastro, /login e /cadastro
+    if (!cadastroIncompleto && (pathname === '/login' || pathname === '/cadastro' || pathname === '/completar-cadastro')) {
+      return NextResponse.redirect(new URL('/conta', request.url))
+    }
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
-}   
+  matcher: [
+    /*
+     * Ignora ficheiros estáticos, imagens e rotas de API/Auth para evitar loops
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
