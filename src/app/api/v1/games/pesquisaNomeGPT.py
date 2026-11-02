@@ -1,6 +1,6 @@
-
 import sys
 import json
+import os
 import time
 
 from selenium import webdriver
@@ -72,7 +72,9 @@ def inserir_texto(driver, caixa, texto):
         {"text": texto}
     )
 
-    log("Confirmando inserção...")
+    # log("Confirmando inserção...")
+    # caixa.send_keys(" ")
+    caixa.send_keys(Keys.BACKSPACE)
 
     try:
         WebDriverWait(driver, 15).until(
@@ -303,24 +305,68 @@ def obter_resposta_final(
     )
 
 
-def pesquisarChatGPT(busca):
+class CaixaNaoEncontrada(Exception):
+    """A página abriu, mas a caixa de texto do ChatGPT não apareceu a tempo."""
+
+
+def criar_driver(modo):
+    """Abre o Chrome de acordo com o modo pedido.
+
+    - "headless": sem janela nenhuma (nada aparece na tela nem na barra de tarefas).
+    - "fora":     janela normal, mas posicionada fora da área visível do monitor.
+    - "visivel":  janela maximizada, como antes (útil para depurar).
+    """
     options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
     options.add_argument("--lang=pt-BR")
 
+    if modo == "headless":
+        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1366,900")
+
+    elif modo == "fora":
+        options.add_argument("--window-position=-32000,-32000")
+        options.add_argument("--window-size=1366,900")
+
+    else:
+        options.add_argument("--start-maximized")
+
+    return webdriver.Chrome(options=options)
+
+
+def aguardar_caixa(driver, timeout):
+    """Espera a caixa de texto aparecer. Devolve True se apareceu, False se o tempo acabou."""
+    limite = time.time() + timeout
+
+    while time.time() < limite:
+        try:
+            encontrar_caixa_de_texto(driver)
+            return True
+
+        except Exception:
+            time.sleep(0.5)
+
+    return False
+
+
+def _pesquisar_com_janela(busca, modo):
     driver = None
 
     try:
-        driver = webdriver.Chrome(options=options)
+        driver = criar_driver(modo)
 
         driver.set_page_load_timeout(120)
         driver.get("https://chatgpt.com/")
 
         log("Aguardando o ChatGPT carregar...")
 
-        WebDriverWait(driver, 300).until(
-            lambda d: encontrar_caixa_de_texto(d)
-        )
+        # Sem janela, 45 s bastam para saber se o ChatGPT carregou ou se bloqueou o modo
+        espera = 45 if modo == "headless" else 300
+
+        if not aguardar_caixa(driver, espera):
+            raise CaixaNaoEncontrada(
+                "A caixa de texto não apareceu. "
+                f"Título da página: {driver.title!r}"
+            )
 
         log("ChatGPT carregado.")
 
@@ -447,6 +493,36 @@ NOT JOGO
                     driver.service.stop()
                 except Exception:
                     pass
+
+
+def pesquisarChatGPT(busca):
+    """Pesquisa no ChatGPT sem mostrar o Chrome.
+
+    O modo vem da variável de ambiente PESQUISA_JANELA:
+    - "headless" (padrão): sem janela. Se o ChatGPT não carregar assim, tenta o modo "fora".
+    - "fora":    janela fora da área visível do monitor.
+    - "visivel": janela normal maximizada (para depurar).
+    """
+    pedido = os.environ.get("PESQUISA_JANELA", "headless").strip().lower()
+
+    ordem = {
+        "headless": ["headless", "fora"],
+        "fora": ["fora"],
+        "visivel": ["visivel"],
+    }.get(pedido, ["headless", "fora"])
+
+    ultimo_erro = None
+
+    for modo in ordem:
+        try:
+            log(f"Abrindo o Chrome no modo '{modo}'...")
+            return _pesquisar_com_janela(busca, modo)
+
+        except CaixaNaoEncontrada as erro:
+            ultimo_erro = erro
+            log(f"Modo '{modo}' não funcionou: {erro}")
+
+    raise ultimo_erro
 
 
 if __name__ == "__main__":

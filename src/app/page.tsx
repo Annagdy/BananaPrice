@@ -1,7 +1,6 @@
-
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Nav from '../components/Nav'
 import Hero from '../components/Hero'
@@ -27,20 +26,6 @@ type JogoApi = {
   capa: string | null
 }
 
-type PromocaoBusca = {
-  valor_atual: number | null
-  percentual_desconto: number | null
-  atualizado_em: string | null
-  loja: { nome: string } | { nome: string }[] | null
-}
-
-type JogoEncontrado = {
-  id_jogo: number
-  titulo: string
-  itad_id: string | number
-  promocoes: PromocaoBusca[]
-}
-
 const paraCard = (j: JogoApi): Game => ({
   id: j.id,
   name: j.titulo,
@@ -51,26 +36,8 @@ const paraCard = (j: JogoApi): Game => ({
   cover: j.capa,
 })
 
-function formatarPreco(valor: number | null) {
-  if (valor == null) return 'Não informado'
-
-  return valor.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
-}
-
 export default function HomePage() {
-  const [resultadoBusca, setResultadoBusca] = useState<JogoEncontrado[]>([])
-  const [buscaExecutada, setBuscaExecutada] = useState(false)
-  const [buscando, setBuscando] = useState(false)
-  const [erroBusca, setErroBusca] = useState<string | null>(null)
-
-  // Impede uma segunda pesquisa enquanto a primeira não terminar.
-  const requisicaoEmAndamento = useRef(false)
-
   const [start, setStart] = useState(0)
-
   const [ofertas, setOfertas] = useState<JogoApi[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -83,7 +50,7 @@ export default function HomePage() {
   const move = (d: number) =>
     setStart((s) => (s + d + featured.length) % featured.length)
 
-  // Carrega as ofertas iniciais.
+  // Carrega as ofertas iniciais da vitrine
   useEffect(() => {
     const controller = new AbortController()
 
@@ -128,181 +95,11 @@ export default function HomePage() {
     }
   }, [])
 
-  // Pesquisa executada somente quando o usuário pressiona Enter no Nav.
-  async function pesquisarJogos(termo: string) {
-    const busca = termo.trim()
-
-    if (!busca || requisicaoEmAndamento.current) {
-      return
-    }
-
-    requisicaoEmAndamento.current = true
-
-    setBuscaExecutada(true)
-    setBuscando(true)
-    setErroBusca(null)
-    setResultadoBusca([])
-
-    try {
-      const resposta = await fetch(
-        `/api/v1/games?busca=${encodeURIComponent(busca)}`,
-        {
-          method: 'GET',
-          cache: 'no-store',
-        }
-      )
-
-      const dados = await resposta.json().catch(() => null)
-
-      if (!resposta.ok) {
-        throw new Error(
-          dados?.detalhes ??
-          dados?.erro ??
-          dados?.error ??
-          `Erro HTTP: ${resposta.status}`
-        )
-      }
-
-      if (!Array.isArray(dados?.jogosEncontrados)) {
-        throw new Error(
-          dados?.mensagem ??
-          'A API não retornou a lista de jogos esperada.'
-        )
-      }
-
-      // A API já devolve os jogos encontrados no Supabase,
-      // incluindo suas promoções.
-      setResultadoBusca(dados.jogosEncontrados)
-
-    } catch (erro) {
-      setErroBusca(
-        erro instanceof Error
-          ? erro.message
-          : 'Erro desconhecido na pesquisa.'
-      )
-    } finally {
-      requisicaoEmAndamento.current = false
-      setBuscando(false)
-    }
-  }
-
   return (
     <>
-      <Nav onSearch={pesquisarJogos} />
+      <Nav logado />
 
       <Hero />
-
-      {buscaExecutada && (
-        <section
-          className="mx-5 my-4 rounded-xl border border-bp-muted/30 bg-bp-nav/60 p-5"
-          aria-live="polite"
-        >
-          <h2 className="mb-4 font-head text-2xl font-extrabold text-bp-primary">
-            Resultado da busca
-          </h2>
-
-          {buscando ? (
-            <div className="py-8 text-center text-bp-muted">
-              <p>Pesquisando jogos e consultando promoções...</p>
-              <p className="mt-2 text-sm">
-                Aguarde a conclusão da pesquisa.
-              </p>
-            </div>
-          ) : erroBusca ? (
-            <p role="alert" className="py-8 text-center text-red-400">
-              {erroBusca}
-            </p>
-          ) : resultadoBusca.length > 0 ? (
-            <div className="flex flex-col gap-6">
-              <p className="text-sm text-bp-muted">
-                {resultadoBusca.length}{' '}
-                {resultadoBusca.length === 1
-                  ? 'jogo encontrado'
-                  : 'jogos encontrados'}
-                no banco de dados.
-              </p>
-
-              {resultadoBusca.map((jogo) => (
-                <article
-                  key={jogo.id_jogo}
-                  className="w-full rounded-2xl border border-bp-muted/20 p-5 shadow-sm"
-                >
-                  <h3 className="mb-2 text-xl font-bold text-bp-primary">
-                    {jogo.titulo}
-                  </h3>
-
-                  <p className="mb-4 text-sm text-bp-muted">
-                    ID no banco: {jogo.id_jogo}
-                    {jogo.itad_id
-                      ? ` | ITAD: ${jogo.itad_id}`
-                      : ''}
-                  </p>
-
-                  {jogo.promocoes.length === 0 ? (
-                    <p className="text-sm text-bp-muted">
-                      Nenhuma promoção cadastrada.
-                    </p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead>
-                          <tr className="border-b border-bp-muted/20">
-                            <th className="p-2">Loja</th>
-                            <th className="p-2">Preço atual</th>
-                            <th className="p-2">Desconto</th>
-                            <th className="p-2">Atualizado em</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {jogo.promocoes.map((promocao, i) => {
-                            const loja = Array.isArray(promocao.loja)
-                              ? promocao.loja[0]?.nome
-                              : promocao.loja?.nome
-
-                            return (
-                              <tr
-                                key={`${jogo.id_jogo}-${i}`}
-                                className="border-b border-bp-muted/10"
-                              >
-                                <td className="p-2">
-                                  {loja ?? 'Loja não identificada'}
-                                </td>
-
-                                <td className="p-2 font-semibold">
-                                  {formatarPreco(promocao.valor_atual)}
-                                </td>
-
-                                <td className="p-2">
-                                  {promocao.percentual_desconto == null
-                                    ? 'Não informado'
-                                    : `${promocao.percentual_desconto}%`}
-                                </td>
-
-                                <td className="p-2">
-                                  {promocao.atualizado_em
-                                    ? new Date(
-                                        promocao.atualizado_em
-                                      ).toLocaleString('pt-BR')
-                                    : 'Não informado'}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="py-8 text-center text-bp-muted">
-              Nenhum jogo relacionado foi encontrado no banco de dados.
-            </p>
-          )}
-        </section>
-      )}
 
       <Divider />
 

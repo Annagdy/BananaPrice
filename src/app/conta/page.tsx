@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent, SVGProps } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import { BellIcon, SteamIcon } from '../../components/Icons'
