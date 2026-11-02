@@ -9,31 +9,37 @@ import { createClient } from '@/lib/supabase.ts/client.ts'
 
 type NavProps = {
   onSearch?: (value: string) => void
-  /** true = mostra Lista de Desejos e Conta em vez de Login / Cadastrar */
+  /** Opcional: valor inicial enquanto a sessão não é verificada (evita "piscar" nas páginas só para logados).
+   *  Nas páginas públicas (início, catálogo, jogos, turbo) NÃO passe: o Nav descobre sozinho pela sessão. */
   logado?: boolean
 }
 
 export default function Nav({ onSearch, logado = false }: NavProps) {
   const [estaLogado, setEstaLogado] = useState<boolean>(logado)
+  const [verificado, setVerificado] = useState<boolean>(logado)
   const [naoLidas, setNaoLidas] = useState<number>(0)
 
+  // Descobre se há usuário logado pela sessão do navegador e acompanha login/logout
   useEffect(() => {
-    setEstaLogado(logado)
-  }, [logado])
+    try {
+      const supabase = createClient()
 
-  // Se não foi explicitamente passado como logado, verifica sessão no navegador
-  useEffect(() => {
-    if (!logado) {
-      try {
-        const supabase = createClient()
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) setEstaLogado(true)
-        })
-      } catch {
-        // silencioso
-      }
+      supabase.auth
+        .getUser()
+        .then(({ data: { user } }) => setEstaLogado(!!user))
+        .catch(() => {})
+        .finally(() => setVerificado(true))
+
+      const { data } = supabase.auth.onAuthStateChange((_evento, sessao) => {
+        setEstaLogado(!!sessao?.user)
+        setVerificado(true)
+      })
+
+      return () => data.subscription.unsubscribe()
+    } catch {
+      setVerificado(true)
     }
-  }, [logado])
+  }, [])
 
   // Carrega e sincroniza o número de notificações não lidas
   useEffect(() => {
@@ -111,7 +117,10 @@ export default function Nav({ onSearch, logado = false }: NavProps) {
         <SearchIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-[#817667]/90" />
       </div>
 
-      {estaLogado ? (
+      {!verificado ? (
+        // reserva o espaço enquanto verifica a sessão, para não mostrar o botão errado
+        <div aria-hidden className="h-[38px] w-[160px] shrink-0" />
+      ) : estaLogado ? (
         <div className="flex shrink-0 items-center gap-[19px] pr-2.5 max-[640px]:gap-3">
           <Link
             href="/notificacoes"

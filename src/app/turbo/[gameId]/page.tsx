@@ -43,7 +43,7 @@ export default function TurboPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg" data-game-id={gameId}>
-      <Nav logado />
+      <Nav />
       <div className="h-[5px]" style={{ background: tema.divisor }} />
 
       <main className="flex flex-1 flex-col pb-10">

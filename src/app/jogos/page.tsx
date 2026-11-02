@@ -248,7 +248,6 @@ export default function JogosPage() {
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
       <Nav
-        logado
         onSearch={(q) => {
           setBusca(q)
           setPagina(1)

@@ -10,7 +10,7 @@ export default function TurboSucessoPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
-      <Nav logado />
+      <Nav />
       <div className="h-[5px]" style={{ background: tema.divisor }} />
 
       <main className="flex flex-1 flex-col items-center gap-8 px-5 py-[100px] max-[640px]:py-10">

@@ -8,7 +8,7 @@ import { tema } from '../mocks/tema'
 export default function Carregando() {
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
-      <Nav logado />
+      <Nav />
       <div className="h-[5px]" style={{ background: tema.divisor }} />
 
       <main className="flex flex-1 items-center justify-center px-5 py-[100px]">
