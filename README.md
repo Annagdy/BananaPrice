@@ -1,42 +1,41 @@
-# BananaPrice: Wishlist interna do site, adição de botão para DLCs e Bug de Login/Cadastro via Steam tratado
+# BananaPrice: Pagamento PIX via Mercado Pago, Tratamento de Front para Loading e Botões responsivos, Pesquisa Selenium Modificada para GPT
 
-Implementou-se melhorias na sincronização da lista de desejos (wishlist), suporte nativo para conteúdos adicionais (DLCs), além de refatorações estruturais no fluxo de autenticação via Steam e onboarding.
+Foi centralizado o feedback visual de carregamento utilizando o componente `<Loading/>` com GIF local (`/assets/loading.gif`), garantindo uniformidade em páginas como **Home**, **Catálogo**, **Lista de Desejos**, **Notificações** e na página de detalhes do jogo (`/jogos/[id]`). Todos os botões interativos e links de navegação receberam tratamento de feedback tátil de clique (`active:scale-95`, `transition-all duration-150`) e iluminação (`hover:brightness-110`). Além disso, o botão de notificações da barra de navegação (`Nav`) foi alinhado ao padrão de container quadrado amarelo primário (`bg-bp-primary`).
+
+No backend e na lógica de dados, foram corrigidos erros de objeto `store` indefinidos, implementada filtragem rigorosa para ofertas inválidas ou sem preço real, e centralizada a geração de capas via utilitário `urlCapaItad` com fallback automático.
+
+---
 
 ## Rotas implementadas
 
 | Método | Rota | O que faz | RF |
 |---|---|---|---|
-| `GET` | `/api/v1/auth/steam` | Redireciona o usuário para o fluxo de autenticação OpenID da Steam. | RF04 |
-| `GET` | `/api/v1/auth/steam/callback` | Processa o retorno da Steam, vincula/cria o usuário no Supabase e abre a sessão via `magiclink`. | RF04, RF05 |
-| `POST` | `/completar-cadastro` | Formulário para usuários da Steam cadastrarem um e-mail e senha definitivos. | RF05 |
-| `GET` | `/api/v1/games/[id]` | Busca os detalhes do jogo e atualiza os preços das lojas em tempo real via ITAD. | RF01, RF02 |
-| `GET/POST` | `/api/v1/wishlist` | Consulta, adiciona ou remove jogos e DLCs da lista de desejos do usuário. | RF03 |
+| `POST` | `/api/v1/payments/pix` | Gera cobrança com QRCode e chave copia e cola via API Mercado Pago | RF09 |
+| `POST` | `/api/v1/webhooks/mercadopago` | Recebe notificações de status de pagamento PIX e atualiza a base Supabase | RF10 |
 
-### Comportamento de Notificações
+---
 
-- **Gatilho de Queda de Preço (`atualizarPrecosDoJogo`)**: Sempre que uma oferta é atualizada, a aplicação compara o novo valor com o menor preço anterior registrado na tabela `preco_jogo`.
-- **Disparo de Alertas**: Se o novo valor for inferior ao menor valor histórico conhecido ou se houver um desconto novo relevante (≥ 10%), o serviço `notificarQuedaDePreco` dispara um e-mail via SMTP com layout dark personalizado.
-- **Histórico Incremental**: Os preços históricos por loja só registram uma nova linha na tabela `preco_historico` se o valor realmente tiver mudado em relação ao último registro daquela loja.
+### Comportamento de Pagamentos
+
+* **Integração PIX (Mercado Pago)**: Geração dinâmica de payload PIX para aquisição/desbloqueio de funcionalidades da conta ou ofertas.
+* **Confirmação Assíncrona**: O endpoint de Webhook valida o status da transação em tempo real e atualiza as permissões do usuário via Supabase Client/Service Role.
+
+---
+
+### Comportamento de Pesquisa
+
+* **Pesquisa via Selenium & GPT**: Raspagem de dados integrada com modelos GPT para parsing e extração inteligente de títulos, promoções e identificadores ITAD/Steam.
+* **Sanitização de Catálogo**: Jogos sem loja válida associada ou com valor `0` (quando não são promoções gratuitas legítimas) são desconsiderados do catálogo de buscas.
+* **Tratamento de Imagens**: Resolução centralizada através da função `urlCapaItad(itadId)`, garantindo exibição da capa correta ou carregamento da imagem de fallback (`capaExemplo`).
+
+---
 
 ### Fluxo
 
-1. **Autenticação Steam & Onboarding**:
-   - O usuário inicia o login via Steam (`/api/v1/auth/steam`).
-   - Após a validação no callback, o usuário é cadastrado com um e-mail temporário (`{steamId}@steam.local`) e metadata `cadastro_completo: false`.
-   - O middleware (`proxy.ts`) intercepta requisições de contas com e-mail temporário e redireciona para `/completar-cadastro`.
-   - Após registrar o e-mail e a senha, a conta tem o metadata atualizado para `cadastro_completo: true` e a página redireciona o usuário para `/jogos`.
+1. **Navegação & Resposta Tátil**: O usuário interage com elementos da interface e recebe resposta visual imediata via efeito de clique (`active:scale-95`).
+2. **Carregamento Unificado**: Requisições de dados em componentes Client (`useState`/`useEffect`) ou em rotas com renderização no Server Component (`<Suspense>`) exibem o componente `<Loading/>`.
 
-2. **Diferenciação de DLCs e Jogos Base**:
-   - Adicionado suporte a botões de ação e visualização para expansões e DLCs.
-   - Sincronização automática com a wishlist da Steam tratando de forma distinta conteúdos adicionais em relação ao jogo base.
-
-### Bugs Solucionados
-
-- **`ERR_TOO_MANY_REDIRECTS` no Proxy**: Corrigido o loop de redirecionamentos no `proxy.ts`, garantindo que requisições para `/completar-cadastro` e assets estáticos fossem liberadas corretamente antes do término do onboarding.
-- **Conflitos de Variáveis Duplicadas (`pathname` e `menorAnterior`)**: Resolvidas exceções de compilação em `proxy.ts` e `atualizarPrecoJogo.ts` provocadas por múltiplas declarações no mesmo escopo.
-- **Incompatibilidade de Import do `NextResponse`**: Corrigida a importação incorreta de `NextResponse` proveniente do pacote `"next"`, migrando para `"next/server"` e ajustando o uso de construtores de URL em App Routes.
-- **Schema Cache Error (`PGRST204`) no Supabase**: Removida a tentativa de escrita na coluna `cadastro_completo` diretamente na tabela pública `usuario`, mantendo a flag exclusivamente nos metadados (`user_metadata`) do Supabase Auth.
-- **Sincronização de Sessão**: Atualizado o formulário de cadastro para utilizar `supabase.auth.refreshSession()` e navegação forçada via `window.location.href`, garantindo a leitura limpa dos novos cookies pelo middleware.
+---
 
 ## Como rodar
 
@@ -56,6 +55,8 @@ Implementou-se melhorias na sincronização da lista de desejos (wishlist), supo
 
    ITAD_API_KEY=
 
+   MERCADOPAGO_ACCESS_TOKEN=
+
    # SMTP_HOST=
    # SMTP_PORT=587
    # SMTP_USER=
@@ -66,35 +67,31 @@ Implementou-se melhorias na sincronização da lista de desejos (wishlist), supo
 3. Aplique as mudanças do banco (migration em supabase/migrations ou pelo SQL Editor do Supabase).
 
 4. Rode:
-   ```bash
-   npm run dev 
-   ```
+```bash
+npm run dev
+```
 
-## Como testar
-- Login com a Steam e Onboarding:
-   1. Clique em "Entrar com a Steam".
+## Como Testar
+1. Testar Feedback Visual de Loading:
+   - Navegue pelas páginas /notificacoes, /lista-de-desejos e /jogos/[id].
+   - Verifique a exibição do GIF de carregamento com a mensagem personalizada correspondente.
 
-   2. Após autorizar, confirme se o sistema redireciona automaticamente para /completar-cadastro.
+2. Testar Sensação de Clique e Estilização de Botões:
+   - Passe o cursor e clique nos botões da barra superior (Nav), abas de filtro em Notificações e botões de ação nos cards de jogos.
+   - Observe a redução suave de escala (active:scale-95) e a adequação do BellIcon dentro do quadrado primário (bg-bp-primary).
 
-   3. Preencha o e-mail e a senha desejados.
+3. Testar Transição na Página do Jogo (/jogos/[id]):
+   - Acesse uma URL de jogo válida.
+   - Confirme o carregamento com a estrutura do Server Component através do elemento <Suspense>.
 
-   4. Confirme seu e-mail.
+4. Testar Pagamento e Jogo Sendo Acionado como Turbo:
+   - Escolha um jogo.
+   - Clique no botão de turbo (raio) no lado esquerdo.
+   - Pague o pix gerado.
+   - Acessa a página inicial e verifique se o jogo foi inserido em Turbo.
 
-   5. Valide se a aplicação redireciona com sucesso para /jogos e libera o acesso às demais páginas.
-
-- Verificação da Wishlist e DLCs:
-   1. Acesse a página de um jogo ou DLC.
-
-   2. Teste a inclusão e remoção do item na lista de desejos.
-
-   3. Verifique se o botão correspondente para DLC exibe as informações e ações adequadas.
-
-- Atualização de Preços e Alertas:
-
-   1. Abra a página de detalhes de um jogo com ofertas para acionar a rota /api/v1/games/[id].
-
-   2. Verifique se os registros de preço atual e histórico foram gravados na tabela preco_jogo.
-
-## Pendências conhecidas
-- Tratamento de Turbo como pagina;
-- Pagamento via webhook.
+## Pendências e Bugs Conhecidos
+1. Cache HMR do Next.js: Em ambiente de desenvolvimento, alterações estruturais em componentes compartilhados podem exigir a limpeza manual do cache local. Se as alterações não renderizarem:
+   - Interrompa o servidor (Ctrl + C).
+   - Apague a pasta .next (rm -rf .next ou Remove-Item -Recurse -Force .next).
+   - Execute npm run dev e aplique um Hard Refresh no navegador (Ctrl + Shift + R).

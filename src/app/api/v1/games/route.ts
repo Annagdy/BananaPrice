@@ -1,12 +1,14 @@
-
 import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { supabase } from '@/lib/supabase.ts';
+import { supabase as supabaseAdmin } from '@/lib/supabase.ts';
+import { urlCapaItad } from '@/lib/itad.ts';
 import { listarCatalogo } from './catalogo';
 
 const execFileAsync = promisify(execFile);
+
+export const dynamic = 'force-dynamic';
 
 type Jogo = {
   id_jogo: number;
@@ -74,7 +76,7 @@ async function pesquisarNomesOficiais(
     'api',
     'v1',
     'games',
-    'pesquisaNomeGPT.py'//NOME ARQUIVO SELENIUM
+    'pesquisaNomeGPT.py'
   );
 
   const { stdout } = await execFileAsync(
@@ -86,7 +88,6 @@ async function pesquisarNomesOficiais(
     }
   );
 
-  // Verifica se NOT JOGO aparece em qualquer parte do retorno do Python.
   if (/\bNOT\s+JOGO\b/i.test(stdout)) {
     return [];
   }
@@ -115,7 +116,6 @@ async function pesquisarNomesOficiais(
     ),
   ];
 
-  // Verifica se NOT JOGO aparece em qualquer nome retornado.
   if (nomesLimpos.some(nome => /\bNOT\s+JOGO\b/i.test(nome))) {
     return [];
   }
@@ -142,21 +142,15 @@ async function buscarJogosNoSupabase(
     const nome = limparNome(nomeOriginal);
     const palavras = palavrasImportantes(nome);
 
-    console.log('\n======================================');
-    console.log('Nome retornado pelo Gemini:', nome);
-
     if (
       !nome ||
       /^o\s+gemini\s+disse\b/i.test(nome) ||
       palavras.length === 0
     ) {
-      console.log('Nome ignorado:', nome);
       continue;
     }
 
-    console.log('Palavras verificadas:', palavras);
-
-    let consulta = supabase
+    let consulta = supabaseAdmin
       .from('jogo')
       .select('id_jogo, titulo, itad_id');
 
@@ -167,37 +161,18 @@ async function buscarJogosNoSupabase(
     const { data, error } = await consulta.limit(500);
 
     if (error) {
-      console.error(
-        `Erro ao consultar "${nome}":`,
-        error.message
-      );
-
       resultados.push({
         nomePesquisado: nome,
         jogosEncontrados: [],
       });
-
       continue;
     }
 
     const candidatos = (data ?? []) as Jogo[];
 
-    console.log(
-      'Candidatos encontrados no banco:',
-      candidatos.length
-    );
-
     const jogosAprovados = candidatos.filter(jogo =>
       possuiTodasAsPalavras(nome, jogo.titulo)
     );
-
-    for (const jogo of candidatos) {
-      console.log({
-        pesquisado: nome,
-        candidato: jogo.titulo,
-        aceito: possuiTodasAsPalavras(nome, jogo.titulo),
-      });
-    }
 
     const jogosComPromocoes: JogoComPromocoes[] = [];
 
@@ -210,7 +185,7 @@ async function buscarJogosNoSupabase(
 
       jogosJaProcessados.add(chave);
 
-      const { data: precos, error: erroPrecos } = await supabase
+      const { data: precos } = await supabaseAdmin
         .from('preco_jogo')
         .select(`
           valor_atual,
@@ -221,13 +196,6 @@ async function buscarJogosNoSupabase(
           )
         `)
         .eq('id_jogo', jogo.id_jogo);
-
-      if (erroPrecos) {
-        console.error(
-          `Erro ao consultar promoções de "${jogo.titulo}":`,
-          erroPrecos.message
-        );
-      }
 
       const promocoes: Promocao[] = (precos ?? []).map(
         (preco: any) => ({
@@ -246,11 +214,6 @@ async function buscarJogosNoSupabase(
       });
     }
 
-    console.log(
-      `Jogos aprovados para "${nome}":`,
-      jogosComPromocoes.map(jogo => jogo.titulo)
-    );
-
     resultados.push({
       nomePesquisado: nome,
       jogosEncontrados: jogosComPromocoes,
@@ -263,36 +226,129 @@ async function buscarJogosNoSupabase(
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const isTurbo = searchParams.get('turbo') === '1';
     const busca = searchParams.get('busca')?.trim();
 
-    if (!busca) {
-      return listarCatalogo(request);
+    // 1. Vitrine Turbo: busca jogos com pagamento 'aprovado' criados nos últimos 7 dias
+    if (isTurbo) {
+      const limit = Number(searchParams.get('limit')) || 6;
+
+      const DIAS_DE_TURBO = 7;
+      const dataLimite = new Date();
+      dataLimite.setDate(dataLimite.getDate() - DIAS_DE_TURBO);
+
+      const { data: turbos, error: errTurbo } = await supabaseAdmin
+        .from('pagamento_turbo')
+        .select('id_jogo')
+        .eq('status', 'aprovado')
+        .gte('criado_em', dataLimite.toISOString());
+
+      if (errTurbo) {
+        console.error('[api/v1/games] Erro ao buscar turbos:', errTurbo.message);
+        return NextResponse.json({ jogos: [] });
+      }
+
+      const idsTurbinados = Array.from(
+        new Set((turbos ?? []).map((t: any) => Number(t.id_jogo)))
+      );
+
+      if (idsTurbinados.length === 0) {
+        return NextResponse.json({ jogos: [] });
+      }
+
+      const { data: jogos, error: errJogos } = await supabaseAdmin
+        .from('jogo')
+        .select('id_jogo, titulo, itad_id')
+        .in('id_jogo', idsTurbinados)
+        .limit(limit);
+
+      if (errJogos || !jogos) {
+        console.error('[api/v1/games] Erro ao carregar jogos turbinados:', errJogos?.message);
+        return NextResponse.json({ jogos: [] });
+      }
+
+      const jogosFormatados = await Promise.all(
+        jogos.map(async (j: any) => {
+          const { data: precos } = await supabaseAdmin
+            .from('preco_jogo')
+            .select(`
+              valor_atual,
+              percentual_desconto,
+              loja ( nome )
+            `)
+            .eq('id_jogo', j.id_jogo)
+            .limit(1);
+
+          const oferta = precos && precos.length > 0 ? precos[0] : null;
+          const lojaObj = Array.isArray(oferta?.loja) ? oferta.loja[0] : oferta?.loja;
+          
+          const nomeLoja: string | null = lojaObj?.nome ?? null;
+          const temLojaValida = Boolean(nomeLoja);
+
+          let melhorPreco: number | null = oferta?.valor_atual ?? null;
+          const descontoBruto = oferta?.percentual_desconto ?? 0;
+
+          // Validação para jogos indisponíveis/descontinuados (ex: FIFA 22)
+          if (!temLojaValida || (melhorPreco === 0 && descontoBruto < 100)) {
+            melhorPreco = null;
+          }
+
+          const isGratis = melhorPreco === 0;
+          const isIndisponivel = melhorPreco === null;
+
+          const desconto = isIndisponivel
+            ? 0
+            : isGratis
+              ? 100
+              : descontoBruto;
+
+          const precoOriginal = isIndisponivel
+            ? null
+            : isGratis
+              ? 0
+              : melhorPreco && descontoBruto > 0 && descontoBruto < 100
+                ? +(melhorPreco / (1 - descontoBruto / 100)).toFixed(2)
+                : melhorPreco;
+
+          return {
+            id: j.id_jogo,
+            titulo: j.titulo,
+            melhorPreco,
+            precoOriginal,
+            desconto,
+            loja: isIndisponivel ? null : nomeLoja,
+            capa: j.itad_id ? urlCapaItad(j.itad_id) : null, // Usa a mesma função oficial do catalogo.ts
+          };
+        })
+      );
+
+      return NextResponse.json({ jogos: jogosFormatados });
     }
 
-    console.log('\n======================================');
-    console.log('Busca original:', busca);
+    // 2. Busca com filtro por nome (IA / Gemini / Python)
+    if (busca) {
+      const nomesRetornados = await pesquisarNomesOficiais(busca);
 
-    const nomesRetornados = await pesquisarNomesOficiais(busca);
+      if (nomesRetornados.length === 0) {
+        return NextResponse.json({
+          mensagem: 'Nenhum jogo foi encontrado.',
+        });
+      }
 
-    // Se o Python retornar NOT JOGO, informa que nenhum jogo foi encontrado.
-    if (nomesRetornados.length === 0) {
+      const resultados = await buscarJogosNoSupabase(nomesRetornados);
+
       return NextResponse.json({
-        mensagem: 'Nenhum jogo foi encontrado.',
+        busca,
+        totalNomes: nomesRetornados.length,
+        resultados,
+        jogosEncontrados: resultados.flatMap(
+          resultado => resultado.jogosEncontrados
+        ),
       });
     }
 
-    console.log('Nomes válidos retornados:', nomesRetornados);
-
-    const resultados = await buscarJogosNoSupabase(nomesRetornados);
-
-    return NextResponse.json({
-      busca,
-      totalNomes: nomesRetornados.length,
-      resultados,
-      jogosEncontrados: resultados.flatMap(
-        resultado => resultado.jogosEncontrados
-      ),
-    });
+    // 3. Catálogo Padrão (Ofertas do Momento)
+    return listarCatalogo(request);
   } catch (error) {
     console.error('Erro ao pesquisar jogos:', error);
 

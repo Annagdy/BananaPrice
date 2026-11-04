@@ -2,13 +2,16 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import Nav from '../../../components/Nav'
 import Footer from '../../../components/Footer'
+import Loading from '../[id]/loadingPage.tsx'
 import { capaExemplo } from '../../../components/assets'
 import { tema } from '../../../mocks/tema'
 import PortaoAdulto from './PortaoAdulto'
 import BotoesJogo from './BotoesJogo'
 import HistoricoPrecos from '../../../components/HistoricoPrecos'
+import { urlCapaItad } from '../../../lib/itad.ts'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -22,19 +25,16 @@ type Oferta = {
 }
 
 type JogoResposta = {
-  jogo: { id: number; titulo: string; genero: string | null }
+  jogo: { id: number; itad_id?: string | number; itadId?: string | number; titulo: string; genero: string | null }
   capa: string | null
   melhorOferta: Oferta | null
   ofertas: Oferta[]
   menorPrecoHistorico: { valor: number; data: string } | null
-  /* DLCs do jogo que existem no catálogo (a API envia só quando o jogo tem); abrem no pop-up do botão. */
   dlcs?: Array<{ id: number; titulo: string; preco: number | null; desconto: number }>
 }
 
-/* Resultado da busca: o jogo, "bloqueado" (conteúdo adulto não liberado) ou null (não existe). */
 type Busca = JogoResposta | { bloqueado: true } | null
 
-/* Busca o jogo na API, repassando o cookie da pessoa (é ele que diz se o conteúdo adulto foi liberado). */
 async function buscarJogo(id: string): Promise<Busca> {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const cookie = (await cookies()).toString()
@@ -50,7 +50,6 @@ async function buscarJogo(id: string): Promise<Busca> {
   return res.json()
 }
 
-/* Atributos comuns dos links que saem do site (loja externa). */
 const LINK_EXTERNO = {
   target: '_blank',
   rel: 'noopener noreferrer sponsored',
@@ -69,8 +68,7 @@ async function buscarHistoricoJogo(id: string) {
   return res.json()
 }
 
-export default async function JogoPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+async function ConteudoJogo({ id }: { id: string }) {
   const dados = await buscarJogo(id)
   if (!dados) notFound()
   if ('bloqueado' in dados) return <PortaoAdulto />
@@ -78,6 +76,9 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
   const { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico } = dados
   const historico = await buscarHistoricoJogo(id)
   const dlcs = dados.dlcs ?? []
+
+  const itadId = jogo.itadId ?? jogo.itad_id
+  const capaFinal = capa ?? (itadId ? urlCapaItad(itadId) : null) ?? capaExemplo
 
   const listaDoJogo = [
     { label: 'Categoria', value: jogo.genero ?? 'Não informada' },
@@ -103,12 +104,8 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
 
   return (
-    <div className="flex min-h-screen flex-col bg-bp-bg">
-      <Nav logado />
-      <div className="h-[5px]" style={{ background: tema.divisor }} />
-
-      <main className="flex flex-1 flex-col items-center gap-6 px-5 py-10">
-        <div className="relative flex w-full max-w-[1200px] flex-col gap-4">
+    <main className="flex flex-1 flex-col items-center gap-6 px-5 py-10">
+      <div className="relative flex w-full max-w-[1200px] flex-col gap-4">
         <BotoesJogo idJogo={jogo.id} dlcs={dlcs} />
         <section
           className="w-full max-w-[1200px] rounded-3xl p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)]"
@@ -119,12 +116,12 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
               <div className="rounded-[20px] bg-bp-neutral/70 p-4">
                 <div className="relative aspect-[486/273] w-full overflow-hidden rounded-[15px] bg-white">
                   <Image
-                    src={capa ?? capaExemplo}
+                    src={capaFinal}
                     alt={jogo.titulo}
                     fill
                     sizes="(max-width: 900px) 100vw, 600px"
                     className="object-cover"
-                    unoptimized={capa !== null}
+                    unoptimized={Boolean(capaFinal)}
                   />
                 </div>
 
@@ -145,14 +142,14 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                       <a
                         href={melhorOferta.url}
                         {...LINK_EXTERNO}
-                        className="rounded-[9px] bg-bp-primary px-5 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
+                        className="rounded-[9px] bg-bp-primary px-5 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110 active:scale-95"
                       >
                         Ir para {melhorOferta.loja ?? 'a loja'}
                       </a>
                     )}
                     <Link
                       href="/jogos"
-                      className="rounded-[9px] border border-bp-muted px-5 py-2.5 text-[15px] text-bp-muted transition hover:brightness-125"
+                      className="rounded-[9px] border border-bp-muted px-5 py-2.5 text-[15px] text-bp-muted transition hover:brightness-125 active:scale-95"
                     >
                       Voltar às ofertas
                     </Link>
@@ -201,7 +198,7 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
                             <a
                               href={o.url}
                               {...LINK_EXTERNO}
-                              className={`${base} transition hover:brightness-125`}
+                              className={`${base} transition hover:brightness-125 active:scale-95`}
                             >
                               {conteudo}
                             </a>
@@ -302,8 +299,28 @@ export default async function JogoPage({ params }: { params: Promise<{ id: strin
             )}
           </div>
         </section>
-        </div>
-      </main>
+      </div>
+    </main>
+  )
+}
+
+export default async function JogoPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bp-bg">
+      <Nav logado />
+      <div className="h-[5px]" style={{ background: tema.divisor }} />
+
+      <Suspense
+        fallback={
+          <main className="flex flex-1 items-center justify-center py-24">
+            <Loading mensagem="Carregando detalhes do jogo..." tamanho={180} />
+          </main>
+        }
+      >
+        <ConteudoJogo id={id} />
+      </Suspense>
 
       <div className="h-[5px]" style={{ background: tema.divisor }} />
       <Footer />

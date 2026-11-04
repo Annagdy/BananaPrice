@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import type { SVGProps } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import Nav from '../../components/Nav'
-import Footer from '../../components/Footer'
-import { capaExemplo, macacoFeliz } from '../../components/assets'
+import Nav from '@/components/Nav'
+import Footer from '@/components/Footer'
+// Import usando o alias `@/` garantindo o caminho correto independente da pasta
+import Loading from '@/components/loading'
+import { capaExemplo, macacoFeliz } from '@/components/assets'
 
 type ItemDesejo = {
   id: number
@@ -24,8 +26,6 @@ const POR_PAGINA = 3
 const brl = (valor: number): string =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-/* Página /lista-de-desejos: carrega GET /api/v1/wishlist, pagina de 3 em 3 e remove itens com
-DELETE /api/v1/wishlist/[id]. Sem sessão (401), redireciona para /login?next=/lista-de-desejos. */
 export default function ListaDeDesejosPage() {
   const [itens, setItens] = useState<ItemDesejo[]>([])
   const [carregando, setCarregando] = useState<boolean>(true)
@@ -33,6 +33,9 @@ export default function ListaDeDesejosPage() {
   const [pagina, setPagina] = useState<number>(1)
 
   useEffect(() => {
+    let ativo = true
+    setCarregando(true)
+
     fetch('/api/v1/wishlist')
       .then(async (res) => {
         if (res.status === 401) {
@@ -41,10 +44,21 @@ export default function ListaDeDesejosPage() {
         }
         const json = await res.json().catch(() => null)
         if (!res.ok) throw new Error(json?.error ?? 'Erro ao carregar a lista.')
-        setItens(json.jogos ?? [])
+        
+        if (ativo) {
+          setItens(json?.jogos ?? [])
+        }
       })
-      .catch((e: Error) => setErro(e.message))
-      .finally(() => setCarregando(false))
+      .catch((e: Error) => {
+        if (ativo) setErro(e.message)
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false)
+      })
+
+    return () => {
+      ativo = false
+    }
   }, [])
 
   const totalPaginas = Math.max(1, Math.ceil(itens.length / POR_PAGINA))
@@ -57,7 +71,6 @@ export default function ListaDeDesejosPage() {
 
     const novos = itens.filter((i) => i.id !== id)
     setItens(novos)
-    // se a página atual ficou vazia, volta uma
     const total = Math.max(1, Math.ceil(novos.length / POR_PAGINA))
     setPagina((p) => Math.min(p, total))
   }
@@ -75,15 +88,17 @@ export default function ListaDeDesejosPage() {
         <div className="mx-2.5 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
 
         <div className="grid grid-cols-[minmax(0,828px)_minmax(0,526px)] justify-center gap-[21px] px-[38px] pt-10 max-[1200px]:grid-cols-1 max-[640px]:px-4">
-          <section aria-label="Jogos desejados" className="flex flex-col items-center gap-6">
+          <section aria-label="Jogos desejados" className="flex w-full flex-col items-center justify-start gap-6 min-h-[350px]">
             {carregando ? (
-              <p className="text-bp-muted">Carregando...</p>
+              <div className="flex w-full min-h-[300px] items-center justify-center py-12">
+                <Loading mensagem="Carregando sua lista de desejos..." tamanho={160} />
+              </div>
             ) : erro ? (
-              <p role="alert" className="text-red-400">
+              <p role="alert" className="py-10 text-center text-red-400">
                 {erro}
               </p>
             ) : itens.length === 0 ? (
-              <p className="text-bp-muted">Sua lista de desejos está vazia.</p>
+              <p className="py-10 text-center text-bp-muted">Sua lista de desejos está vazia.</p>
             ) : (
               <ul className="flex w-full list-none flex-col gap-[33px]">
                 {visiveis.map((item) => (
@@ -92,7 +107,7 @@ export default function ListaDeDesejosPage() {
               </ul>
             )}
 
-            {itens.length > POR_PAGINA && (
+            {!carregando && itens.length > POR_PAGINA && (
               <nav aria-label="Paginação" className="flex items-center gap-3 rounded-lg bg-bp-nav px-3 py-1">
                 <button
                   type="button"
@@ -150,11 +165,6 @@ export default function ListaDeDesejosPage() {
   )
 }
 
-/* Cartão de um jogo da lista: capa (com reserva se a imagem falhar), preço (com o original riscado quando
-há desconto), loja, faixa de desconto, botão "Remover" e link "Ver ofertas" para a página do jogo.
-
-@param item Dados do jogo.
-@param onRemover Chamado com o id do jogo ao clicar em "Remover". */
 function CartaoDesejo({
   item,
   onRemover,
@@ -164,7 +174,6 @@ function CartaoDesejo({
 }) {
   const temDesconto = item.desconto > 0 && item.precoOriginal !== null
 
-  // Se a imagem remota falhar (jogo sem arte no ITAD, por exemplo), cai na capa de exemplo.
   const [falhou, setFalhou] = useState(false)
   useEffect(() => setFalhou(false), [item.capa])
   const capaRemota = !!item.capa && !falhou
@@ -176,7 +185,6 @@ function CartaoDesejo({
         alt={item.nome}
         width={177}
         height={177}
-        // URL externa: carrega direto do navegador, sem passar pelo otimizador do Next
         unoptimized={capaRemota}
         onError={() => setFalhou(true)}
         className="size-[177px] shrink-0 rounded-3xl object-cover max-[640px]:w-full"

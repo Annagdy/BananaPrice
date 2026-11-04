@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { logo } from './assets'
 import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons'
-import { createClient } from '@/lib/supabase.ts/client.ts'
+import { createClient } from '@/lib/supabase.ts/client'
 
 type NavProps = {
   /** Só a página do catálogo passa isto: a pesquisa é tratada ali mesmo. As demais páginas não passam,
@@ -19,19 +19,48 @@ type NavProps = {
   logado?: boolean
 }
 
-/* Cabeçalho do site com a barra de pesquisa.
-
-Ao pesquisar (Enter ou clique na lupa):
-- Em qualquer página: vai para o catálogo, em /jogos?search=<texto>.
-- Na própria página do catálogo (que passa onSearch): só atualiza a pesquisa, sem recarregar a página. */
 export default function Nav({ onSearch, valorBusca = '', logado = false }: NavProps) {
   const router = useRouter()
   const [texto, setTexto] = useState(valorBusca)
+  const [estaLogado, setEstaLogado] = useState(logado)
+  const [naoLidas, setNaoLidas] = useState(0)
 
-  // acompanha a pesquisa atual quando a página do catálogo a define (por exemplo, vinda do endereço)
+  // Acompanha a pesquisa atual quando definida externamente
   useEffect(() => {
     setTexto(valorBusca)
   }, [valorBusca])
+
+  // Sincroniza o estado de login com a prop
+  useEffect(() => {
+    setEstaLogado(logado)
+  }, [logado])
+
+  // Busca notificações não lidas no Supabase se estiver logado
+  useEffect(() => {
+    if (!estaLogado) return
+
+    const supabase = createClient()
+    async function carregarNotificacoesNaoLidas() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { count } = await supabase
+          .from('notificacoes')
+          .select('*', { count: 'exact', head: true })
+          .eq('usuario_id', user.id)
+          .eq('lida', false)
+
+        if (count !== null) {
+          setNaoLidas(count)
+        }
+      } catch (err) {
+        // Trata ou ignora se a tabela ainda não existir no banco
+      }
+    }
+
+    carregarNotificacoesNaoLidas()
+  }, [estaLogado])
 
   const pesquisar = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -52,7 +81,7 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
       <Link
         href="/"
         aria-label="BananaPrice"
-        className="relative h-[88px] w-[270px] shrink-0 overflow-hidden max-[1100px]:w-[180px]"
+        className="relative h-[88px] w-[270px] shrink-0 overflow-hidden transition-transform duration-150 active:scale-95 max-[1100px]:w-[180px]"
       >
         <Image
           src={logo}
@@ -82,7 +111,7 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
           type="submit"
           aria-label="Pesquisar"
           title="Pesquisar"
-          className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-[#817667]/90 transition hover:text-bp-primary"
+          className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-[#817667]/90 transition-colors hover:text-bp-primary"
         >
           <SearchIcon />
         </button>
@@ -93,12 +122,12 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
           <Link
             href="/notificacoes"
             aria-label="Notificações"
-            className="relative text-bp-muted/70 hover:text-bp-primary"
+            className="relative inline-flex size-[38px] items-center justify-center rounded-[9px] bg-bp-primary text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
           >
-            <BellIcon />
+            <BellIcon width={20} height={20} />
             {naoLidas > 0 && (
               <span
-                className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-bp-primary px-1 text-[10px] font-extrabold text-bp-neutral ring-2 ring-bp-nav"
+                className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-head text-[10px] font-extrabold text-white ring-2 ring-bp-nav"
                 aria-label={`${naoLidas} notificações não lidas`}
               >
                 {naoLidas > 99 ? '99+' : naoLidas}
@@ -107,13 +136,13 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
           </Link>
           <Link
             href="/lista-de-desejos"
-            className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3 text-xs text-bp-neutral"
+            className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3.5 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
           >
             <HeartIcon /> Lista de Desejos
           </Link>
           <Link
             href="/conta"
-            className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3 text-xs text-bp-neutral"
+            className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3.5 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
           >
             <UserIcon /> Conta
           </Link>
@@ -121,7 +150,7 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
       ) : (
         <Link
           href="/login"
-          className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-4 text-xs text-bp-neutral"
+          className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-4 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
         >
           <UserPlusIcon />
           Login / Cadastrar

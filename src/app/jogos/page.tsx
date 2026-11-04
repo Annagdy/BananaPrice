@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import GameCard from '../../components/GameCard'
+import Loading from '@/components/loading'
 import { StoreIcon, TagIcon } from '../../components/Icons'
 import { palmeira } from '../../components/assets'
 import { STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
@@ -112,32 +113,25 @@ function ConteudoJogos() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Captura 'search' ou 'busca' da URL
   const termoNaUrl = (searchParams.get('search') || searchParams.get('busca') || '').trim()
 
-  // Estado local sincronizado da busca
   const [termoBusca, setTermoBusca] = useState(termoNaUrl)
 
-  // Sincroniza estado com a URL quando ela muda externamente
   useEffect(() => {
     setTermoBusca(termoNaUrl)
   }, [termoNaUrl])
 
-  // Resultado da busca por nome via Python / ChatGPT
   const [resultadoBusca, setResultadoBusca] = useState<any[]>([])
   const [carregandoBusca, setCarregandoBusca] = useState(false)
   const [erroBusca, setErroBusca] = useState<string | null>(null)
 
-  // Filtros do catálogo
   const [precoMax, setPrecoMax] = useState<number | null>(null)
   const [corteMin, setCorteMin] = useState<number | null>(null)
   const [lojas, setLojas] = useState<string[]>([])
   const [pagina, setPagina] = useState(1)
 
-  // Conteúdo adulto
   const [adulto, setAdulto] = useState(false)
 
-  // Dados do catálogo padrão
   const [jogos, setJogos] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(true)
@@ -180,7 +174,6 @@ function ConteudoJogos() {
     setAdulto(adultoAtivoNoNavegador())
   }, [])
 
-  // 1. Executa a PESQUISA AUTOMÁTICA caso exista termoBusca
   useEffect(() => {
     const termo = termoBusca.trim()
     if (!termo) {
@@ -225,7 +218,6 @@ function ConteudoJogos() {
     return () => controller.abort()
   }, [termoBusca])
 
-  // 2. Carrega as ofertas do CATÁLOGO apenas se NÃO houver termo de busca
   useEffect(() => {
     if (termoBusca.trim()) return
 
@@ -360,9 +352,7 @@ function ConteudoJogos() {
           >
             {termoBusca.trim() ? (
               carregandoBusca ? (
-                <p className="py-16 text-center text-bp-muted">
-                  Pesquisando jogos e consultando ofertas...
-                </p>
+                <Loading mensagem="Pesquisando jogos e consultando ofertas..." />
               ) : erroBusca ? (
                 <p role="alert" className="py-16 text-center text-red-400">
                   {erroBusca}
@@ -386,9 +376,7 @@ function ConteudoJogos() {
                 </ul>
               )
             ) : carregando ? (
-              <p className="py-16 text-center text-bp-muted">
-                Carregando ofertas...
-              </p>
+              <Loading mensagem="Carregando ofertas..." />
             ) : erroCatalogo ? (
               <p role="alert" className="py-16 text-center text-red-400">
                 {erroCatalogo}
@@ -450,7 +438,7 @@ function ConteudoJogos() {
 
 export default function JogosPage() {
   return (
-    <Suspense fallback={<p className="p-8 text-center text-bp-muted">Carregando...</p>}>
+    <Suspense fallback={<Loading mensagem="Carregando página..." />}>
       <ConteudoJogos />
     </Suspense>
   )
