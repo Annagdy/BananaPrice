@@ -1,16 +1,13 @@
+'use client'
+
+import { use, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { notFound } from 'next/navigation'
 import Nav from '../../../components/Nav'
 import Footer from '../../../components/Footer'
-import { capaExemplo } from '../../../components/assets'
+import Loading from '@/components/loading'
+import { TagIcon, StoreIcon } from '../../../components/Icons'
 import { tema } from '../../../mocks/tema'
-import PortaoAdulto from './PortaoAdulto'
-import BotoesJogo from './BotoesJogo'
-import HistoricoPrecos from '../../../components/HistoricoPrecos'
-
-const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 type Oferta = {
   idLoja: number
@@ -21,288 +18,203 @@ type Oferta = {
   url: string | null
 }
 
-type JogoResposta = {
-  jogo: { id: number; titulo: string; genero: string | null }
+type DetalhesJogoResponse = {
+  jogo: {
+    id: number
+    itadId: string | number | null
+    titulo: string
+    slug: string | null
+    genero: string | null
+  }
   capa: string | null
   melhorOferta: Oferta | null
   ofertas: Oferta[]
-  menorPrecoHistorico: { valor: number; data: string } | null
-  /* DLCs do jogo que existem no catálogo (a API envia só quando o jogo tem); abrem no pop-up do botão. */
-  dlcs?: Array<{ id: number; titulo: string; preco: number | null; desconto: number }>
+  menorPrecoHistorico: {
+    valor: number
+    data: string
+    idLoja: number
+  } | null
+  dlcs?: any[]
+  error?: string
 }
 
-/* Resultado da busca: o jogo, "bloqueado" (conteúdo adulto não liberado) ou null (não existe). */
-type Busca = JogoResposta | { bloqueado: true } | null
+export default function JogoDetalhePage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = use(params)
 
-/* Busca o jogo na API, repassando o cookie da pessoa (é ele que diz se o conteúdo adulto foi liberado). */
-async function buscarJogo(id: string): Promise<Busca> {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const cookie = (await cookies()).toString()
+  const [dados, setDados] = useState<DetalhesJogoResponse | null>(null)
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
 
-  const res = await fetch(`${site}/api/v1/games/${encodeURIComponent(id)}`, {
-    cache: 'no-store',
-    headers: { cookie },
-  })
+  useEffect(() => {
+    const controller = new AbortController()
+    setCarregando(true)
+    setErro(null)
 
-  if (res.status === 403) return { bloqueado: true }
-  if (res.status === 404 || res.status === 400) return null
-  if (!res.ok) throw new Error('Falha ao carregar o jogo.')
-  return res.json()
-}
+    fetch(`/api/v1/games/${id}`, { signal: controller.signal })
+      .then(async (res) => {
+        const json = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(json?.error ?? 'Não foi possível carregar os detalhes do jogo.')
+        }
+        setDados(json)
+      })
+      .catch((e: Error) => {
+        if (e.name !== 'AbortError') {
+          setErro(e.message)
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCarregando(false)
+        }
+      })
 
-/* Atributos comuns dos links que saem do site (loja externa). */
-const LINK_EXTERNO = {
-  target: '_blank',
-  rel: 'noopener noreferrer sponsored',
-} as const
-
-async function buscarHistoricoJogo(id: string) {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const cookie = (await cookies()).toString()
-
-  const res = await fetch(`${site}/api/v1/games/${encodeURIComponent(id)}/history?dias=90`, {
-    cache: 'no-store',
-    headers: { cookie },
-  })
-
-  if (!res.ok) return { series: [] as Array<{ loja: string | null; pontos: Array<{ data: string; valor: number }> }> }
-  return res.json()
-}
-
-export default async function JogoPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const dados = await buscarJogo(id)
-  if (!dados) notFound()
-  if ('bloqueado' in dados) return <PortaoAdulto />
-
-  const { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico } = dados
-  const historico = await buscarHistoricoJogo(id)
-  const dlcs = dados.dlcs ?? []
-
-  const listaDoJogo = [
-    { label: 'Categoria', value: jogo.genero ?? 'Não informada' },
-    { label: 'Melhor preço', value: melhorOferta ? brl(melhorOferta.preco) : 'Sem oferta' },
-    {
-      label: 'Loja atual',
-      value: melhorOferta?.loja ?? 'Indisponível',
-    },
-    {
-      label: 'Histórico mínimo',
-      value: menorPrecoHistorico ? brl(menorPrecoHistorico.valor) : 'Sem registro',
-    },
-  ].filter((item) => item.value && item.value !== 'Sem oferta')
-
-  const historicoPrecos = (historico?.series ?? [])
-    .flatMap((serie: { loja: string | null; pontos: Array<{ data: string; valor: number }> }) =>
-      serie.pontos.map((ponto) => ({
-        loja: serie.loja ?? 'Loja',
-        data: ponto.data,
-        valor: ponto.valor,
-      }))
-    )
-    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    return () => controller.abort()
+  }, [id])
 
   return (
-    <div className="flex min-h-screen flex-col bg-bp-bg">
+    <div className="flex min-h-screen flex-col bg-bp-bg text-bp-neutral">
       <Nav logado />
       <div className="h-[5px]" style={{ background: tema.divisor }} />
 
-      <main className="flex flex-1 flex-col items-center gap-6 px-5 py-10">
-        <div className="relative flex w-full max-w-[1200px] flex-col gap-4">
-        <BotoesJogo idJogo={jogo.id} dlcs={dlcs} />
-        <section
-          className="w-full max-w-[1200px] rounded-3xl p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)]"
-          style={{ background: tema.painel }}
-        >
-          <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
-            <div className="space-y-6">
-              <div className="rounded-[20px] bg-bp-neutral/70 p-4">
-                <div className="relative aspect-[486/273] w-full overflow-hidden rounded-[15px] bg-white">
-                  <Image
-                    src={capa ?? capaExemplo}
-                    alt={jogo.titulo}
-                    fill
-                    sizes="(max-width: 900px) 100vw, 600px"
-                    className="object-cover"
-                    unoptimized={capa !== null}
-                  />
-                </div>
-
-                <div className="mt-5 flex flex-col gap-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h1 className="font-head text-3xl font-extrabold text-bp-primary max-[640px]:text-2xl">
-                      {jogo.titulo}
-                    </h1>
-                    {jogo.genero && (
-                      <span className="rounded-full border border-bp-muted/40 px-2.5 py-1 text-[11px] uppercase tracking-[.18em] text-bp-muted">
-                        {jogo.genero}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    {melhorOferta?.url && (
-                      <a
-                        href={melhorOferta.url}
-                        {...LINK_EXTERNO}
-                        className="rounded-[9px] bg-bp-primary px-5 py-2.5 text-[15px] text-bp-neutral transition hover:brightness-110"
-                      >
-                        Ir para {melhorOferta.loja ?? 'a loja'}
-                      </a>
-                    )}
-                    <Link
-                      href="/jogos"
-                      className="rounded-[9px] border border-bp-muted px-5 py-2.5 text-[15px] text-bp-muted transition hover:brightness-125"
-                    >
-                      Voltar às ofertas
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[20px] bg-bp-neutral/70 p-5">
-                <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">Onde comprar</h2>
-
-                {ofertas.length > 0 ? (
-                  <ul className="flex list-none flex-col gap-2">
-                    {ofertas.map((o, i) => {
-                      const conteudo = (
-                        <>
-                          <span className="flex items-center gap-3">
-                            <span className="font-body text-lg">{o.loja ?? `Loja ${o.idLoja}`}</span>
-                            {i === 0 && (
-                              <span className="rounded-full bg-bp-primary px-2.5 py-0.5 text-[10px] uppercase tracking-[.12em] text-bp-neutral">
-                                Melhor preço
-                              </span>
-                            )}
-                          </span>
-
-                          <span className="flex items-center gap-4">
-                            {o.desconto > 0 && (
-                              <span className="flex items-center gap-2 text-sm">
-                                <span className="text-bp-muted/60 line-through">{brl(o.precoOriginal)}</span>
-                                <span>-{o.desconto}%</span>
-                              </span>
-                            )}
-                            <strong className="font-head text-xl text-bp-primary">{brl(o.preco)}</strong>
-                            <span className="min-w-[88px] text-right text-sm">
-                              {o.url ? 'Ir à loja →' : 'Sem link'}
-                            </span>
-                          </span>
-                        </>
-                      )
-
-                      const base =
-                        'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[13px] bg-bp-neutral px-4 py-3 text-bp-muted'
-
-                      return (
-                        <li key={o.idLoja}>
-                          {o.url ? (
-                            <a
-                              href={o.url}
-                              {...LINK_EXTERNO}
-                              className={`${base} transition hover:brightness-125`}
-                            >
-                              {conteudo}
-                            </a>
-                          ) : (
-                            <div className={`${base} opacity-70`}>{conteudo}</div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : (
-                  <div className="rounded-[18px] border border-dashed border-bp-muted/30 bg-bp-bg/40 p-6 text-center">
-                    <p className="text-sm text-bp-muted/80">
-                      Não encontramos ofertas de compra para este jogo específico.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="rounded-[20px] bg-bp-neutral/70 p-5">
-                <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">Lista do jogo</h2>
-
-                {listaDoJogo.length > 0 ? (
-                  <ul className="space-y-3">
-                    {listaDoJogo.map((item) => (
-                      <li
-                        key={item.label}
-                        className="flex items-center justify-between gap-3 rounded-[12px] border border-bp-muted/20 bg-bp-bg/40 px-3 py-2.5"
-                      >
-                        <span className="text-sm text-bp-muted">{item.label}</span>
-                        <strong className="font-head text-base text-bp-primary">{item.value}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="flex flex-col items-center justify-center gap-3 rounded-[18px] border border-dashed border-bp-muted/25 bg-bp-bg/30 p-6 text-center">
-                    <Image src="/assets/macacao.png" alt="Macaco dormindo" width={180} height={180} className="object-contain" />
-                    <p className="max-w-xs text-sm leading-6 text-bp-muted">
-                      Não encontramos uma lista específica para esse jogo específico.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-[20px] bg-bp-neutral/70 p-5">
-                <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">Resumo</h2>
-
-                {melhorOferta ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-bp-muted">Melhor oferta</span>
-                      <span className="font-head text-xl text-bp-primary">{brl(melhorOferta.preco)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-bp-muted">Loja</span>
-                      <span className="font-body text-sm text-bp-muted">{melhorOferta.loja ?? 'Loja'}</span>
-                    </div>
-                    <div className="w-full max-w-[1100px] rounded-3xl p-6" style={{ background: tema.painel }}>
-                      <HistoricoPrecos idJogo={jogo.id} />
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-bp-muted">Sem ofertas no momento.</p>
-                )}
-              </div>
-            </div>
+      <main className="flex-1 px-5 py-10 max-w-[1240px] mx-auto w-full">
+        {carregando ? (
+          <div className="py-20 flex justify-center items-center">
+            <Loading mensagem="Carregando detalhes do jogo..." />
           </div>
+        ) : erro ? (
+          <div className="py-20 text-center">
+            <p role="alert" className="text-xl text-red-400 font-head mb-4">
+              {erro}
+            </p>
+            <Link
+              href="/jogos"
+              className="inline-block rounded-xl bg-bp-primary px-5 py-2.5 text-sm font-bold text-bp-neutral hover:brightness-110 transition"
+            >
+              Voltar ao catálogo
+            </Link>
+          </div>
+        ) : !dados ? null : (
+          <div className="flex flex-col gap-10">
+            {/* Topo: Capa e Infos Principais */}
+            <div className="flex gap-8 max-[900px]:flex-col items-start">
+              <div className="relative w-[300px] h-[400px] shrink-0 rounded-2xl overflow-hidden bg-bp-card shadow-lg max-[900px]:w-full max-[900px]:h-[350px]">
+                {dados.capa ? (
+                  <Image
+                    src={dados.capa}
+                    alt={dados.jogo.titulo}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-bp-muted/20 text-bp-muted font-head">
+                    Sem Capa
+                  </div>
+                )}
+              </div>
 
-          <div className="mt-6 rounded-[20px] bg-bp-neutral/70 p-5">
-            <h2 className="pb-4 font-head text-2xl font-extrabold text-bp-primary">Histórico de preços</h2>
+              <div className="flex flex-1 flex-col gap-4">
+                <h1 className="font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-3xl">
+                  {dados.jogo.titulo}
+                </h1>
 
-            {historicoPrecos.length > 0 ? (
-              <div className="overflow-hidden rounded-[14px] border border-bp-muted/20">
-                <div className="grid grid-cols-[1.2fr_1fr_0.8fr] gap-3 bg-bp-bg/50 px-4 py-3 text-xs uppercase tracking-[.12em] text-bp-muted">
-                  <span>Data</span>
-                  <span>Loja</span>
-                  <span className="text-right">Preço</span>
+                {dados.jogo.genero && (
+                  <span className="w-fit rounded-lg bg-bp-primary/10 px-3 py-1 font-body text-sm font-semibold text-bp-primary">
+                    {dados.jogo.genero}
+                  </span>
+                )}
+
+                {/* Preço de Destaque */}
+                <div className="mt-4 rounded-2xl p-6 shadow-md" style={{ background: tema.painel }}>
+                  <p className="text-sm font-head font-semibold text-bp-muted mb-2">
+                    Melhor Preço Atual:
+                  </p>
+                  {dados.melhorOferta ? (
+                    <div className="flex items-baseline gap-4">
+                      <span className="font-head text-4xl font-extrabold text-green-400">
+                        {dados.melhorOferta.preco === 0
+                          ? 'Grátis'
+                          : `R$ ${dados.melhorOferta.preco.toFixed(2).replace('.', ',')}`}
+                      </span>
+
+                      {dados.melhorOferta.desconto > 0 && (
+                        <span className="rounded-md bg-green-500/20 px-2 py-0.5 text-sm font-bold text-green-400">
+                          -{dados.melhorOferta.desconto}%
+                        </span>
+                      )}
+
+                      {dados.melhorOferta.precoOriginal > dados.melhorOferta.preco && (
+                        <span className="text-lg line-through text-bp-muted">
+                          R$ {dados.melhorOferta.precoOriginal.toFixed(2).replace('.', ',')}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="font-head text-xl font-bold text-yellow-400">
+                      Indisponível no momento
+                    </p>
+                  )}
                 </div>
-                <div className="divide-y divide-bp-muted/10">
-                  {historicoPrecos.slice(-12).map((item, index) => (
-                    <div key={`${item.data}-${item.loja}-${index}`} className="grid grid-cols-[1.2fr_1fr_0.8fr] gap-3 px-4 py-3 text-sm text-bp-muted">
-                      <span>{item.data.split('-').reverse().join('/')}</span>
-                      <span>{item.loja}</span>
-                      <span className="text-right font-head text-base text-bp-primary">{brl(item.valor)}</span>
+
+                {/* Menor Preço Histórico */}
+                {dados.menorPrecoHistorico && (
+                  <p className="text-sm text-bp-muted font-body">
+                    Menor valor histórico: <strong className="text-bp-primary">R$ {dados.menorPrecoHistorico.valor.toFixed(2).replace('.', ',')}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Lista de Lojas / Ofertas */}
+            <section className="flex flex-col gap-4">
+              <h2 className="flex items-center gap-2.5 font-head text-2xl font-bold text-bp-primary">
+                <StoreIcon /> Onde Comprar
+              </h2>
+
+              {dados.ofertas.length === 0 ? (
+                <p className="text-bp-muted">Nenhuma oferta ativa encontrada no momento.</p>
+              ) : (
+                <div className="grid gap-3">
+                  {dados.ofertas.map((of, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between rounded-xl p-4 transition hover:brightness-110"
+                      style={{ background: tema.painel }}
+                    >
+                      <span className="font-head text-lg font-bold text-bp-neutral">
+                        {of.loja ?? 'Loja Oficial'}
+                      </span>
+
+                      <div className="flex items-center gap-4">
+                        <span className="font-head text-xl font-extrabold text-green-400">
+                          {of.preco === 0 ? 'Grátis' : `R$ ${of.preco.toFixed(2).replace('.', ',')}`}
+                        </span>
+
+                        {of.url ? (
+                          <a
+                            href={of.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-lg bg-bp-primary px-4 py-2 font-head text-xs font-bold text-bp-neutral transition hover:brightness-110"
+                          >
+                            Ir para a loja
+                          </a>
+                        ) : (
+                          <span className="text-xs text-bp-muted">Link indisponível</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-[18px] border border-dashed border-bp-muted/25 bg-bp-bg/30 p-6 text-center">
-                <Image src="/assets/macacao.png" alt="Macaco dormindo" width={180} height={180} className="object-contain" />
-                <p className="max-w-sm text-sm leading-6 text-bp-muted">
-                  Não encontramos o histórico de preços desse jogo específico.
-                </p>
-              </div>
-            )}
+              )}
+            </section>
           </div>
-        </section>
-        </div>
+        )}
       </main>
 
       <div className="h-[5px]" style={{ background: tema.divisor }} />

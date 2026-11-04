@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
-import { buscarOfertasJogo, linksDasOfertas, buscarInfoBasica } from "@/lib/itad.ts";
+import { buscarOfertasJogo, linksDasOfertas, buscarInfoBasica, urlCapaItad } from "@/lib/itad.ts";
 import { adultoPermitido } from "@/lib/adulto";
 import { atualizarPrecosDoJogo } from "@/services/atualizarPrecoJogo";
 import { buscarDlcsDoJogo } from "@/services/dlcs";
@@ -48,7 +48,8 @@ export async function GET(
     ? await buscarOfertasJogo(jogo.itad_id, info.appid)
     : [];
 
-  const capa = info.capa;
+  // Garante a capa via info.capa ou gerando diretamente do itad_id com a urlCapaItad
+  const capa = info.capa ?? (jogo.itad_id ? urlCapaItad(jogo.itad_id) : null);
   const links = linksDasOfertas(deals);
   const dlcsPromise = buscarDlcsDoJogo(info.appid, liberaAdulto);
 

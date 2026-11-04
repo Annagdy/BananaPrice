@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
+import Loading from '@/components/loading'
 import { BellIcon } from '../../components/Icons'
 import { capaExemplo, macacotudo, macacoFeliz } from '../../components/assets'
 import { createClient } from '@/lib/supabase.ts/client.ts'
@@ -78,7 +79,6 @@ export default function NotificacoesPage() {
   useEffect(() => {
     carregarNotificacoes(true)
 
-    // Escuta alterações em tempo real no Supabase
     try {
       const supabase = createClient()
       const canal = supabase
@@ -167,7 +167,7 @@ export default function NotificacoesPage() {
             <button
               type="button"
               onClick={() => carregarNotificacoes(true)}
-              className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs text-bp-muted transition hover:text-bp-primary hover:bg-[#4d4039]"
+              className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs text-bp-muted transition hover:bg-[#4d4039] hover:text-bp-primary"
               title="Atualizar lista"
             >
               🔄 Atualizar
@@ -202,7 +202,7 @@ export default function NotificacoesPage() {
           <button
             type="button"
             onClick={() => setAba('todas')}
-            className={`cursor-pointer pb-2 text-sm font-bold transition border-b-2 ${
+            className={`cursor-pointer border-b-2 pb-2 text-sm font-bold transition ${
               aba === 'todas'
                 ? 'border-bp-primary text-bp-primary'
                 : 'border-transparent text-bp-muted hover:text-bp-text'
@@ -213,7 +213,7 @@ export default function NotificacoesPage() {
           <button
             type="button"
             onClick={() => setAba('naoLidas')}
-            className={`cursor-pointer pb-2 text-sm font-bold transition border-b-2 ${
+            className={`cursor-pointer border-b-2 pb-2 text-sm font-bold transition ${
               aba === 'naoLidas'
                 ? 'border-bp-primary text-bp-primary'
                 : 'border-transparent text-bp-muted hover:text-bp-text'
@@ -226,14 +226,7 @@ export default function NotificacoesPage() {
         {/* Conteúdo principal */}
         <div className="relative z-[1] max-w-[898px] px-[55px] pt-6 max-[640px]:px-4">
           {carregando ? (
-            <div className="flex flex-col gap-4 py-8">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-28 w-full animate-pulse rounded-3xl bg-[#3d322e]/60"
-                />
-              ))}
-            </div>
+            <Loading mensagem="Carregando notificações..." />
           ) : erro ? (
             <div role="alert" className="rounded-xl bg-bp-nav p-4 text-red-400">
               {erro}
@@ -289,7 +282,7 @@ export default function NotificacoesPage() {
                     />
                     <div className="flex flex-col gap-1 overflow-hidden pr-2">
                       <div className="flex items-center gap-2">
-                        <h2 className="font-head text-xl font-extrabold text-bp-primary truncate max-[640px]:text-base">
+                        <h2 className="truncate font-head text-xl font-extrabold text-bp-primary max-[640px]:text-base">
                           {n.titulo}
                         </h2>
                         {!n.lida && (
@@ -298,7 +291,7 @@ export default function NotificacoesPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-bp-text leading-snug line-clamp-2 max-[640px]:text-xs">
+                      <p className="line-clamp-2 text-sm leading-snug text-bp-text max-[640px]:text-xs">
                         {n.descricao}
                       </p>
                       <span className="text-[11px] text-bp-muted/80">

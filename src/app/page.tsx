@@ -6,6 +6,7 @@ import Nav from '../components/Nav'
 import Hero from '../components/Hero'
 import GameCard from '../components/GameCard'
 import Footer from '../components/Footer'
+import Loading from '@/components/loading'
 import { BoltIcon, TagIcon } from '../components/Icons'
 import type { Game } from '../mocks/games'
 
@@ -25,15 +26,22 @@ type JogoApi = {
   capa: string | null
 }
 
-const paraCard = (j: JogoApi): Game => ({
-  id: j.id,
-  name: j.titulo,
-  store: j.melhorPreco !== null ? (j.loja ?? 'Oferta ativa') : 'Indisponível',
-  discount: j.melhorPreco !== null ? j.desconto : 0,
-  originalPrice: j.precoOriginal ?? 0,
-  price: j.melhorPreco,
-  cover: j.capa,
-})
+const paraCard = (j: JogoApi): Game => {
+  const isGratis = j.melhorPreco === 0
+  const isIndisponivel = j.melhorPreco === null
+
+  return {
+    id: j.id,
+    name: j.titulo,
+    store: isIndisponivel
+      ? 'Indisponível'
+      : (j.loja ?? (isGratis ? 'Resgatar Grátis' : 'Oferta ativa')),
+    discount: isIndisponivel ? 0 : (isGratis ? 100 : j.desconto),
+    originalPrice: j.precoOriginal ?? 0,
+    price: j.melhorPreco,
+    cover: j.capa,
+  }
+}
 
 export default function HomePage() {
   const [start, setStart] = useState(0)
@@ -42,7 +50,6 @@ export default function HomePage() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
-  // Vitrine Turbo: exibe estritamente os jogos com pagamento aprovado trazidos da API
   const featured: Game[] = useMemo(() => {
     return jogosTurbo.map(paraCard)
   }, [jogosTurbo])
@@ -65,7 +72,6 @@ export default function HomePage() {
       setCarregando(true)
       setErro(null)
 
-      // Busca as ofertas gerais (Todos os jogos)
       const fetchOfertas = fetch(
         `/api/v1/games?${new URLSearchParams({
           limit: String(OFERTAS_NA_HOME),
@@ -77,7 +83,6 @@ export default function HomePage() {
         }
       ).then((res) => res.json())
 
-      // Busca apenas os jogos que tiveram Turbo APROVADO no banco
       const fetchTurbo = fetch(`/api/v1/games?turbo=1&limit=6`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -119,6 +124,7 @@ export default function HomePage() {
 
       <Divider />
 
+      {/* Vitrine Turbo */}
       <section className="px-5 py-2.5">
         <div className="flex items-center justify-between p-2.5">
           <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
@@ -133,7 +139,9 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {featured.length === 0 ? (
+        {carregando ? (
+          <Loading mensagem="Carregando destaques..." />
+        ) : featured.length === 0 ? (
           <p className="py-10 text-center text-bp-muted">
             Nenhum jogo na Vitrine Turbo no momento. Seja o primeiro a impulsionar um jogo!
           </p>
@@ -150,7 +158,13 @@ export default function HomePage() {
 
             <div className="flex max-w-[1240px] flex-1 justify-center gap-5 max-[1100px]:flex-col max-[1100px]:items-center">
               {visible.map((g, idx) => (
-                <GameCard key={`${g.id}-${idx}`} game={g} variant="wide" />
+                <Link
+                  key={`${g.id}-${idx}`}
+                  href={`/jogos/${g.id}`}
+                  className="block flex-1 max-w-[586px] w-full transition hover:brightness-110"
+                >
+                  <GameCard game={g} variant="wide" />
+                </Link>
               ))}
             </div>
 
@@ -168,6 +182,7 @@ export default function HomePage() {
 
       <Divider />
 
+      {/* Ofertas do Momento */}
       <section className="px-5 py-2.5">
         <div className="flex items-center justify-between p-2.5">
           <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
@@ -176,9 +191,7 @@ export default function HomePage() {
         </div>
 
         {carregando ? (
-          <p className="py-10 text-center text-bp-muted">
-            Carregando...
-          </p>
+          <Loading mensagem="Carregando ofertas do momento..." />
         ) : erro ? (
           <p role="alert" className="py-10 text-center text-red-400">
             {erro}
