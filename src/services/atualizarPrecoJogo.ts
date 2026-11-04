@@ -1,30 +1,13 @@
 import { supabase, chamarSupabase } from "../lib/supabase.ts/index.ts";
 import { notificarQuedaDePreco } from "./notificacoes";
 
-/* Jogos que estão sendo atualizados agora, para duas visitas ao mesmo tempo não gravarem em duplicidade. */
 const emAtualizacao = new Set<number>();
 
-/* Data de hoje no formato YYYY-MM-DD, no fuso de Brasília (a coluna preco_historico.data é do tipo date). */
 function hojeBrasil(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 }
 
-/* Atualiza no banco os preços de UM jogo, a partir das ofertas que o ITAD acabou de devolver.
-
-Usado quando o usuário abre o jogo (não há cron rodando o tempo todo). Faz quatro coisas:
-1. Garante que cada loja exista em `loja` (a chave é o nome).
-2. Grava o preço atual em `preco_jogo` (upsert por jogo + loja) e remove lojas que deixaram de ter oferta.
-3. Registra em `preco_historico` um valor novo sempre que o preço da loja muda (os anteriores são mantidos).
-4. Se o menor preço do jogo caiu ou entrou um novo desconto substancial, notifica usuários da wishlist.
-
-Nunca lança erro: se algo falhar, registra no console e devolve false, e a página segue com o que já está no banco.
-
-@param idJogo jogo.id_jogo
-@param deals Ofertas cruas do ITAD ('/games/prices/v3', campo 'deals'). Campos lidos: shop.name, price.amount, cut.
-@returns true se gravou, false se não havia o que gravar, já estava em atualização ou deu erro.
-*/
 export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promise<boolean> {
-
   if (emAtualizacao.has(idJogo)) {
     return false;
   }
@@ -32,12 +15,9 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
   emAtualizacao.add(idJogo);
 
   try {
-
-    // menor preço por loja (a mesma loja pode aparecer mais de uma vez)
     const porLoja = new Map<string, { valor: number; corte: number }>();
 
     for (const deal of deals) {
-
       const loja = String(deal?.shop?.name ?? "").trim();
       const valor = Number(deal?.price?.amount);
       const corte = Number(deal?.cut ?? 0);
@@ -47,17 +27,17 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
       }
 
       const atual = porLoja.get(loja);
-
       if (!atual || valor < atual.valor) {
         porLoja.set(loja, { valor, corte: Number.isFinite(corte) ? corte : 0 });
       }
     }
 
     if (porLoja.size === 0) {
+      console.log(`[atualizarPrecosDoJogo] Nenhuma loja válida encontrada nos deals.`);
       return false;
     }
 
-    // Consulta os preços salvos ANTES da atualização para comparar queda de valor e desconto anterior
+    // Consulta os preços salvos ANTES da atualização
     let menorAnterior: number | null = null;
     let descontoAnterior = 0;
 
@@ -77,22 +57,31 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
         descontoAnterior = Number(precosAnteriores[0].percentual_desconto ?? 0);
       }
     } catch {
-      // Falha na verificação de preço anterior não impede a gravação dos novos preços
+      // Ignora erro de verificação anterior
     }
 
-    // 1) Lojas
-    const lojas = await chamarSupabase(
-      "garantir lojas",
-      () => supabase
-        .from("loja")
-        .upsert(Array.from(porLoja.keys()).map((nome) => ({ nome })), { onConflict: "nome" })
-        .select("id_loja, nome")
-    );
-
+    // 1) RESOLUÇÃO DE LOJAS (Busca existentes -> Insere novas -> Mapeia IDs)
+    const nomesLojas = Array.from(porLoja.keys());
     const idPorNome = new Map<string, number>();
 
-    for (const loja of lojas ?? []) {
-      idPorNome.set(loja.nome, loja.id_loja);
+    const lojasExistentes = await chamarSupabase(
+      "buscar lojas existentes",
+      () => supabase.from("loja").select("id_loja, nome").in("nome", nomesLojas)
+    );
+
+    for (const l of lojasExistentes ?? []) {
+      idPorNome.set(l.nome, l.id_loja);
+    }
+
+    const novasLojas = nomesLojas.filter((nome) => !idPorNome.has(nome));
+    if (novasLojas.length > 0) {
+      const inseridas = await chamarSupabase(
+        "inserir novas lojas",
+        () => supabase.from("loja").insert(novasLojas.map((nome) => ({ nome }))).select("id_loja, nome")
+      );
+      for (const l of inseridas ?? []) {
+        idPorNome.set(l.nome, l.id_loja);
+      }
     }
 
     const agora = new Date().toISOString();
@@ -101,12 +90,8 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
     const hoje = hojeBrasil();
 
     for (const [nome, oferta] of porLoja) {
-
       const idLoja = idPorNome.get(nome);
-
-      if (idLoja === undefined) {
-        continue;
-      }
+      if (idLoja === undefined) continue;
 
       linhasPreco.push({
         id_jogo: idJogo,
@@ -120,16 +105,17 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
     }
 
     if (linhasPreco.length === 0) {
+      console.log(`[atualizarPrecosDoJogo] Falha ao mapear id_loja das ofertas.`);
       return false;
     }
 
-    // 2) Preço Atual
+    // 2) Grava Preços Atuais
     await chamarSupabase(
       "gravar preco_jogo",
       () => supabase.from("preco_jogo").upsert(linhasPreco, { onConflict: "id_jogo,id_loja" })
     );
 
-    // Dispara notificações se detectou menor preço ou um novo desconto substancial
+    // Notificações
     let menorNovoValor = Infinity;
     let maiorDesconto = 0;
     let melhorLoja = "";
@@ -154,13 +140,12 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
         loja: melhorLoja,
         precoAnterior: menorAnterior,
       }).catch((err) =>
-        console.error("[atualizarPrecosDoJogo] Erro ao disparar notificações:", err)
+        console.error("[atualizarPrecosDoJogo] Erro ao notificar:", err)
       );
     }
 
-    // Lojas que deixaram de ter oferta saem da lista (evita manter preço antigo)
+    // Remove lojas desatualizadas
     const idsAtuais = linhasPreco.map((l) => l.id_loja as number);
-
     await chamarSupabase(
       "remover ofertas antigas",
       () => supabase
@@ -170,13 +155,11 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
         .not("id_loja", "in", `(${idsAtuais.join(",")})`)
     );
 
-    // 3) Histórico: grava um registro SEMPRE que o valor muda em relação ao último registro da loja
+    // 3) Registra Histórico de Preços
     const novas: typeof linhasHistorico = [];
-
     for (const linha of linhasHistorico) {
-
       const ultimo = await chamarSupabase(
-        "consultar último histórico da loja",
+        "consultar último histórico",
         () => supabase
           .from("preco_historico")
           .select("valor")
@@ -199,16 +182,13 @@ export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promi
       );
     }
 
+    console.log(`[atualizarPrecosDoJogo] Sucesso ao gravar ${linhasPreco.length} preços para id_jogo: ${idJogo}`);
     return true;
 
   } catch (erro: any) {
-
     console.error(`[atualizarPrecosDoJogo] jogo ${idJogo}:`, erro?.message ?? erro);
-
     return false;
-
   } finally {
-
     emAtualizacao.delete(idJogo);
   }
 }

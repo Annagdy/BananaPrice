@@ -4,7 +4,7 @@ export type Game = {
   store: string
   discount: number
   originalPrice: number
-  price: number
+  price: number | null
   cover: string | null
 }
 

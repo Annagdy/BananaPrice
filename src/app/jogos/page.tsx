@@ -1,40 +1,68 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import GameCard from '../../components/GameCard'
+import Loading from '@/components/loading'
 import { StoreIcon, TagIcon } from '../../components/Icons'
 import { palmeira } from '../../components/assets'
 import { STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
 import type { Game } from '../../mocks/games'
 import { tema } from '../../mocks/tema'
 import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
+import { urlCapaItad } from '../../lib/itad.ts' 
+import { useRouter, useSearchParams } from 'next/navigation'
 
-/* Formato de cada jogo devolvido por GET /api/v1/games (catálogo, RF06). */
-type JogoApi = {
-  id: number
-  titulo: string
-  melhorPreco: number | null
-  precoOriginal: number | null
-  desconto: number
-  loja: string | null
-  capa: string | null
+export const dynamic = 'force-dynamic'
+
+const paraCard = (j: any): Game => {
+  const coverUrl = j.capa ?? (j.itad_id ? urlCapaItad(j.itad_id) : null)
+
+  if ('melhorPreco' in j || 'desconto' in j) {
+    return {
+      id: j.id ?? j.id_jogo ?? 0,
+      name: j.titulo ?? 'Sem título',
+      store: j.loja ?? 'Sem oferta',
+      discount: j.desconto ?? 0,
+      originalPrice: j.precoOriginal ?? 0,
+      price: j.melhorPreco ?? 0,
+      cover: coverUrl,
+    }
+  }
+
+  const promocoes = j.promocoes || []
+  const melhorPromo = promocoes.length > 0 
+    ? promocoes.reduce((min: any, p: any) => {
+        if (p.valor_atual == null) return min
+        if (min.valor_atual == null) return p
+        return p.valor_atual < min.valor_atual ? p : min
+      }, promocoes[0])
+    : null
+
+  const loja = melhorPromo?.loja
+    ? Array.isArray(melhorPromo.loja)
+      ? melhorPromo.loja[0]?.nome
+      : melhorPromo.loja.nome
+    : 'Sem oferta'
+
+  const price = melhorPromo?.valor_atual ?? 0
+  const discount = melhorPromo?.percentual_desconto ?? 0
+  const originalPrice = discount > 0 ? price / (1 - discount / 100) : price
+
+  return {
+    id: j.id_jogo ?? j.id ?? 0,
+    name: j.titulo ?? 'Sem título',
+    store: loja ?? 'Sem oferta',
+    discount: discount,
+    originalPrice: originalPrice,
+    price: price,
+    cover: coverUrl,
+  }
 }
-
-/* Converte o jogo da API no formato que o GameCard espera. */
-const paraCard = (j: JogoApi): Game => ({
-  id: j.id,
-  name: j.titulo,
-  store: j.loja ?? 'Sem oferta',
-  discount: j.desconto,
-  originalPrice: j.precoOriginal ?? 0,
-  price: j.melhorPreco ?? 0,
-  cover: j.capa,
-})
 
 function Opcao({
   label,
@@ -81,22 +109,30 @@ function Grupo({
   )
 }
 
-export default function JogosPage() {
-  // pesquisa por nome (código original, usa ?busca=)
-  const [resultadoBusca, setResultadoBusca] = useState('')
-  const [busca, setBusca] = useState('')
+function ConteudoJogos() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  // filtros do catálogo
+  const termoNaUrl = (searchParams.get('search') || searchParams.get('busca') || '').trim()
+
+  const [termoBusca, setTermoBusca] = useState(termoNaUrl)
+
+  useEffect(() => {
+    setTermoBusca(termoNaUrl)
+  }, [termoNaUrl])
+
+  const [resultadoBusca, setResultadoBusca] = useState<any[]>([])
+  const [carregandoBusca, setCarregandoBusca] = useState(false)
+  const [erroBusca, setErroBusca] = useState<string | null>(null)
+
   const [precoMax, setPrecoMax] = useState<number | null>(null)
   const [corteMin, setCorteMin] = useState<number | null>(null)
   const [lojas, setLojas] = useState<string[]>([])
   const [pagina, setPagina] = useState(1)
 
-  // conteúdo adulto: oculto por padrão, a pessoa precisa ativar (fica salvo em cookie)
   const [adulto, setAdulto] = useState(false)
 
-  // dados do catálogo vindos da API
-  const [jogos, setJogos] = useState<JogoApi[]>([])
+  const [jogos, setJogos] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(true)
   const [erroCatalogo, setErroCatalogo] = useState<string | null>(null)
@@ -134,15 +170,56 @@ export default function JogosPage() {
     setPagina(1)
   }
 
-  // lê a preferência salva no cookie ao abrir a página
   useEffect(() => {
     setAdulto(adultoAtivoNoNavegador())
   }, [])
 
-  // catálogo com filtros: GET /api/v1/games?price=&discount=&store=&page=&limit=
   useEffect(() => {
-    // com texto digitado, quem responde é a pesquisa por nome
-    if (busca.trim()) return undefined
+    const termo = termoBusca.trim()
+    if (!termo) {
+      setResultadoBusca([])
+      setErroBusca(null)
+      setCarregandoBusca(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setCarregandoBusca(true)
+    setErroBusca(null)
+
+    fetch(`/api/v1/games?busca=${encodeURIComponent(termo)}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const dados = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(
+            dados?.detalhes || dados?.erro || dados?.error || `Erro HTTP: ${res.status}`
+          )
+        }
+        if (!controller.signal.aborted) {
+          const resultados = dados?.jogosEncontrados ?? dados?.jogos ?? []
+          setResultadoBusca(Array.isArray(resultados) ? resultados : [])
+        }
+      })
+      .catch((erro) => {
+        if (!controller.signal.aborted && erro.name !== 'AbortError') {
+          setErroBusca(
+            erro instanceof Error ? erro.message : 'Erro ao pesquisar o jogo.'
+          )
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCarregandoBusca(false)
+        }
+      })
+
+    return () => controller.abort()
+  }, [termoBusca])
+
+  useEffect(() => {
+    if (termoBusca.trim()) return
 
     const controller = new AbortController()
     const params = new URLSearchParams({
@@ -162,97 +239,41 @@ export default function JogosPage() {
         if (!res.ok) {
           throw new Error(json?.error ?? 'Erro ao carregar as ofertas.')
         }
-        setJogos(json.jogos ?? [])
-        setTotal(json.total ?? 0)
+        if (!controller.signal.aborted) {
+          setJogos(json.jogos ?? [])
+          setTotal(json.total ?? 0)
+        }
       })
       .catch((e: Error) => {
-        if (e.name !== 'AbortError') setErroCatalogo(e.message)
+        if (!controller.signal.aborted && e.name !== 'AbortError') {
+          setErroCatalogo(e.message)
+        }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setCarregando(false)
+        if (!controller.signal.aborted) {
+          setCarregando(false)
+        }
       })
 
     return () => controller.abort()
-  }, [busca, precoMax, corteMin, lojas, pagina, adulto])
+  }, [termoBusca, precoMax, corteMin, lojas, pagina, adulto])
 
-  // pesquisa por nome: GET /api/v1/games?busca= (rota do Python/Gemini, sem alteração)
-  useEffect(() => {
-    const termo = busca.trim()
-
-    if (!termo) {
-      setResultadoBusca('')
-      return
+  const executarBusca = (novoTermo: string) => {
+    const termo = novoTermo.trim()
+    setTermoBusca(termo)
+    if (termo) {
+      router.push(`/jogos?search=${encodeURIComponent(termo)}`)
+    } else {
+      router.push('/jogos')
     }
-
-    let cancelado = false
-    const controller = new AbortController()
-
-    setResultadoBusca('Consultando API...')
-
-    async function pesquisar() {
-      try {
-        const resposta = await fetch(
-          `/api/v1/games?busca=${encodeURIComponent(termo)}`,
-          { signal: controller.signal },
-        )
-
-        const dados = await resposta.json()
-
-        if (!resposta.ok) {
-          throw new Error(dados.erro || `Erro HTTP: ${resposta.status}`)
-        }
-
-        const nomes =
-          typeof dados.resultado === 'string'
-            ? dados.resultado
-            : Array.isArray(dados.nomes)
-              ? dados.nomes.join(', ')
-              : typeof dados.nomes === 'string'
-                ? dados.nomes
-                : null
-
-        if (nomes === null) {
-          throw new Error(
-            `Formato inesperado da API: ${JSON.stringify(dados)}`,
-          )
-        }
-
-        if (!cancelado) {
-          setResultadoBusca(
-            nomes.trim() ? nomes : 'Nenhum jogo encontrado.',
-          )
-        }
-      } catch (erro) {
-        if (
-          !cancelado &&
-          !(erro instanceof Error && erro.name === 'AbortError')
-        ) {
-          console.error('Erro na pesquisa:', erro)
-          setResultadoBusca(
-            `Falha na pesquisa: ${
-              erro instanceof Error ? erro.message : 'Erro desconhecido'
-            }`,
-          )
-        }
-      }
-    }
-
-    pesquisar()
-
-    return () => {
-      cancelado = true
-      controller.abort()
-    }
-  }, [busca])
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
       <Nav
         logado
-        onSearch={(q) => {
-          setBusca(q)
-          setPagina(1)
-        }}
+        valorBusca={termoBusca}
+        onSearch={executarBusca}
       />
 
       <div className="h-[5px]" style={{ background: tema.divisor }} />
@@ -277,7 +298,7 @@ export default function JogosPage() {
           className="pointer-events-none absolute bottom-0 left-[-305px] h-auto w-[759px] max-[1100px]:hidden"
         />
 
-        <div className="relative z-[1] flex items-start gap-[67px] px-[75px] pb-10 pt-10 max-[1250px]:gap-8 max-[1250px]:px-6 max-[1100px]:flex-col max-[1100px]:items-center max-[640px]:px-4">
+        <div className="relative z-[1] flex items-start gap-[67px] px-[75px] pb-10 pt-10 max-[1250px]:gap-8 max-[1100px]:flex-col max-[1100px]:items-center max-[640px]:px-4">
           <aside
             aria-label="Filtros"
             className="flex shrink-0 flex-col gap-[100px] rounded-3xl px-7 py-[22px] shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[1100px]:gap-6 max-[640px]:w-full"
@@ -329,12 +350,33 @@ export default function JogosPage() {
             aria-label="Ofertas"
             className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8"
           >
-            {busca.trim() ? (
-              <p className="py-16 text-center text-bp-muted">
-                {resultadoBusca || 'Aguardando pesquisa...'}
-              </p>
+            {termoBusca.trim() ? (
+              carregandoBusca ? (
+                <Loading mensagem="Pesquisando jogos e consultando ofertas..." />
+              ) : erroBusca ? (
+                <p role="alert" className="py-16 text-center text-red-400">
+                  {erroBusca}
+                </p>
+              ) : resultadoBusca.length === 0 ? (
+                <p className="py-16 text-center text-bp-muted">
+                  Nenhum jogo relacionado foi encontrado.
+                </p>
+              ) : (
+                <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
+                  {resultadoBusca.map((jogo, index) => (
+                    <li key={`${jogo.id_jogo ?? jogo.id ?? 'busca'}-${index}`} className="h-full">
+                      <Link
+                        href={`/jogos/${jogo.id_jogo ?? jogo.id}`}
+                        className="block h-full transition hover:brightness-110"
+                      >
+                        <GameCard game={paraCard(jogo)} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : carregando ? (
-              <p className="py-16 text-center text-bp-muted">Carregando...</p>
+              <Loading mensagem="Carregando ofertas..." />
             ) : erroCatalogo ? (
               <p role="alert" className="py-16 text-center text-red-400">
                 {erroCatalogo}
@@ -345,10 +387,10 @@ export default function JogosPage() {
               </p>
             ) : (
               <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
-                {jogos.map((j) => (
-                  <li key={j.id} className="h-full">
+                {jogos.map((j, index) => (
+                  <li key={`${j.id ?? j.id_jogo ?? 'catalogo'}-${index}`} className="h-full">
                     <Link
-                      href={`/jogos/${j.id}`}
+                      href={`/jogos/${j.id ?? j.id_jogo}`}
                       className="block h-full transition hover:brightness-110"
                     >
                       <GameCard game={paraCard(j)} />
@@ -358,7 +400,7 @@ export default function JogosPage() {
               </ul>
             )}
 
-            {!busca.trim() && (
+            {!termoBusca.trim() && (
               <nav
                 aria-label="Paginação"
                 className="flex items-center gap-[73px] rounded-3xl bg-bp-nav p-2.5 max-[640px]:gap-10"
@@ -391,5 +433,13 @@ export default function JogosPage() {
       <div className="h-[5px]" style={{ background: tema.divisor }} />
       <Footer />
     </div>
+  )
+}
+
+export default function JogosPage() {
+  return (
+    <Suspense fallback={<Loading mensagem="Carregando página..." />}>
+      <ConteudoJogos />
+    </Suspense>
   )
 }

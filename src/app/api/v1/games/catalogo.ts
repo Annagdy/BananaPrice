@@ -18,16 +18,6 @@ function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
-/*
-RF06: catálogo de jogos com filtros, lido do banco (alimentado pelo cron do ITAD).
-
-@query search Trecho do título.
-@query price Preço máximo em R$.
-@query discount Desconto mínimo em %.
-@query store Id ou nome da loja.
-@query page, limit Paginação (padrão 20, máximo 50).
-@returns { jogos, total, pagina, limite }
-*/
 export async function listarCatalogo(request: Request) {
   const { searchParams } = new URL(request.url);
 
@@ -56,7 +46,6 @@ export async function listarCatalogo(request: Request) {
     }
   }
 
-  // com filtro de preço/desconto/loja, só entram jogos que tenham uma oferta que atenda
   const filtrando = precoMax !== null || descontoMin !== null || idLoja !== null;
   const embed = filtrando ? "preco_jogo!inner" : "preco_jogo";
 
@@ -88,8 +77,22 @@ export async function listarCatalogo(request: Request) {
       .filter((p: any) => p.valor_atual != null)
       .sort((a: any, b: any) => a.valor_atual - b.valor_atual)[0];
 
-    const atual = melhor ? Number(melhor.valor_atual) : null;
-    const desconto = Number(melhor?.percentual_desconto ?? 0);
+    const nomeLoja = nomeDaLoja(melhor?.loja);
+    const temLojaValida = Boolean(nomeLoja);
+
+    let atual = melhor ? Number(melhor.valor_atual) : null;
+    const descontoBruto = Number(melhor?.percentual_desconto ?? 0);
+
+    // REGRA DE JOGOS DESCONTINUADOS / INVÁLIDOS:
+    // Se não tiver loja vinculada OU se o preço for 0 sem desconto de 100% OFF real, força como INDISPONÍVEL (null)
+    if (!temLojaValida || (atual === 0 && descontoBruto < 100)) {
+      atual = null;
+    }
+
+    const isGratis = atual === 0;
+    const isIndisponivel = atual === null;
+
+    const desconto = isIndisponivel ? 0 : (isGratis ? 100 : descontoBruto);
 
     return {
       id: j.id_jogo,
@@ -99,18 +102,24 @@ export async function listarCatalogo(request: Request) {
       genero: j.genero,
       melhorPreco: atual,
       precoOriginal:
-        atual !== null && desconto > 0 && desconto < 100
-          ? Math.round((atual / (1 - desconto / 100)) * 100) / 100
-          : atual,
+        isIndisponivel
+          ? null
+          : isGratis
+            ? 0
+            : atual !== null && descontoBruto > 0 && descontoBruto < 100
+              ? Math.round((atual / (1 - descontoBruto / 100)) * 100) / 100
+              : atual,
       desconto,
-      loja: nomeDaLoja(melhor?.loja),
+      loja: isIndisponivel ? null : nomeLoja,
     };
   });
 
   return NextResponse.json(
     { jogos, total: count ?? 0, pagina, limite },
-    { headers: verAdulto
-    ? { "Cache-Control": "private, no-store" }
-    : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600", Vary: "Cookie" }, }
+    {
+      headers: verAdulto
+        ? { "Cache-Control": "private, no-store" }
+        : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600", Vary: "Cookie" },
+    }
   );
 }
