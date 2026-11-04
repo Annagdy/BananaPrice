@@ -5,27 +5,12 @@ import { adultoPermitido } from "@/lib/adulto";
 import { atualizarPrecosDoJogo } from "@/services/atualizarPrecoJogo";
 import { buscarDlcsDoJogo } from "@/services/dlcs";
 
-/* Depois de quanto tempo o preço guardado no banco é considerado velho e refeito ao abrir o jogo. */
 const TTL_PRECO_MS = 30 * 60 * 1000;
 
-/* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
-/*
-GET /api/v1/games/[id] (RF07, RF08): detalhe do jogo, comparação de preços, melhor oferta e DLCs.
-
-Ao abrir o jogo, se o preço no banco tem mais de 30 minutos (ou não existe), consulta o ITAD e grava os
-preços novos em preco_jogo e preco_historico antes de responder. Se o ITAD falhar, responde com o que já
-está no banco. O mesmo retorno do ITAD também fornece os links das lojas.
-
-Os DLCs vêm da Steam (a partir do appid que o ITAD informa) e só entram os que existem no nosso catálogo.
-Se a busca falhar, "dlcs" sai vazio e a página simplesmente não mostra o botão.
-
-@returns 200 { jogo, capa, melhorOferta, ofertas, menorPrecoHistorico, dlcs }; 400 id inválido;
-         403 conteúdo adulto não liberado; 404 jogo não encontrado; 500 erro no banco.
-*/
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -48,26 +33,26 @@ export async function GET(
   }
   if (!jogo) return NextResponse.json({ error: "Jogo não encontrado." }, { status: 404 });
 
-  // jogo adulto só é entregue a quem ativou essa preferência (cookie)
   const liberaAdulto = adultoPermitido(request);
   if (jogo.adulto && !liberaAdulto) {
     return NextResponse.json({ error: "conteudo_adulto" }, { status: 403 });
   }
 
-  // ofertas do ITAD (uma chamada, com cache de 10 min) e informações básicas (capa e appid da Steam)
-  const semInfo = { capa: null as string | null, appid: null as number | null };
+  // 1. Busca Info Básica
+  const info = jogo.itad_id
+    ? await buscarInfoBasica(jogo.itad_id)
+    : { capa: null, appid: null };
 
-  const [deals, info] = jogo.itad_id
-    ? await Promise.all([buscarOfertasJogo(jogo.itad_id), buscarInfoBasica(jogo.itad_id)])
-    : [[] as any[], semInfo];
+  // 2. Busca Ofertas no ITAD / Fallback Steam
+  const deals = jogo.itad_id
+    ? await buscarOfertasJogo(jogo.itad_id, info.appid)
+    : [];
 
   const capa = info.capa;
   const links = linksDasOfertas(deals);
-
-  // DLCs: começa agora e só espera no fim, para andar junto com a atualização de preços
   const dlcsPromise = buscarDlcsDoJogo(info.appid, liberaAdulto);
 
-  // atualiza o banco se o preço guardado está velho (ou não existe)
+  // 3. Atualiza o banco de dados
   if (deals.length > 0) {
     const { data: recente } = await supabase
       .from("preco_jogo")
@@ -78,18 +63,18 @@ export async function GET(
       .maybeSingle();
 
     const ultima = recente?.atualizado_em ? new Date(recente.atualizado_em).getTime() : 0;
+    const semRegistro = !recente;
 
-    if (Date.now() - ultima > TTL_PRECO_MS) {
+    if (semRegistro || Date.now() - ultima > TTL_PRECO_MS) {
       await atualizarPrecosDoJogo(idJogo, deals);
     }
   }
 
-  // ofertas atuais em todas as lojas, da mais barata para a mais cara (comparação de preços)
+  // 4. Consulta ofertas gravadas no Supabase
   const { data: precos } = await supabase
     .from("preco_jogo")
     .select("id_loja, valor_atual, percentual_desconto, atualizado_em, loja ( nome )")
     .eq("id_jogo", idJogo)
-    .not("valor_atual", "is", null)
     .order("valor_atual", { ascending: true });
 
   const ofertas = ((precos ?? []) as unknown as any[]).map((p) => {
@@ -110,12 +95,11 @@ export async function GET(
     };
   });
 
-  // menor preço já registrado
+  // Menor preço histórico
   const { data: minimo } = await supabase
     .from("preco_historico")
     .select("valor, data, id_loja")
     .eq("id_jogo", idJogo)
-    .not("valor", "is", null)
     .order("valor", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -139,7 +123,6 @@ export async function GET(
         : null,
       dlcs,
     },
-    // a rota pode gravar no banco, então a resposta não fica em cache compartilhado
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }

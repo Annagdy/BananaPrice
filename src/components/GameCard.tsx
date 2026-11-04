@@ -5,8 +5,10 @@ import Image from 'next/image'
 import { capaExemplo } from './assets'
 import type { Game } from '../mocks/games'
 
-const brl = (v: number) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const brl = (v: number | null | undefined) => {
+  if (v === null || v === undefined) return ''
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 type GameCardProps = {
   game: Game
@@ -23,6 +25,8 @@ export default function GameCard({ game, variant = 'default' }: GameCardProps) {
 
   const capaRemota = typeof game.cover === 'string' && game.cover !== '' && !falhou
   const src = capaRemota ? game.cover! : (!falhou && game.cover ? game.cover : capaExemplo)
+
+  const temDesconto = game.price !== null && game.discount > 0
 
   return (
     <article
@@ -41,14 +45,14 @@ export default function GameCard({ game, variant = 'default' }: GameCardProps) {
           fill
           sizes="(max-width: 1100px) 50vw, 283px"
           className="object-cover"
-          // URL externa: carrega direto do navegador (como na página do jogo), sem passar
-          // pelo otimizador do Next, que busca a imagem pelo servidor e pode ser bloqueado.
           unoptimized={capaRemota}
           onError={() => setFalhou(true)}
         />
-        <span className="absolute bottom-0 right-0 bg-bp-primary py-2.5 pl-7 pr-3.5 font-head text-xl font-extrabold text-bp-neutral [clip-path:polygon(24%_0,100%_0,100%_100%,0_100%)]">
-          {game.discount}%
-        </span>
+        {temDesconto && (
+          <span className="absolute bottom-0 right-0 bg-bp-primary py-2.5 pl-7 pr-3.5 font-head text-xl font-extrabold text-bp-neutral [clip-path:polygon(24%_0,100%_0,100%_100%,0_100%)]">
+            {game.discount}%
+          </span>
+        )}
       </div>
 
       {/* Título: sempre ocupa 2 linhas de altura (corta o excesso com "..."), para os cards ficarem iguais */}
@@ -63,8 +67,26 @@ export default function GameCard({ game, variant = 'default' }: GameCardProps) {
 
       {/* Preço sempre encostado embaixo do card */}
       <div className="mt-auto pt-3.5">
-        <div className="text-[10px] text-bp-muted/[.58]">{brl(game.originalPrice)}</div>
-        <div className="mt-0.5 font-head text-sm font-extrabold text-bp-primary">{brl(game.price)}</div>
+        {game.price !== null && game.price > 0 ? (
+          <>
+            {game.originalPrice > game.price && (
+              <div className="text-[10px] text-bp-muted/[.58] line-through">
+                {brl(game.originalPrice)}
+              </div>
+            )}
+            <div className="mt-0.5 font-head text-sm font-extrabold text-bp-primary">
+              {brl(game.price)}
+            </div>
+          </>
+        ) : game.price === 0 ? (
+          <div className="mt-0.5 font-head text-sm font-extrabold text-green-400">
+            Grátis
+          </div>
+        ) : (
+          <div className="mt-0.5 font-head text-sm font-semibold text-bp-muted">
+            Indisponível
+          </div>
+        )}
       </div>
     </article>
   )

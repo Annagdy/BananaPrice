@@ -7,7 +7,6 @@ import Hero from '../components/Hero'
 import GameCard from '../components/GameCard'
 import Footer from '../components/Footer'
 import { BoltIcon, TagIcon } from '../components/Icons'
-import { games } from '../mocks/games'
 import type { Game } from '../mocks/games'
 
 const Divider = () => (
@@ -29,57 +28,74 @@ type JogoApi = {
 const paraCard = (j: JogoApi): Game => ({
   id: j.id,
   name: j.titulo,
-  store: j.loja ?? 'Sem oferta',
-  discount: j.desconto,
+  store: j.melhorPreco !== null ? (j.loja ?? 'Oferta ativa') : 'Indisponível',
+  discount: j.melhorPreco !== null ? j.desconto : 0,
   originalPrice: j.precoOriginal ?? 0,
-  price: j.melhorPreco ?? 0,
+  price: j.melhorPreco,
   cover: j.capa,
 })
 
 export default function HomePage() {
   const [start, setStart] = useState(0)
   const [ofertas, setOfertas] = useState<JogoApi[]>([])
+  const [jogosTurbo, setJogosTurbo] = useState<JogoApi[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
-  const featured = useMemo(() => games.slice(0, 6), [])
-  const visible = [0, 1].map(
-    (o) => featured[(start + o) % featured.length]
-  )
+  // Vitrine Turbo: exibe estritamente os jogos com pagamento aprovado trazidos da API
+  const featured: Game[] = useMemo(() => {
+    return jogosTurbo.map(paraCard)
+  }, [jogosTurbo])
 
-  const move = (d: number) =>
+  const visible = useMemo(() => {
+    if (featured.length === 0) return []
+    if (featured.length === 1) return [featured[0]]
+    return [0, 1].map((o) => featured[(start + o) % featured.length])
+  }, [featured, start])
+
+  const move = (d: number) => {
+    if (featured.length === 0) return
     setStart((s) => (s + d + featured.length) % featured.length)
+  }
 
-  // Carrega as ofertas iniciais da vitrine
   useEffect(() => {
     const controller = new AbortController()
 
     const timer = setTimeout(() => {
-      const params = new URLSearchParams({
-        limit: String(OFERTAS_NA_HOME),
-        discount: '1',
-      })
-
       setCarregando(true)
       setErro(null)
 
-      fetch(`/api/v1/games?${params}`, {
+      // Busca as ofertas gerais (Todos os jogos)
+      const fetchOfertas = fetch(
+        `/api/v1/games?${new URLSearchParams({
+          limit: String(OFERTAS_NA_HOME),
+          discount: '1',
+        })}`,
+        {
+          signal: controller.signal,
+          cache: 'no-store',
+        }
+      ).then((res) => res.json())
+
+      // Busca apenas os jogos que tiveram Turbo APROVADO no banco
+      const fetchTurbo = fetch(`/api/v1/games?turbo=1&limit=6`, {
         signal: controller.signal,
+        cache: 'no-store',
       })
-        .then(async (res) => {
-          const json = await res.json().catch(() => null)
+        .then((res) => (res.ok ? res.json() : { jogos: [] }))
+        .catch(() => ({ jogos: [] }))
 
-          if (!res.ok) {
-            throw new Error(
-              json?.error ?? 'Erro ao carregar as ofertas.'
-            )
+      Promise.all([fetchOfertas, fetchTurbo])
+        .then(([dataOfertas, dataTurbo]) => {
+          if (dataOfertas.error) {
+            throw new Error(dataOfertas.error)
           }
-
-          setOfertas(json.jogos ?? [])
+          setOfertas(dataOfertas.jogos ?? [])
+          setJogosTurbo(Array.isArray(dataTurbo.jogos) ? dataTurbo.jogos : [])
         })
         .catch((e: Error) => {
           if (e.name !== 'AbortError') {
-            setErro(e.message)
+            setErro(e.message ?? 'Erro ao carregar os dados.')
           }
         })
         .finally(() => {
@@ -117,27 +133,37 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <div className="flex items-center justify-center gap-[29px] p-2.5">
-          <button
-            type="button"
-            onClick={() => move(-1)}
-            aria-label="Anterior"
-            className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
-          />
+        {featured.length === 0 ? (
+          <p className="py-10 text-center text-bp-muted">
+            Nenhum jogo na Vitrine Turbo no momento. Seja o primeiro a impulsionar um jogo!
+          </p>
+        ) : (
+          <div className="flex items-center justify-center gap-[29px] p-2.5">
+            {featured.length > 2 && (
+              <button
+                type="button"
+                onClick={() => move(-1)}
+                aria-label="Anterior"
+                className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
+              />
+            )}
 
-          <div className="flex max-w-[1240px] flex-1 justify-center gap-5 max-[1100px]:flex-col max-[1100px]:items-center">
-            {visible.map((g) => (
-              <GameCard key={g.id} game={g} variant="wide" />
-            ))}
+            <div className="flex max-w-[1240px] flex-1 justify-center gap-5 max-[1100px]:flex-col max-[1100px]:items-center">
+              {visible.map((g, idx) => (
+                <GameCard key={`${g.id}-${idx}`} game={g} variant="wide" />
+              ))}
+            </div>
+
+            {featured.length > 2 && (
+              <button
+                type="button"
+                onClick={() => move(1)}
+                aria-label="Próximo"
+                className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 [clip-path:polygon(0_0,100%_50%,0_100%)]"
+              />
+            )}
           </div>
-
-          <button
-            type="button"
-            onClick={() => move(1)}
-            aria-label="Próximo"
-            className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 [clip-path:polygon(0_0,100%_50%,0_100%)]"
-          />
-        </div>
+        )}
       </section>
 
       <Divider />

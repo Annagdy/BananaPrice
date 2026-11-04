@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { logo } from './assets'
 import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons'
-import { createClient } from '@/lib/supabase.ts/client.ts'
+import { createClient } from '@/lib/supabase.ts/client'
 
 type NavProps = {
   /** Só a página do catálogo passa isto: a pesquisa é tratada ali mesmo. As demais páginas não passam,
@@ -19,19 +19,48 @@ type NavProps = {
   logado?: boolean
 }
 
-/* Cabeçalho do site com a barra de pesquisa.
-
-Ao pesquisar (Enter ou clique na lupa):
-- Em qualquer página: vai para o catálogo, em /jogos?search=<texto>.
-- Na própria página do catálogo (que passa onSearch): só atualiza a pesquisa, sem recarregar a página. */
 export default function Nav({ onSearch, valorBusca = '', logado = false }: NavProps) {
   const router = useRouter()
   const [texto, setTexto] = useState(valorBusca)
+  const [estaLogado, setEstaLogado] = useState(logado)
+  const [naoLidas, setNaoLidas] = useState(0)
 
-  // acompanha a pesquisa atual quando a página do catálogo a define (por exemplo, vinda do endereço)
+  // Acompanha a pesquisa atual quando definida externamente
   useEffect(() => {
     setTexto(valorBusca)
   }, [valorBusca])
+
+  // Sincroniza o estado de login com a prop
+  useEffect(() => {
+    setEstaLogado(logado)
+  }, [logado])
+
+  // Busca notificações não lidas no Supabase se estiver logado
+  useEffect(() => {
+    if (!estaLogado) return
+
+    const supabase = createClient()
+    async function carregarNotificacoesNaoLidas() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { count } = await supabase
+          .from('notificacoes')
+          .select('*', { count: 'exact', head: true })
+          .eq('usuario_id', user.id)
+          .eq('lida', false)
+
+        if (count !== null) {
+          setNaoLidas(count)
+        }
+      } catch (err) {
+        // Trata ou ignora se a tabela ainda não existir no banco
+      }
+    }
+
+    carregarNotificacoesNaoLidas()
+  }, [estaLogado])
 
   const pesquisar = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
