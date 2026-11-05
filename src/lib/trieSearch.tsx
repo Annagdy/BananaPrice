@@ -1,4 +1,4 @@
-import { supabase as supabaseAdmin } from '@/lib/supabase'
+import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 
 function normalizar(texto: string): string {
   return texto
