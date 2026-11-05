@@ -1,31 +1,32 @@
-import { NextResponse } from 'next/server';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import { supabase as supabaseAdmin } from '@/lib/supabase.ts';
-import { urlCapaItad } from '@/lib/itad.ts';
-import { listarCatalogo } from './catalogo';
+import { NextResponse } from 'next/server'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import path from 'path'
+import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
+import { urlCapaItad } from '@/lib/itad.ts'
+import { trieEngine } from '@/lib/trieSearch'
+import { listarCatalogo } from './catalogo'
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = promisify(execFile)
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 type Jogo = {
-  id_jogo: number;
-  titulo: string;
-  itad_id: string | number;
-};
+  id_jogo: number
+  titulo: string
+  itad_id: string | number | null
+}
 
 type Promocao = {
-  valor_atual: number | null;
-  percentual_desconto: number | null;
-  atualizado_em: string | null;
-  loja: { nome: string } | null;
-};
+  valor_atual: number | null
+  percentual_desconto: number | null
+  atualizado_em: string | null
+  loja: { nome: string } | null
+}
 
 type JogoComPromocoes = Jogo & {
-  promocoes: Promocao[];
-};
+  promocoes: Promocao[]
+}
 
 function limparNome(nome: string): string {
   return nome
@@ -34,41 +35,11 @@ function limparNome(nome: string): string {
     .replace(/https?:\/\/\S+/gi, '')
     .replace(/[™®©]/g, '')
     .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizarTitulo(titulo: string): string {
-  return limparNome(titulo)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
     .trim()
-    .replace(/\s+/g, ' ');
 }
 
-function palavrasImportantes(titulo: string): string[] {
-  return normalizarTitulo(titulo)
-    .split(' ')
-    .filter(palavra => palavra.length > 0);
-}
-
-function possuiTodasAsPalavras(
-  tituloPesquisado: string,
-  tituloBanco: string
-): boolean {
-  const palavrasPesquisadas = palavrasImportantes(tituloPesquisado);
-  const palavrasBanco = new Set(palavrasImportantes(tituloBanco));
-
-  return (
-    palavrasPesquisadas.length > 0 &&
-    palavrasPesquisadas.every(palavra => palavrasBanco.has(palavra))
-  );
-}
-
-async function pesquisarNomesOficiais(
-  busca: string
-): Promise<string[]> {
+// Detecta se estamos rodando em Windows ou Linux/Mac para usar o comando correto de Python
+async function pesquisarNomesIA(busca: string): Promise<string[]> {
   const script = path.join(
     process.cwd(),
     'src',
@@ -77,290 +48,241 @@ async function pesquisarNomesOficiais(
     'v1',
     'games',
     'pesquisaNomeGPT.py'
-  );
+  )
 
-  const { stdout } = await execFileAsync(
-    'py',
-    [script, busca],
-    {
-      encoding: 'utf8',
-      timeout: 120000,
+  // Tenta comandos comuns de Python no sistema
+  const comandosPython = ['python3', 'python', 'py']
+  let stdout = ''
+  let sucesso = false
+  let ultimoErro = ''
+
+  for (const cmd of comandosPython) {
+    try {
+      console.log(`[IA Search] Tentando executar via '${cmd}'...`)
+      const res = await execFileAsync(cmd, [script, busca], {
+        encoding: 'utf8',
+        timeout: 180000, // 3 minutos de timeout para o Selenium rodar
+      })
+      stdout = res.stdout
+      sucesso = true
+      break
+    } catch (err: any) {
+      ultimoErro = err?.message || String(err)
+      // Se for erro de 'comando não encontrado' (ENOENT), tenta o próximo comando
+      if (err?.code !== 'ENOENT') {
+        console.error(`[IA Search] Erro durante a execução do Selenium com ${cmd}:`, err)
+        break
+      }
     }
-  );
-
-  if (/\bNOT\s+JOGO\b/i.test(stdout)) {
-    return [];
   }
 
-  const resultado = JSON.parse(stdout.trim());
-
-  if (resultado.erro) {
-    throw new Error(resultado.erro);
+  if (!sucesso) {
+    console.error('[IA Search] Falha ao disparar o script Python. Verifique se o Python e Selenium estão instalados.', ultimoErro)
+    return []
   }
 
-  const nomes: string[] = Array.isArray(resultado.nome)
-    ? resultado.nome
-    : typeof resultado.nome === 'string'
-      ? resultado.nome.split(/\r?\n|,/)
-      : [];
+  if (/\bNOT\s+JOGO\b/i.test(stdout)) return []
 
-  const nomesLimpos = [
-    ...new Set(
-      nomes
-        .map(limparNome)
-        .filter(
-          nome =>
-            Boolean(nome) &&
-            !/^o\s+gemini\s+disse\b/i.test(nome)
-        )
-    ),
-  ];
+  try {
+    const resultado = JSON.parse(stdout.trim())
+    if (resultado.erro) {
+      console.error('[IA Search] Erro retornado do script Python:', resultado.erro)
+      return []
+    }
 
-  if (nomesLimpos.some(nome => /\bNOT\s+JOGO\b/i.test(nome))) {
-    return [];
+    const nomes: string[] = Array.isArray(resultado.nome)
+      ? resultado.nome
+      : typeof resultado.nome === 'string'
+        ? resultado.nome.split(/\r?\n|,/)
+        : []
+
+    return [...new Set(nomes.map(limparNome).filter(Boolean))]
+  } catch (parseErr) {
+    console.error('[IA Search] Erro ao fazer parse do JSON retornado pelo Python:', stdout)
+    return []
   }
-
-  return nomesLimpos;
 }
 
-async function buscarJogosNoSupabase(
-  nomesRetornados: string[]
-): Promise<
-  {
-    nomePesquisado: string;
-    jogosEncontrados: JogoComPromocoes[];
-  }[]
-> {
-  const resultados: {
-    nomePesquisado: string;
-    jogosEncontrados: JogoComPromocoes[];
-  }[] = [];
+// Junta os dados do jogo com os preços das lojas no Supabase
+async function enriquecerJogosComPromocoes(jogos: Jogo[]) {
+  const resultados: JogoComPromocoes[] = []
 
-  const jogosJaProcessados = new Set<string>();
+  for (const jogo of jogos) {
+    const { data: precos } = await supabaseAdmin
+      .from('preco_jogo')
+      .select(`
+        valor_atual,
+        percentual_desconto,
+        atualizado_em,
+        loja ( nome )
+      `)
+      .eq('id_jogo', jogo.id_jogo)
 
-  for (const nomeOriginal of nomesRetornados) {
-    const nome = limparNome(nomeOriginal);
-    const palavras = palavrasImportantes(nome);
+    const promocoes: Promocao[] = (precos ?? []).map((preco: any) => ({
+      valor_atual: preco.valor_atual,
+      percentual_desconto: preco.percentual_desconto,
+      atualizado_em: preco.atualizado_em,
+      loja: Array.isArray(preco.loja) ? preco.loja[0] ?? null : preco.loja ?? null,
+    }))
 
-    if (
-      !nome ||
-      /^o\s+gemini\s+disse\b/i.test(nome) ||
-      palavras.length === 0
-    ) {
-      continue;
-    }
-
-    let consulta = supabaseAdmin
-      .from('jogo')
-      .select('id_jogo, titulo, itad_id');
-
-    for (const palavra of palavras) {
-      consulta = consulta.ilike('titulo', `%${palavra}%`);
-    }
-
-    const { data, error } = await consulta.limit(500);
-
-    if (error) {
-      resultados.push({
-        nomePesquisado: nome,
-        jogosEncontrados: [],
-      });
-      continue;
-    }
-
-    const candidatos = (data ?? []) as Jogo[];
-
-    const jogosAprovados = candidatos.filter(jogo =>
-      possuiTodasAsPalavras(nome, jogo.titulo)
-    );
-
-    const jogosComPromocoes: JogoComPromocoes[] = [];
-
-    for (const jogo of jogosAprovados) {
-      const chave = String(jogo.id_jogo);
-
-      if (jogosJaProcessados.has(chave)) {
-        continue;
-      }
-
-      jogosJaProcessados.add(chave);
-
-      const { data: precos } = await supabaseAdmin
-        .from('preco_jogo')
-        .select(`
-          valor_atual,
-          percentual_desconto,
-          atualizado_em,
-          loja (
-            nome
-          )
-        `)
-        .eq('id_jogo', jogo.id_jogo);
-
-      const promocoes: Promocao[] = (precos ?? []).map(
-        (preco: any) => ({
-          valor_atual: preco.valor_atual,
-          percentual_desconto: preco.percentual_desconto,
-          atualizado_em: preco.atualizado_em,
-          loja: Array.isArray(preco.loja)
-            ? preco.loja[0] ?? null
-            : preco.loja ?? null,
-        })
-      );
-
-      jogosComPromocoes.push({
-        ...jogo,
-        promocoes,
-      });
-    }
-
-    resultados.push({
-      nomePesquisado: nome,
-      jogosEncontrados: jogosComPromocoes,
-    });
+    resultados.push({ ...jogo, promocoes })
   }
 
-  return resultados;
+  return resultados
 }
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const isTurbo = searchParams.get('turbo') === '1';
-    const busca = searchParams.get('busca')?.trim();
+    const { searchParams } = new URL(request.url)
+    const isTurbo = searchParams.get('turbo') === '1'
+    
+    // Aceita tanto 'busca' quanto 'search'
+    const busca = (searchParams.get('busca') || searchParams.get('search'))?.trim()
+    const modo = searchParams.get('modo') ?? 'nativa'
 
-    // 1. Vitrine Turbo: busca jogos com pagamento 'aprovado' criados nos últimos 7 dias
+    // 1. Vitrine Turbo
     if (isTurbo) {
-      const limit = Number(searchParams.get('limit')) || 6;
+      const limit = Number(searchParams.get('limit')) || 6
+      const DIAS_DE_TURBO = 7
+      const dataLimite = new Date()
+      dataLimite.setDate(dataLimite.getDate() - DIAS_DE_TURBO)
 
-      const DIAS_DE_TURBO = 7;
-      const dataLimite = new Date();
-      dataLimite.setDate(dataLimite.getDate() - DIAS_DE_TURBO);
-
-      const { data: turbos, error: errTurbo } = await supabaseAdmin
+      const { data: turbos } = await supabaseAdmin
         .from('pagamento_turbo')
         .select('id_jogo')
         .eq('status', 'aprovado')
-        .gte('criado_em', dataLimite.toISOString());
+        .gte('criado_em', dataLimite.toISOString())
 
-      if (errTurbo) {
-        console.error('[api/v1/games] Erro ao buscar turbos:', errTurbo.message);
-        return NextResponse.json({ jogos: [] });
-      }
+      const idsTurbinados = Array.from(new Set((turbos ?? []).map((t: any) => Number(t.id_jogo))))
+      if (idsTurbinados.length === 0) return NextResponse.json({ jogos: [] })
 
-      const idsTurbinados = Array.from(
-        new Set((turbos ?? []).map((t: any) => Number(t.id_jogo)))
-      );
-
-      if (idsTurbinados.length === 0) {
-        return NextResponse.json({ jogos: [] });
-      }
-
-      const { data: jogos, error: errJogos } = await supabaseAdmin
+      const { data: jogos } = await supabaseAdmin
         .from('jogo')
         .select('id_jogo, titulo, itad_id')
         .in('id_jogo', idsTurbinados)
-        .limit(limit);
+        .limit(limit)
 
-      if (errJogos || !jogos) {
-        console.error('[api/v1/games] Erro ao carregar jogos turbinados:', errJogos?.message);
-        return NextResponse.json({ jogos: [] });
-      }
+      if (!jogos) return NextResponse.json({ jogos: [] })
 
       const jogosFormatados = await Promise.all(
         jogos.map(async (j: any) => {
           const { data: precos } = await supabaseAdmin
             .from('preco_jogo')
-            .select(`
-              valor_atual,
-              percentual_desconto,
-              loja ( nome )
-            `)
+            .select(`valor_atual, percentual_desconto, loja ( nome )`)
             .eq('id_jogo', j.id_jogo)
-            .limit(1);
+            .limit(1)
 
-          const oferta = precos && precos.length > 0 ? precos[0] : null;
-          const lojaObj = Array.isArray(oferta?.loja) ? oferta.loja[0] : oferta?.loja;
-          
-          const nomeLoja: string | null = lojaObj?.nome ?? null;
-          const temLojaValida = Boolean(nomeLoja);
+          const oferta = precos && precos.length > 0 ? precos[0] : null
+          const lojaObj = Array.isArray(oferta?.loja) ? oferta.loja[0] : oferta?.loja
+          const nomeLoja: string | null = lojaObj?.nome ?? null
 
-          let melhorPreco: number | null = oferta?.valor_atual ?? null;
-          const descontoBruto = oferta?.percentual_desconto ?? 0;
+          let melhorPreco: number | null = oferta?.valor_atual ?? null
+          const descontoBruto = oferta?.percentual_desconto ?? 0
 
-          // Validação para jogos indisponíveis/descontinuados (ex: FIFA 22)
-          if (!temLojaValida || (melhorPreco === 0 && descontoBruto < 100)) {
-            melhorPreco = null;
+          if (!nomeLoja || (melhorPreco === 0 && descontoBruto < 100)) {
+            melhorPreco = null
           }
 
-          const isGratis = melhorPreco === 0;
-          const isIndisponivel = melhorPreco === null;
-
-          const desconto = isIndisponivel
-            ? 0
-            : isGratis
-              ? 100
-              : descontoBruto;
-
-          const precoOriginal = isIndisponivel
-            ? null
-            : isGratis
-              ? 0
-              : melhorPreco && descontoBruto > 0 && descontoBruto < 100
-                ? +(melhorPreco / (1 - descontoBruto / 100)).toFixed(2)
-                : melhorPreco;
+          const isGratis = melhorPreco === 0
+          const isIndisponivel = melhorPreco === null
+          const desconto = isIndisponivel ? 0 : isGratis ? 100 : descontoBruto
 
           return {
             id: j.id_jogo,
             titulo: j.titulo,
             melhorPreco,
-            precoOriginal,
+            precoOriginal: isIndisponivel
+              ? null
+              : isGratis
+                ? 0
+                : melhorPreco && descontoBruto > 0 && descontoBruto < 100
+                  ? +(melhorPreco / (1 - descontoBruto / 100)).toFixed(2)
+                  : melhorPreco,
             desconto,
             loja: isIndisponivel ? null : nomeLoja,
-            capa: j.itad_id ? urlCapaItad(j.itad_id) : null, // Usa a mesma função oficial do catalogo.ts
-          };
+            capa: j.itad_id ? urlCapaItad(j.itad_id) : null,
+          }
         })
-      );
+      )
 
-      return NextResponse.json({ jogos: jogosFormatados });
+      return NextResponse.json({ jogos: jogosFormatados })
     }
 
-    // 2. Busca com filtro por nome (IA / Gemini / Python)
+    // 2. Busca por Termo
     if (busca) {
-      const nomesRetornados = await pesquisarNomesOficiais(busca);
+      // MODO A: BUSCA NATIVA (Árvore Trie + Fallback ilike)
+      if (modo === 'nativa') {
+        await trieEngine.carregarCatalogo()
+        let jogosMatcheados = trieEngine.buscar(busca, 30)
 
-      if (nomesRetornados.length === 0) {
+        // Fallback: Se a Trie estiver vazia ou não encontrar match direto, busca no Supabase
+        if (jogosMatcheados.length === 0) {
+          const { data } = await supabaseAdmin
+            .from('jogo')
+            .select('id_jogo, titulo, itad_id')
+            .ilike('titulo', `%${busca}%`)
+            .limit(30)
+
+          jogosMatcheados = (data ?? []) as Jogo[]
+        }
+
+        const jogosComPromocoes = await enriquecerJogosComPromocoes(jogosMatcheados)
+
         return NextResponse.json({
-          mensagem: 'Nenhum jogo foi encontrado.',
-        });
+          tipo: 'nativa',
+          busca,
+          jogosEncontrados: jogosComPromocoes,
+        })
       }
 
-      const resultados = await buscarJogosNoSupabase(nomesRetornados);
+      // MODO B: BUSCA VIA IA / SELENIUM
+      if (modo === 'ia' || modo === 'gpt') {
+        const nomesRetornados = await pesquisarNomesIA(busca)
 
-      return NextResponse.json({
-        busca,
-        totalNomes: nomesRetornados.length,
-        resultados,
-        jogosEncontrados: resultados.flatMap(
-          resultado => resultado.jogosEncontrados
-        ),
-      });
+        // Se a IA não retornou nomes, faz fallback para busca parcial no banco
+        const listaBusca = nomesRetornados.length > 0 ? nomesRetornados : [busca]
+
+        const candidatosMap = new Map<number, Jogo>()
+
+        for (const nomeIA of listaBusca) {
+          const nomeLimp = limparNome(nomeIA)
+          if (!nomeLimp) continue
+
+          // Busca flexível via ILIKE para garantir que variações de título sejam encontradas
+          const { data } = await supabaseAdmin
+            .from('jogo')
+            .select('id_jogo, titulo, itad_id')
+            .ilike('titulo', `%${nomeLimp}%`)
+            .limit(10)
+
+          if (data) {
+            for (const j of data) {
+              candidatosMap.set(j.id_jogo, j)
+            }
+          }
+        }
+
+        const candidatos = Array.from(candidatosMap.values())
+        const jogosComPromocoes = await enriquecerJogosComPromocoes(candidatos)
+
+        return NextResponse.json({
+          tipo: 'ia',
+          busca,
+          jogosEncontrados: jogosComPromocoes,
+        })
+      }
     }
 
-    // 3. Catálogo Padrão (Ofertas do Momento)
-    return listarCatalogo(request);
+    // 3. Catálogo Padrão
+    return listarCatalogo(request)
   } catch (error) {
-    console.error('Erro ao pesquisar jogos:', error);
-
+    console.error('Erro ao pesquisar jogos:', error)
     return NextResponse.json(
       {
         erro: 'Não foi possível pesquisar os jogos.',
-        detalhes:
-          error instanceof Error
-            ? error.message
-            : 'Erro desconhecido',
+        detalhes: error instanceof Error ? error.message : 'Erro desconhecido',
       },
       { status: 500 }
-    );
+    )
   }
 }

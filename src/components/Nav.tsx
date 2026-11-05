@@ -4,45 +4,61 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Search, Bot } from 'lucide-react'
 import { logo } from './assets'
 import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons'
 import { createClient } from '@/lib/supabase.ts/client'
 
+export type ModoBusca = 'nativa' | 'ia'
+
 type NavProps = {
-  /** Só a página do catálogo passa isto: a pesquisa é tratada ali mesmo. As demais páginas não passam,
-   *  e a pesquisa leva para /jogos?search=... */
-  onSearch?: (value: string) => void
-  /** Texto que a barra mostra (a página do catálogo usa para refletir a pesquisa atual). */
+  onSearch?: (value: string, modo: ModoBusca) => void
   valorBusca?: string
-  /** true = mostra Lista de Desejos e Conta em vez de Login / Cadastrar */
+  modoInicial?: ModoBusca
   logado?: boolean
 }
 
-export default function Nav({ onSearch, valorBusca = '', logado = false }: NavProps) {
+export default function Nav({
+  onSearch,
+  valorBusca = '',
+  modoInicial = 'nativa',
+  logado = false,
+}: NavProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [texto, setTexto] = useState(valorBusca)
+  const [modo, setModo] = useState<ModoBusca>(modoInicial)
   const [estaLogado, setEstaLogado] = useState(logado)
   const [naoLidas, setNaoLidas] = useState(0)
 
-  // Acompanha a pesquisa atual quando definida externamente
+  // Sincroniza o texto caso venha de fora (URL/Props)
   useEffect(() => {
-    setTexto(valorBusca)
-  }, [valorBusca])
+    setTexto(valorBusca || searchParams.get('search') || searchParams.get('busca') || '')
+  }, [valorBusca, searchParams])
 
-  // Sincroniza o estado de login com a prop
+  // Sincroniza o modo se houver o parâmetro 'modo' na URL
+  useEffect(() => {
+    const modoUrl = searchParams.get('modo') as ModoBusca
+    if (modoUrl === 'nativa' || modoUrl === 'ia') {
+      setModo(modoUrl)
+    }
+  }, [searchParams])
+
   useEffect(() => {
     setEstaLogado(logado)
   }, [logado])
 
-  // Busca notificações não lidas no Supabase se estiver logado
   useEffect(() => {
     if (!estaLogado) return
 
     const supabase = createClient()
     async function carregarNotificacoesNaoLidas() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
         if (!user) return
 
         const { count } = await supabase
@@ -51,33 +67,42 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
           .eq('usuario_id', user.id)
           .eq('lida', false)
 
-        if (count !== null) {
-          setNaoLidas(count)
-        }
-      } catch (err) {
-        // Trata ou ignora se a tabela ainda não existir no banco
+        if (count !== null) setNaoLidas(count)
+      } catch {
+        // Ignora se a tabela não existir
       }
     }
 
     carregarNotificacoesNaoLidas()
   }, [estaLogado])
 
-  const pesquisar = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const termo = texto.trim()
-
+  const dispararBusca = (termo: string, modoAtual: ModoBusca) => {
     if (onSearch) {
-      onSearch(termo)
+      onSearch(termo, modoAtual)
       return
     }
 
     if (!termo) return
 
-    router.push(`/jogos?search=${encodeURIComponent(termo)}`)
+    router.push(`/jogos?search=${encodeURIComponent(termo)}&modo=${modoAtual}`)
+  }
+
+  const pesquisar = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    dispararBusca(texto.trim(), modo)
+  }
+
+  const alterarModo = (novoModo: ModoBusca) => {
+    setModo(novoModo)
+    const termo = texto.trim()
+    if (termo) {
+      dispararBusca(termo, novoModo)
+    }
   }
 
   return (
     <header className="flex h-20 items-center justify-between gap-6 bg-bp-nav pr-5 max-[640px]:h-auto max-[640px]:flex-wrap max-[640px]:px-3 max-[640px]:py-2">
+      {/* Logo */}
       <Link
         href="/"
         aria-label="BananaPrice"
@@ -92,31 +117,67 @@ export default function Nav({ onSearch, valorBusca = '', logado = false }: NavPr
         />
       </Link>
 
+      {/* Formulário de Pesquisa */}
       <form
         role="search"
         onSubmit={pesquisar}
-        className="relative max-w-[517px] flex-1 max-[640px]:order-3 max-[640px]:max-w-none max-[640px]:basis-full"
+        className="relative flex max-w-[580px] flex-1 items-center gap-2 max-[640px]:order-3 max-[640px]:max-w-none max-[640px]:basis-full"
       >
-        <input
-          type="search"
-          name="search"
-          placeholder="Search"
-          aria-label="Buscar jogos"
-          maxLength={100}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          className="h-[46px] w-full rounded-[13px] border border-bp-muted/30 bg-bp-nav pl-[18px] pr-[52px] text-xs text-bp-text outline-none placeholder:text-bp-muted/45 focus:border-bp-primary"
-        />
-        <button
-          type="submit"
-          aria-label="Pesquisar"
-          title="Pesquisar"
-          className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-[#817667]/90 transition-colors hover:text-bp-primary"
-        >
-          <SearchIcon />
-        </button>
+        <div className="relative flex-1">
+          <input
+            type="search"
+            name="search"
+            placeholder={
+              modo === 'nativa'
+                ? 'Busca rápida de jogos (ex: Resident Evil)...'
+                : 'Busca profunda por franquias com IA...'
+            }
+            aria-label="Buscar jogos"
+            maxLength={100}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            className="h-[46px] w-full rounded-[13px] border border-bp-muted/30 bg-bp-nav pl-[18px] pr-[52px] text-xs text-bp-text outline-none placeholder:text-bp-muted/45 focus:border-bp-primary"
+          />
+          <button
+            type="submit"
+            aria-label="Pesquisar"
+            title="Pesquisar"
+            className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-[#817667]/90 transition-colors hover:text-bp-primary"
+          >
+            <SearchIcon />
+          </button>
+        </div>
+
+        {/* Seletor do Modo de Pesquisa com Ícones do Lucide React */}
+        <div className="flex h-[46px] shrink-0 items-center rounded-[13px] border border-bp-muted/30 bg-bp-nav/80 p-1">
+          <button
+            type="button"
+            onClick={() => alterarModo('nativa')}
+            title="Busca Rápida e Direta (estilo Steam)"
+            className={`flex h-full items-center gap-1.5 rounded-[9px] px-2.5 font-head text-[11px] font-bold transition-all duration-150 active:scale-95 ${
+              modo === 'nativa'
+                ? 'bg-bp-primary text-bp-neutral shadow-sm'
+                : 'text-bp-muted hover:text-bp-primary'
+            }`}
+          >
+            <Search className="size-3.5" /> Nativa
+          </button>
+          <button
+            type="button"
+            onClick={() => alterarModo('ia')}
+            title="Busca Avançada de Franquias e Sequências com IA"
+            className={`flex h-full items-center gap-1.5 rounded-[9px] px-2.5 font-head text-[11px] font-bold transition-all duration-150 active:scale-95 ${
+              modo === 'ia'
+                ? 'bg-bp-primary text-bp-neutral shadow-sm'
+                : 'text-bp-muted hover:text-bp-primary'
+            }`}
+          >
+            <Bot className="size-3.5" /> IA
+          </button>
+        </div>
       </form>
 
+      {/* Links do Usuário */}
       {estaLogado ? (
         <div className="flex shrink-0 items-center gap-[19px] pr-2.5 max-[640px]:gap-3">
           <Link

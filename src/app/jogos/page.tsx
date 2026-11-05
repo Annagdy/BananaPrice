@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import Nav from '../../components/Nav'
+import Nav, { type ModoBusca } from '../../components/Nav'
 import Footer from '../../components/Footer'
 import GameCard from '../../components/GameCard'
 import Loading from '@/components/loading'
@@ -14,7 +14,7 @@ import { STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos
 import type { Game } from '../../mocks/games'
 import { tema } from '../../mocks/tema'
 import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
-import { urlCapaItad } from '../../lib/itad.ts' 
+import { urlCapaItad } from '../../lib/itad.ts'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
@@ -35,13 +35,14 @@ const paraCard = (j: any): Game => {
   }
 
   const promocoes = j.promocoes || []
-  const melhorPromo = promocoes.length > 0 
-    ? promocoes.reduce((min: any, p: any) => {
-        if (p.valor_atual == null) return min
-        if (min.valor_atual == null) return p
-        return p.valor_atual < min.valor_atual ? p : min
-      }, promocoes[0])
-    : null
+  const melhorPromo =
+    promocoes.length > 0
+      ? promocoes.reduce((min: any, p: any) => {
+          if (p.valor_atual == null) return min
+          if (min.valor_atual == null) return p
+          return p.valor_atual < min.valor_atual ? p : min
+        }, promocoes[0])
+      : null
 
   const loja = melhorPromo?.loja
     ? Array.isArray(melhorPromo.loja)
@@ -114,12 +115,7 @@ function ConteudoJogos() {
   const searchParams = useSearchParams()
 
   const termoNaUrl = (searchParams.get('search') || searchParams.get('busca') || '').trim()
-
-  const [termoBusca, setTermoBusca] = useState(termoNaUrl)
-
-  useEffect(() => {
-    setTermoBusca(termoNaUrl)
-  }, [termoNaUrl])
+  const modoNaUrl = ((searchParams.get('modo') as ModoBusca) || 'nativa')
 
   const [resultadoBusca, setResultadoBusca] = useState<any[]>([])
   const [carregandoBusca, setCarregandoBusca] = useState(false)
@@ -174,9 +170,9 @@ function ConteudoJogos() {
     setAdulto(adultoAtivoNoNavegador())
   }, [])
 
+  // Dispara o fetch da busca montando explicitamente os parâmetros `busca` e `modo`
   useEffect(() => {
-    const termo = termoBusca.trim()
-    if (!termo) {
+    if (!termoNaUrl) {
       setResultadoBusca([])
       setErroBusca(null)
       setCarregandoBusca(false)
@@ -187,7 +183,11 @@ function ConteudoJogos() {
     setCarregandoBusca(true)
     setErroBusca(null)
 
-    fetch(`/api/v1/games?busca=${encodeURIComponent(termo)}`, {
+    const params = new URLSearchParams()
+    params.set('busca', termoNaUrl)
+    params.set('modo', modoNaUrl)
+
+    fetch(`/api/v1/games?${params.toString()}`, {
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -216,10 +216,11 @@ function ConteudoJogos() {
       })
 
     return () => controller.abort()
-  }, [termoBusca])
+  }, [termoNaUrl, modoNaUrl])
 
+  // Busca do Catálogo Padrão por Filtro (executada quando não há termo pesquisado)
   useEffect(() => {
-    if (termoBusca.trim()) return
+    if (termoNaUrl) return
 
     const controller = new AbortController()
     const params = new URLSearchParams({
@@ -233,7 +234,7 @@ function ConteudoJogos() {
     setCarregando(true)
     setErroCatalogo(null)
 
-    fetch(`/api/v1/games?${params}`, { signal: controller.signal })
+    fetch(`/api/v1/games?${params.toString()}`, { signal: controller.signal })
       .then(async (res) => {
         const json = await res.json().catch(() => null)
         if (!res.ok) {
@@ -256,15 +257,15 @@ function ConteudoJogos() {
       })
 
     return () => controller.abort()
-  }, [termoBusca, precoMax, corteMin, lojas, pagina, adulto])
+  }, [termoNaUrl, precoMax, corteMin, lojas, pagina, adulto])
 
-  const executarBusca = (novoTermo: string) => {
+  const executarBusca = (novoTermo: string, novoModo: ModoBusca = modoNaUrl) => {
     const termo = novoTermo.trim()
-    setTermoBusca(termo)
+
     if (termo) {
-      router.push(`/jogos?search=${encodeURIComponent(termo)}`)
+      router.push(`/jogos?search=${encodeURIComponent(termo)}&modo=${novoModo}`)
     } else {
-      router.push('/jogos')
+      router.push(`/jogos?modo=${novoModo}`)
     }
   }
 
@@ -272,7 +273,8 @@ function ConteudoJogos() {
     <div className="flex min-h-screen flex-col bg-bp-bg">
       <Nav
         logado
-        valorBusca={termoBusca}
+        valorBusca={termoNaUrl}
+        modoInicial={modoNaUrl}
         onSearch={executarBusca}
       />
 
@@ -350,9 +352,15 @@ function ConteudoJogos() {
             aria-label="Ofertas"
             className="flex w-full max-w-[877px] flex-1 flex-col items-center gap-8"
           >
-            {termoBusca.trim() ? (
+            {termoNaUrl ? (
               carregandoBusca ? (
-                <Loading mensagem="Pesquisando jogos e consultando ofertas..." />
+                <Loading
+                  mensagem={
+                    modoNaUrl === 'ia'
+                      ? 'Realizando busca profunda com IA...'
+                      : 'Pesquisando jogos no catálogo...'
+                  }
+                />
               ) : erroBusca ? (
                 <p role="alert" className="py-16 text-center text-red-400">
                   {erroBusca}
@@ -367,7 +375,7 @@ function ConteudoJogos() {
                     <li key={`${jogo.id_jogo ?? jogo.id ?? 'busca'}-${index}`} className="h-full">
                       <Link
                         href={`/jogos/${jogo.id_jogo ?? jogo.id}`}
-                        className="block h-full transition hover:brightness-110"
+                        className="block h-full transition hover:brightness-110 active:scale-95"
                       >
                         <GameCard game={paraCard(jogo)} />
                       </Link>
@@ -391,7 +399,7 @@ function ConteudoJogos() {
                   <li key={`${j.id ?? j.id_jogo ?? 'catalogo'}-${index}`} className="h-full">
                     <Link
                       href={`/jogos/${j.id ?? j.id_jogo}`}
-                      className="block h-full transition hover:brightness-110"
+                      className="block h-full transition hover:brightness-110 active:scale-95"
                     >
                       <GameCard game={paraCard(j)} />
                     </Link>
@@ -400,7 +408,7 @@ function ConteudoJogos() {
               </ul>
             )}
 
-            {!termoBusca.trim() && (
+            {!termoNaUrl && (
               <nav
                 aria-label="Paginação"
                 className="flex items-center gap-[73px] rounded-3xl bg-bp-nav p-2.5 max-[640px]:gap-10"
@@ -410,7 +418,7 @@ function ConteudoJogos() {
                   onClick={() => setPagina(atual - 1)}
                   disabled={atual === 1}
                   aria-label="Página anterior"
-                  className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
+                  className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 active:scale-95 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
                 />
 
                 <span className="sr-only" aria-live="polite">
@@ -422,7 +430,7 @@ function ConteudoJogos() {
                   onClick={() => setPagina(atual + 1)}
                   disabled={atual === totalPaginas}
                   aria-label="Próxima página"
-                  className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(0_0,100%_50%,0_100%)]"
+                  className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 active:scale-95 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(0_0,100%_50%,0_100%)]"
                 />
               </nav>
             )}
