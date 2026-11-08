@@ -3,7 +3,7 @@ export type Game = {
   name: string
   store: string
   discount: number
-  originalPrice: number
+  originalPrice: number | null
   price: number | null
   cover: string | null
 }

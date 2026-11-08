@@ -3,17 +3,14 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent, SVGProps } from 'react'
 import Image from 'next/image'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
+import Divisor from '../../components/Divisor'
 import { BellIcon, SteamIcon } from '../../components/Icons'
 import { macacobanana } from '../../components/assets'
-import { createClient } from '@/lib/supabase.ts/client.ts'
+import { createClient } from '@/lib/supabase.ts/client'
 
-const Divider = () => <div className="my-2 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
-
-/* Página /conta: mostra os dados da sessão atual e permite alterá-los (PATCH /api/v1/conta).
-Também conecta a conta à Steam (/api/v1/auth/steam), encerra a sessão e gerencia preferências de notificação. */
 export default function ContaPage() {
   const router = useRouter()
   const [salvo, setSalvo] = useState({ nome: '', email: '' })
@@ -22,38 +19,57 @@ export default function ContaPage() {
   const [carregando, setCarregando] = useState(true)
   const [aviso, setAviso] = useState<string | null>(null)
   const [notificarEmail, setNotificarEmail] = useState<boolean>(true)
+  const [steamConectada, setSteamConectada] = useState<boolean>(false)
 
   useEffect(() => {
     const supabase = createClient()
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    async function carregarDados() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       if (!user) {
         router.replace('/login')
         return
       }
-      const dados = {
+
+      setSalvo({
         nome: user.user_metadata?.nome_usuario ?? '',
         email: user.email ?? '',
-      }
-      setSalvo(dados)
-      setNome(dados.nome)
-      setEmail(dados.email)
+      })
+      setNome(user.user_metadata?.nome_usuario ?? '')
+      setEmail(user.email ?? '')
       setCarregando(false)
 
-      // Carrega preferências do usuário
-      fetch('/api/v1/conta')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((dadosConta) => {
-          if (dadosConta && typeof dadosConta.notificarEmail === 'boolean') {
-            setNotificarEmail(dadosConta.notificarEmail)
-          }
-        })
-        .catch(() => {})
-    })
+      // Requisição para a API do Servidor (ignora RLS do cliente)
+      try {
+        const res = await fetch('/api/v1/conta', { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
 
-    // o callback da Steam redireciona para /conta?erro=steam_em_uso
-    if (new URLSearchParams(window.location.search).get('erro') === 'steam_em_uso') {
+          if (typeof data.notificarEmail === 'boolean') {
+            setNotificarEmail(data.notificarEmail)
+          }
+
+          // Ativa se a flag steamConectada ou idSteam existirem na resposta
+          if (data.steamConectada || data.idSteam || data.usuario?.idSteam) {
+            setSteamConectada(true)
+          }
+        }
+      } catch {
+        // silencioso
+      }
+    }
+
+    carregarDados()
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('erro') === 'steam_em_uso') {
       setAviso('Essa conta Steam já está vinculada a outro usuário.')
+    } else if (params.get('steam') === 'conectado' || params.get('sucesso') === 'steam') {
+      setSteamConectada(true)
+      setAviso('Conta Steam conectada com sucesso!')
     }
   }, [router])
 
@@ -102,10 +118,11 @@ export default function ContaPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
-      <Nav logado />
+      <header className="sticky top-0 z-50 w-full shrink-0">
+        <Nav logado />
+      </header>
 
       <main className="flex flex-1 flex-col gap-6 px-6 py-6 max-[640px]:px-4">
-        {/* Boas-vindas */}
         <section className="relative flex min-h-[199px] items-center overflow-hidden rounded-3xl bg-[linear-gradient(90deg,rgba(50,40,36,.9)_0%,rgba(39,29,26,.7)_50%,rgba(35,25,22,.8)_100%)] px-[70px] py-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[640px]:px-6">
           <div className="relative z-[1] flex max-w-[352px] flex-col gap-4">
             <h1 className="font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">
@@ -125,13 +142,12 @@ export default function ContaPage() {
         </section>
 
         {aviso && (
-          <p role="alert" className="rounded-xl bg-bp-nav px-4 py-3 text-bp-primary text-center">
+          <p role="alert" className="rounded-xl bg-bp-nav px-4 py-3 text-center text-bp-primary">
             {aviso}
           </p>
         )}
 
         <div className="grid grid-cols-2 items-start gap-6 max-[1000px]:grid-cols-1">
-          {/* Dados da conta */}
           <form
             onSubmit={confirmar}
             className="flex flex-col gap-4 rounded-3xl border-2 border-[#3d322e] bg-bp-nav p-4"
@@ -141,7 +157,7 @@ export default function ContaPage() {
               Dados da Conta
             </h2>
 
-            <Divider />
+            <Divisor cor="#3d322e" className="my-2 mx-0" />
 
             <div className="flex flex-col gap-4 p-2.5">
               <Campo
@@ -162,7 +178,7 @@ export default function ContaPage() {
               />
             </div>
 
-            <Divider />
+            <Divisor cor="#3d322e" className="my-2 mx-0" />
 
             <div className="flex items-center gap-4 rounded-[13px] border border-[#3d322e] bg-bp-neutral p-2.5 max-[640px]:flex-wrap">
               <div className="grid shrink-0 place-items-center text-bp-primary [&>svg]:size-12">
@@ -174,35 +190,45 @@ export default function ContaPage() {
                   Sincronização de conta e lista de desejos
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = '/api/v1/auth/steam'
-                }}
-                className="inline-flex h-[38px] cursor-pointer items-center rounded-[9px] bg-bp-primary px-4 text-xs font-bold text-bp-neutral transition hover:brightness-110"
-              >
-                Conectar
-              </button>
+
+              {steamConectada ? (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex h-[38px] cursor-default items-center gap-1.5 rounded-[9px] bg-[#4a682d] px-4 text-xs font-bold text-bp-muted opacity-90"
+                >
+                  <CheckIcon className="size-4" /> Conectado
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/api/v1/auth/steam'
+                  }}
+                  className="inline-flex h-[38px] cursor-pointer items-center rounded-[9px] bg-bp-primary px-4 text-xs font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
+                >
+                  Conectar
+                </button>
+              )}
             </div>
 
             <div className="flex justify-end gap-2.5 px-2.5 pb-2.5">
               <button
                 type="button"
                 onClick={cancelar}
-                className="cursor-pointer rounded-[9px] bg-bp-primary px-4 py-[5px] text-[15px] text-bp-neutral transition hover:brightness-110"
+                className="cursor-pointer rounded-[9px] bg-bp-primary px-4 py-[5px] text-[15px] text-bp-neutral transition hover:brightness-110 active:scale-95"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="cursor-pointer rounded-[9px] bg-[#4a682d] px-4 py-[5px] text-[15px] text-bp-muted transition hover:brightness-110"
+                className="cursor-pointer rounded-[9px] bg-[#4a682d] px-4 py-[5px] text-[15px] text-bp-muted transition hover:brightness-110 active:scale-95"
               >
                 Confirmar
               </button>
             </div>
           </form>
 
-          {/* Notificações + sair */}
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-2.5 rounded-3xl border-2 border-[#3d322e] bg-bp-nav p-3">
               <h2 className="flex items-center gap-2.5 p-2.5 font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">
@@ -210,7 +236,7 @@ export default function ContaPage() {
                 Notificações
               </h2>
 
-              <Divider />
+              <Divisor cor="#3d322e" className="my-2 mx-0" />
 
               <label
                 htmlFor="notificar-email"
@@ -238,7 +264,7 @@ export default function ContaPage() {
               <button
                 type="button"
                 onClick={sair}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-[9px] bg-bp-primary px-4 py-4 text-[15px] text-bp-neutral transition hover:brightness-110"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[9px] bg-bp-primary px-4 py-4 text-[15px] text-bp-neutral transition hover:brightness-110 active:scale-95"
               >
                 <LogoutIcon className="size-[29px]" />
                 Sair
@@ -248,7 +274,6 @@ export default function ContaPage() {
         </div>
       </main>
 
-      <div className="h-[5px] bg-[#3d322e]" />
       <Footer />
     </div>
   )

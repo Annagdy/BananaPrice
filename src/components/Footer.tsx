@@ -1,10 +1,14 @@
 import Image from 'next/image'
 import { logo } from './assets'
+import { tema } from '../mocks/tema'
 
 export default function Footer() {
   return (
-    <footer className="mt-5 bg-bp-nav pt-2.5">
-      <div className="flex justify-between gap-10 px-[23px] pb-5 pt-2.5 max-[1100px]:flex-col">
+    <footer className="w-full bg-bp-nav">
+      {/* Linha Divisória Marrom no topo do Footer */}
+      <div className="h-[5px] w-full" style={{ background: tema.divisor }} />
+
+      <div className="flex justify-between gap-10 px-[23px] pb-5 pt-4 max-[1100px]:flex-col">
         <div className="flex w-[400px] max-w-full flex-col gap-[11px]">
           <div className="relative h-[63px] w-48 overflow-hidden">
             <Image

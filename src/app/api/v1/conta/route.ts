@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
 /*
-GET /api/v1/conta: retorna os dados e preferências da conta logada.
-@returns 200 { id, nomeUsuario, email, notificarEmail }; 401 não autenticado; 404 usuário não encontrado.
+GET /api/v1/conta: retorna os dados, preferências da conta e vínculo da Steam.
+@returns 200 { id, nomeUsuario, email, notificarEmail, steamConectada, idSteam }; 401 não autenticado; 404 usuário não encontrado.
 */
 export async function GET() {
   const supabase = await createClient();
@@ -23,11 +23,20 @@ export async function GET() {
     return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
   }
 
+  // Consulta a tabela conta_steam usando o id_usuario encontrado (ex: 34)
+  const { data: steamData } = await supabaseAdmin
+    .from("conta_steam")
+    .select("id_steam")
+    .eq("id_usuario", atual.id_usuario)
+    .maybeSingle();
+
   return NextResponse.json({
     id: atual.id_usuario,
     nomeUsuario: atual.nome_usuario,
     email: user.email ?? atual.email,
     notificarEmail: atual.notificar_email ?? true,
+    steamConectada: !!steamData?.id_steam,
+    idSteam: steamData?.id_steam ?? null,
   });
 }
 
