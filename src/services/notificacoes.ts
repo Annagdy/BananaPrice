@@ -399,6 +399,7 @@ Valida o jogo e garante compatibilidade com o banco de dados. */
 export async function criarNotificacaoManual(params: {
   idUsuario: number
   idJogo?: number
+  idLista?: number
   titulo: string
   mensagem: string
   preco?: number
@@ -406,7 +407,7 @@ export async function criarNotificacaoManual(params: {
   loja?: string
   enviarEmail?: boolean
 }): Promise<{ ok: boolean; erro?: string; emailEnviado: boolean; erroEmail?: string; destinoEmail?: string }> {
-  const idLista = await obterOuCriarListaUsuario(params.idUsuario)
+  const idLista = params.idLista ?? (await obterOuCriarListaUsuario(params.idUsuario))
   if (!idLista) {
     return {
       ok: false,
