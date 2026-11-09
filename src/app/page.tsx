@@ -6,13 +6,10 @@ import Nav from '../components/Nav'
 import Hero from '../components/Hero'
 import GameCard from '../components/GameCard'
 import Footer from '../components/Footer'
+import Divisor from '../components/Divisor'
 import Loading from '@/components/loading'
 import { BoltIcon, TagIcon } from '../components/Icons'
 import type { Game } from '../mocks/games'
-
-const Divider = () => (
-  <div className="m-2.5 h-[2px] rounded-[2px] bg-bp-muted/35" />
-)
 
 const OFERTAS_NA_HOME = 8
 
@@ -117,114 +114,123 @@ export default function HomePage() {
   }, [])
 
   return (
-    <>
-      <Nav logado />
+    <div className="flex min-h-screen flex-col bg-bp-bg">
+      {/* Topo Fixo com a linha marrom integrada no Nav */}
+      <header className="sticky top-0 z-50 w-full shrink-0">
+        <Nav logado />
+      </header>
 
-      <Hero />
+      {/* Conteúdo Principal */}
+      <main className="flex-1">
+        <Hero />
 
-      <Divider />
+        {/* Divisor Marrom Padronizado (`#3d322e`) */}
+        <Divisor cor="#3d322e" className="my-2.5" />
 
-      {/* Vitrine Turbo */}
-      <section className="px-5 py-2.5">
-        <div className="flex items-center justify-between p-2.5">
-          <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
-            <BoltIcon /> Vitrine Turbo
-          </h2>
+        {/* Vitrine Turbo */}
+        <section className="px-5 py-2.5">
+          <div className="flex items-center justify-between p-2.5">
+            <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
+              <BoltIcon /> Vitrine Turbo
+            </h2>
 
-          <Link
-            href="/jogos"
-            className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-bp-primary px-4 py-[9px] text-xs text-bp-neutral transition hover:brightness-110"
-          >
-            <BoltIcon width={12} height={16} /> Dar um turbo
-          </Link>
-        </div>
+            <Link
+              href="/jogos"
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-bp-primary px-4 py-[9px] text-xs font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
+            >
+              <BoltIcon width={12} height={16} /> Dar um turbo
+            </Link>
+          </div>
 
-        {carregando ? (
-          <Loading mensagem="Carregando destaques..." />
-        ) : featured.length === 0 ? (
-          <p className="py-10 text-center text-bp-muted">
-            Nenhum jogo na Vitrine Turbo no momento. Seja o primeiro a impulsionar um jogo!
-          </p>
-        ) : (
-          <div className="flex items-center justify-center gap-[29px] p-2.5">
-            {featured.length > 2 && (
-              <button
-                type="button"
-                onClick={() => move(-1)}
-                aria-label="Anterior"
-                className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
-              />
-            )}
+          {carregando ? (
+            <Loading mensagem="Carregando destaques..." />
+          ) : featured.length === 0 ? (
+            <p className="py-10 text-center text-bp-muted">
+              Nenhum jogo na Vitrine Turbo no momento. Seja o primeiro a impulsionar um jogo!
+            </p>
+          ) : (
+            <div className="flex items-center justify-center gap-[29px] p-2.5">
+              {featured.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => move(-1)}
+                  aria-label="Anterior"
+                  className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 active:scale-95 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
+                />
+              )}
 
-            <div className="flex max-w-[1240px] flex-1 justify-center gap-5 max-[1100px]:flex-col max-[1100px]:items-center">
-              {visible.map((g, idx) => (
+              <div className="flex max-w-[1240px] flex-1 justify-center gap-5 max-[1100px]:flex-col max-[1100px]:items-center">
+                {visible.map((g, idx) => (
+                  <Link
+                    key={`${g.id}-${idx}`}
+                    href={`/jogos/${g.id}`}
+                    className="block flex-1 max-w-[586px] w-full transition hover:brightness-110 active:scale-95"
+                  >
+                    <GameCard game={g} variant="wide" />
+                  </Link>
+                ))}
+              </div>
+
+              {featured.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => move(1)}
+                  aria-label="Próximo"
+                  className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 active:scale-95 [clip-path:polygon(0_0,100%_50%,0_100%)]"
+                />
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Divisor Marrom Padronizado (`#3d322e`) */}
+        <Divisor cor="#3d322e" className="my-2.5" />
+
+        {/* Ofertas do Momento */}
+        <section className="px-5 py-2.5">
+          <div className="flex items-center justify-between p-2.5">
+            <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
+              <TagIcon /> Ofertas do Momento
+            </h2>
+          </div>
+
+          {carregando ? (
+            <Loading mensagem="Carregando ofertas do momento..." />
+          ) : erro ? (
+            <p role="alert" className="py-10 text-center text-red-400">
+              {erro}
+            </p>
+          ) : ofertas.length === 0 ? (
+            <p className="py-10 text-center text-bp-muted">
+              Nenhuma oferta no momento.
+            </p>
+          ) : (
+            <div className="grid auto-rows-fr grid-cols-[repeat(4,minmax(0,283px))] justify-center gap-3 p-2.5 max-[1100px]:grid-cols-[repeat(2,minmax(0,283px))] max-[640px]:grid-cols-[minmax(0,283px)]">
+              {ofertas.map((j) => (
                 <Link
-                  key={`${g.id}-${idx}`}
-                  href={`/jogos/${g.id}`}
-                  className="block flex-1 max-w-[586px] w-full transition hover:brightness-110"
+                  key={j.id}
+                  href={`/jogos/${j.id}`}
+                  className="block h-full transition hover:brightness-110 active:scale-95"
                 >
-                  <GameCard game={g} variant="wide" />
+                  <GameCard game={paraCard(j)} />
                 </Link>
               ))}
             </div>
+          )}
 
-            {featured.length > 2 && (
-              <button
-                type="button"
-                onClick={() => move(1)}
-                aria-label="Próximo"
-                className="h-[85px] w-[52px] shrink-0 cursor-pointer bg-bp-primary transition hover:brightness-110 [clip-path:polygon(0_0,100%_50%,0_100%)]"
-              />
-            )}
+          <div className="flex justify-end p-2.5">
+            <Link
+              href="/jogos"
+              className="rounded-[9px] bg-bp-primary px-3 py-[5px] text-base font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
+            >
+              Ver Mais
+            </Link>
           </div>
-        )}
-      </section>
+        </section>
+      </main>
 
-      <Divider />
-
-      {/* Ofertas do Momento */}
-      <section className="px-5 py-2.5">
-        <div className="flex items-center justify-between p-2.5">
-          <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
-            <TagIcon /> Ofertas do Momento
-          </h2>
-        </div>
-
-        {carregando ? (
-          <Loading mensagem="Carregando ofertas do momento..." />
-        ) : erro ? (
-          <p role="alert" className="py-10 text-center text-red-400">
-            {erro}
-          </p>
-        ) : ofertas.length === 0 ? (
-          <p className="py-10 text-center text-bp-muted">
-            Nenhuma oferta no momento.
-          </p>
-        ) : (
-          <div className="grid auto-rows-fr grid-cols-[repeat(4,minmax(0,283px))] justify-center gap-3 p-2.5 max-[1100px]:grid-cols-[repeat(2,minmax(0,283px))] max-[640px]:grid-cols-[minmax(0,283px)]">
-            {ofertas.map((j) => (
-              <Link
-                key={j.id}
-                href={`/jogos/${j.id}`}
-                className="block h-full transition hover:brightness-110"
-              >
-                <GameCard game={paraCard(j)} />
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <div className="flex justify-end p-2.5">
-          <Link
-            href="/jogos"
-            className="rounded-[9px] bg-bp-primary px-3 py-[5px] text-base text-bp-neutral"
-          >
-            Ver Mais
-          </Link>
-        </div>
-      </section>
-
+      {/* Footer no final do scroll */}
       <Footer />
-    </>
+    </div>
   )
 }

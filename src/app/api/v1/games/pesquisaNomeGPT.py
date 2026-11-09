@@ -1,6 +1,5 @@
 import sys
 import json
-import os
 import time
 
 from selenium import webdriver
@@ -61,7 +60,7 @@ def obter_conteudo_caixa(driver, caixa):
 
 
 def inserir_texto(driver, caixa, texto):
-    log("Inserindo pergunta completa...")
+    log("Inserindo pergunta...")
 
     caixa.click()
     caixa.send_keys(Keys.CONTROL, "a")
@@ -72,20 +71,16 @@ def inserir_texto(driver, caixa, texto):
         {"text": texto}
     )
 
-    # log("Confirmando inserção...")
-    # caixa.send_keys(" ")
-    caixa.send_keys(Keys.BACKSPACE)
-
+    # Confirma a inserção sem aguardar desnecessariamente.
     try:
-        WebDriverWait(driver, 15).until(
+        WebDriverWait(driver, 5, poll_frequency=0.2).until(
             lambda d: (
                 normalizar_texto(
                     obter_conteudo_caixa(
                         d,
                         encontrar_caixa_de_texto(d)
                     )
-                )
-                == normalizar_texto(texto)
+                ) == normalizar_texto(texto)
             )
         )
 
@@ -104,7 +99,7 @@ def inserir_texto(driver, caixa, texto):
             "O envio foi cancelado."
         )
 
-    log("Pergunta completa inserida e confirmada.")
+    log("Pergunta inserida e confirmada.")
 
 
 def enviar_pergunta(driver, caixa):
@@ -229,14 +224,14 @@ def obter_resposta_final(
     texto_anterior,
     timeout=300
 ):
-    log("Aguardando a resposta completa antes da próxima busca...")
+    log("Aguardando a resposta...")
 
     inicio = time.time()
     ultimo_texto = ""
     inicio_estabilidade = None
     nova_resposta_encontrada = False
 
-    intervalo = 0.3
+    intervalo = 0.5
     estabilidade_necessaria = 2.0
 
     while time.time() - inicio < timeout:
@@ -249,7 +244,6 @@ def obter_resposta_final(
 
             texto_atual = blocos[-1]["texto"].strip()
 
-            # Confirma que apareceu uma resposta nova.
             if not nova_resposta_encontrada:
                 resposta_nova = (
                     len(blocos) > quantidade_anterior
@@ -270,7 +264,6 @@ def obter_resposta_final(
                 time.sleep(intervalo)
                 continue
 
-            # Qualquer mudança reinicia a contagem de estabilidade.
             if texto_atual != ultimo_texto:
                 ultimo_texto = texto_atual
                 inicio_estabilidade = None
@@ -305,68 +298,33 @@ def obter_resposta_final(
     )
 
 
-class CaixaNaoEncontrada(Exception):
-    """A página abriu, mas a caixa de texto do ChatGPT não apareceu a tempo."""
-
-
-def criar_driver(modo):
-    """Abre o Chrome de acordo com o modo pedido.
-
-    - "headless": sem janela nenhuma (nada aparece na tela nem na barra de tarefas).
-    - "fora":     janela normal, mas posicionada fora da área visível do monitor.
-    - "visivel":  janela maximizada, como antes (útil para depurar).
-    """
+def criar_driver():
     options = webdriver.ChromeOptions()
     options.add_argument("--lang=pt-BR")
+    options.add_argument("--window-position=-32000,-32000")
+    options.add_argument("--window-size=1366,900")
 
-    if modo == "headless":
-        options.add_argument("--headless=new")
-        options.add_argument("--window-size=1366,900")
-
-    elif modo == "fora":
-        options.add_argument("--window-position=-32000,-32000")
-        options.add_argument("--window-size=1366,900")
-
-    else:
-        options.add_argument("--start-maximized")
+    options.page_load_strategy = "eager"
 
     return webdriver.Chrome(options=options)
 
 
-def aguardar_caixa(driver, timeout):
-    """Espera a caixa de texto aparecer. Devolve True se apareceu, False se o tempo acabou."""
-    limite = time.time() + timeout
-
-    while time.time() < limite:
-        try:
-            encontrar_caixa_de_texto(driver)
-            return True
-
-        except Exception:
-            time.sleep(0.5)
-
-    return False
-
-
-def _pesquisar_com_janela(busca, modo):
+def _pesquisar_com_janela(busca):
     driver = None
 
     try:
-        driver = criar_driver(modo)
+        log("Iniciando Chrome...")
+
+        driver = criar_driver()
 
         driver.set_page_load_timeout(120)
         driver.get("https://chatgpt.com/")
 
         log("Aguardando o ChatGPT carregar...")
 
-        # Sem janela, 45 s bastam para saber se o ChatGPT carregou ou se bloqueou o modo
-        espera = 45 if modo == "headless" else 300
-
-        if not aguardar_caixa(driver, espera):
-            raise CaixaNaoEncontrada(
-                "A caixa de texto não apareceu. "
-                f"Título da página: {driver.title!r}"
-            )
+        WebDriverWait(driver, 300, poll_frequency=0.5).until(
+            lambda d: encontrar_caixa_de_texto(d)
+        )
 
         log("ChatGPT carregado.")
 
@@ -427,7 +385,6 @@ NOT JOGO
 
             log(f"Iniciando busca {tentativa}/3.")
 
-            # Guarda o estado da conversa ANTES de enviar a pergunta.
             blocos_anteriores = obter_blocos_resposta(driver)
             quantidade_anterior = len(blocos_anteriores)
 
@@ -447,12 +404,8 @@ NOT JOGO
 
             enviar_pergunta(driver, caixa)
 
-            log(
-                f"Pergunta {tentativa}/3 enviada. "
-                "Aguardando a resposta antes de continuar."
-            )
+            log(f"Pergunta {tentativa}/3 enviada.")
 
-            # A execução fica bloqueada aqui até a resposta terminar.
             resultado = obter_resposta_final(
                 driver,
                 quantidade_anterior,
@@ -465,15 +418,11 @@ NOT JOGO
             log(f"Resultado da busca {tentativa}/3:")
             log(resultado)
 
-            # Só retorna imediatamente se encontrou algum resultado.
             if "NOT JOGO" not in resultado.upper():
                 return resultado
 
             if tentativa < 3:
-                log(
-                    "Resposta recebida: NOT JOGO. "
-                    "A próxima busca será iniciada agora."
-                )
+                log("NOT JOGO. Iniciando próxima tentativa.")
 
         return "NOT JOGO"
 
@@ -488,41 +437,9 @@ NOT JOGO
             except Exception as erro:
                 log(f"Erro ao fechar o Chrome: {erro}")
 
-            finally:
-                try:
-                    driver.service.stop()
-                except Exception:
-                    pass
-
 
 def pesquisarChatGPT(busca):
-    """Pesquisa no ChatGPT sem mostrar o Chrome.
-
-    O modo vem da variável de ambiente PESQUISA_JANELA:
-    - "headless" (padrão): sem janela. Se o ChatGPT não carregar assim, tenta o modo "fora".
-    - "fora":    janela fora da área visível do monitor.
-    - "visivel": janela normal maximizada (para depurar).
-    """
-    pedido = os.environ.get("PESQUISA_JANELA", "headless").strip().lower()
-
-    ordem = {
-        "headless": ["headless", "fora"],
-        "fora": ["fora"],
-        "visivel": ["visivel"],
-    }.get(pedido, ["headless", "fora"])
-
-    ultimo_erro = None
-
-    for modo in ordem:
-        try:
-            log(f"Abrindo o Chrome no modo '{modo}'...")
-            return _pesquisar_com_janela(busca, modo)
-
-        except CaixaNaoEncontrada as erro:
-            ultimo_erro = erro
-            log(f"Modo '{modo}' não funcionou: {erro}")
-
-    raise ultimo_erro
+    return _pesquisar_com_janela(busca)
 
 
 if __name__ == "__main__":

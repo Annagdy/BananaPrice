@@ -6,7 +6,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '@/components/Nav'
 import Footer from '@/components/Footer'
-// Import usando o alias `@/` garantindo o caminho correto independente da pasta
+import Divisor from '@/components/Divisor'
 import Loading from '@/components/loading'
 import { capaExemplo, macacoFeliz } from '@/components/assets'
 
@@ -77,18 +77,23 @@ export default function ListaDeDesejosPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
-      <Nav logado />
+      {/* Topo Fixo com a linha marrom integrada no Nav */}
+      <header className="sticky top-0 z-50 w-full shrink-0">
+        <Nav logado />
+      </header>
 
+      {/* Conteúdo Principal mantendo exatamente os espaçamentos originais */}
       <main className="flex flex-1 flex-col pb-10">
         <h1 className="flex items-center gap-3 px-[38px] py-5 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:px-4 max-[640px]:text-2xl">
           <HeartIcon className="size-[57px] shrink-0 max-[640px]:size-10" />
           Lista de Desejos
         </h1>
 
-        <div className="mx-2.5 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
+        {/* Divisor com a mesma cor `#3d322e` dos cards da conta */}
+        <Divisor cor="#3d322e" className="my-0" />
 
         <div className="grid grid-cols-[minmax(0,828px)_minmax(0,526px)] justify-center gap-[21px] px-[38px] pt-10 max-[1200px]:grid-cols-1 max-[640px]:px-4">
-          <section aria-label="Jogos desejados" className="flex w-full flex-col items-center justify-start gap-6 min-h-[350px]">
+          <section aria-label="Jogos desejados" className="flex w-full min-h-[350px] flex-col items-center justify-start gap-6">
             {carregando ? (
               <div className="flex w-full min-h-[300px] items-center justify-center py-12">
                 <Loading mensagem="Carregando sua lista de desejos..." tamanho={160} />
@@ -159,7 +164,7 @@ export default function ListaDeDesejosPage() {
         </div>
       </main>
 
-      <div className="h-[5px] bg-[#3d322e]" />
+      {/* Footer no final do scroll */}
       <Footer />
     </div>
   )
@@ -212,13 +217,13 @@ function CartaoDesejo({
             <button
               type="button"
               onClick={() => onRemover(item.id)}
-              className="cursor-pointer rounded-[9px] border border-bp-muted px-4 py-2 text-sm text-bp-muted transition hover:brightness-125"
+              className="cursor-pointer rounded-[9px] border border-bp-muted px-4 py-2 text-sm text-bp-muted transition hover:brightness-125 active:scale-95"
             >
               Remover
             </button>
             <Link
               href={item.url}
-              className="inline-flex items-center gap-2 rounded-[9px] bg-bp-muted px-4 py-2 text-sm text-bp-neutral transition hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-[9px] bg-bp-muted px-4 py-2 text-sm text-bp-neutral transition hover:brightness-110 active:scale-95"
             >
               <ExternalIcon className="size-[25px]" />
               Ver ofertas

@@ -1,39 +1,29 @@
-# BananaPrice: Pagamento PIX via Mercado Pago, Tratamento de Front para Loading e Botões responsivos, Pesquisa Selenium Modificada para GPT
+# BananaPrice: Ajustes de Front (Tags/Filtros), Visual Mais Suave e Pesquisa via Trie com Opção Selenium + IA
 
-Foi centralizado o feedback visual de carregamento utilizando o componente `<Loading/>` com GIF local (`/assets/loading.gif`), garantindo uniformidade em páginas como **Home**, **Catálogo**, **Lista de Desejos**, **Notificações** e na página de detalhes do jogo (`/jogos/[id]`). Todos os botões interativos e links de navegação receberam tratamento de feedback tátil de clique (`active:scale-95`, `transition-all duration-150`) e iluminação (`hover:brightness-110`). Além disso, o botão de notificações da barra de navegação (`Nav`) foi alinhado ao padrão de container quadrado amarelo primário (`bg-bp-primary`).
-
-No backend e na lógica de dados, foram corrigidos erros de objeto `store` indefinidos, implementada filtragem rigorosa para ofertas inválidas ou sem preço real, e centralizada a geração de capas via utilitário `urlCapaItad` com fallback automático.
-
----
-
-## Rotas implementadas
-
-| Método | Rota | O que faz | RF |
-|---|---|---|---|
-| `POST` | `/api/v1/payments/pix` | Gera cobrança com QRCode e chave copia e cola via API Mercado Pago | RF09 |
-| `POST` | `/api/v1/webhooks/mercadopago` | Recebe notificações de status de pagamento PIX e atualiza a base Supabase | RF10 |
-
----
-
-### Comportamento de Pagamentos
-
-* **Integração PIX (Mercado Pago)**: Geração dinâmica de payload PIX para aquisição/desbloqueio de funcionalidades da conta ou ofertas.
-* **Confirmação Assíncrona**: O endpoint de Webhook valida o status da transação em tempo real e atualiza as permissões do usuário via Supabase Client/Service Role.
+Foi realizado o ajuste do front-end, com melhorias nas **tags** e nos **filtros** e uma aparência mais suave em toda a interface. Além disso, foi adicionada a **pesquisa via Trie** e o usuário agora pode escolher entre dois modos de pesquisa: o **padrão/nativo (Trie)** ou a pesquisa **via Selenium com IA**.
 
 ---
 
 ### Comportamento de Pesquisa
 
-* **Pesquisa via Selenium & GPT**: Raspagem de dados integrada com modelos GPT para parsing e extração inteligente de títulos, promoções e identificadores ITAD/Steam.
-* **Sanitização de Catálogo**: Jogos sem loja válida associada ou com valor `0` (quando não são promoções gratuitas legítimas) são desconsiderados do catálogo de buscas.
-* **Tratamento de Imagens**: Resolução centralizada através da função `urlCapaItad(itadId)`, garantindo exibição da capa correta ou carregamento da imagem de fallback (`capaExemplo`).
+* **Pesquisa padrão/nativa (Trie)**: Busca baseada em uma estrutura de árvore Trie, com resposta rápida por prefixo diretamente sobre os dados já disponíveis, sem depender de raspagem externa.
+* **Pesquisa via Selenium com IA**: Raspagem de dados integrada com modelos GPT para parsing e extração inteligente de títulos, promoções e identificadores ITAD/Steam.
+* **Escolha do usuário**: O usuário seleciona na interface qual modo prefere utilizar, Trie (padrão) ou Selenium com IA.
+
+---
+
+### Comportamento do Front
+
+* **Tags e filtros**: Ajustados para ficarem mais consistentes e claros, refletindo corretamente o estado de seleção.
+* **Aparência mais suave**: Refinamento visual da interface, com transições e estilos mais leves.
 
 ---
 
 ### Fluxo
 
-1. **Navegação & Resposta Tátil**: O usuário interage com elementos da interface e recebe resposta visual imediata via efeito de clique (`active:scale-95`).
-2. **Carregamento Unificado**: Requisições de dados em componentes Client (`useState`/`useEffect`) ou em rotas com renderização no Server Component (`<Suspense>`) exibem o componente `<Loading/>`.
+1. **Escolha do modo**: O usuário define se a pesquisa será feita pelo modo padrão (Trie) ou via Selenium com IA.
+2. **Pesquisa**: O termo digitado é processado pelo modo escolhido e os resultados são exibidos no catálogo.
+3. **Refinamento**: O usuário pode refinar os resultados usando as tags e os filtros.
 
 ---
 
@@ -55,8 +45,6 @@ No backend e na lógica de dados, foram corrigidos erros de objeto `store` indef
 
    ITAD_API_KEY=
 
-   MERCADOPAGO_ACCESS_TOKEN=
-
    # SMTP_HOST=
    # SMTP_PORT=587
    # SMTP_USER=
@@ -72,23 +60,20 @@ npm run dev
 ```
 
 ## Como Testar
-1. Testar Feedback Visual de Loading:
-   - Navegue pelas páginas /notificacoes, /lista-de-desejos e /jogos/[id].
-   - Verifique a exibição do GIF de carregamento com a mensagem personalizada correspondente.
+1. Testar a pesquisa padrão (Trie):
+   - Selecione o modo padrão de pesquisa.
+   - Digite o início do nome de um jogo e verifique se os resultados correspondentes aparecem.
 
-2. Testar Sensação de Clique e Estilização de Botões:
-   - Passe o cursor e clique nos botões da barra superior (Nav), abas de filtro em Notificações e botões de ação nos cards de jogos.
-   - Observe a redução suave de escala (active:scale-95) e a adequação do BellIcon dentro do quadrado primário (bg-bp-primary).
+2. Testar a pesquisa via Selenium com IA:
+   - Alterne para o modo Selenium com IA.
+   - Pesquise um jogo e verifique se os resultados são retornados com título, promoção e identificadores corretos.
 
-3. Testar Transição na Página do Jogo (/jogos/[id]):
-   - Acesse uma URL de jogo válida.
-   - Confirme o carregamento com a estrutura do Server Component através do elemento <Suspense>.
+3. Testar tags e filtros:
+   - Selecione e desmarque tags e filtros na página de jogos.
+   - Confirme que o estado de seleção é exibido corretamente e que os resultados são filtrados.
 
-4. Testar Pagamento e Jogo Sendo Acionado como Turbo:
-   - Escolha um jogo.
-   - Clique no botão de turbo (raio) no lado esquerdo.
-   - Pague o pix gerado.
-   - Acessa a página inicial e verifique se o jogo foi inserido em Turbo.
+4. Testar a aparência:
+   - Navegue pelas páginas e verifique a aparência mais suave dos elementos, como transições e estilos de tags e filtros.
 
 ## Pendências e Bugs Conhecidos
 1. Cache HMR do Next.js: Em ambiente de desenvolvimento, alterações estruturais em componentes compartilhados podem exigir a limpeza manual do cache local. Se as alterações não renderizarem:
