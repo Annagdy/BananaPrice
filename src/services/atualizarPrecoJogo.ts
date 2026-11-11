@@ -3,10 +3,29 @@ import { notificarQuedaDePreco } from "./notificacoes";
 
 const emAtualizacao = new Set<number>();
 
+/**
+ * Retorna a data atual no fuso horário do Brasil (America/Sao_Paulo) no padrão ISO YYYY-MM-DD.
+ * @returns Data formatada.
+ */
 function hojeBrasil(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 }
 
+/**
+ * Atualiza os preços atuais e o histórico diário de um jogo específico a partir de uma lista de ofertas (deals).
+ *
+ * Realiza as seguintes operações:
+ * - Filtra a melhor oferta por loja.
+ * - Compara com o menor preço anterior para verificar se houve queda de preço.
+ * - Garante a criação de lojas inexistentes na tabela `loja`.
+ * - Realiza upsert dos preços vigentes em `preco_jogo`.
+ * - Registra snapshot diário em `preco_historico`.
+ * - Dispara notificações de queda de preço para usuários com o jogo na lista de desejos.
+ *
+ * @param idJogo Identificador único do jogo no banco local.
+ * @param deals Lista de ofertas retornadas pelas APIs de preço (ITAD/Steam).
+ * @returns Verdadeiro se a atualização foi concluída com sucesso ou falso caso o jogo já estivesse em processamento ou não houvesse ofertas válidas.
+ */
 export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promise<boolean> {
   if (emAtualizacao.has(idJogo)) {
     return false;

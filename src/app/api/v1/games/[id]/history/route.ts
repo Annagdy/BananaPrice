@@ -4,30 +4,38 @@ import { supabase } from "@/lib/supabase.ts";
 const DIAS_PADRAO = 90;
 const DIAS_MAXIMO = 3650;
 
-/* Data (YYYY-MM-DD) no fuso de Brasília, a mesma usada ao gravar em preco_historico. */
+/**
+ * Converte um timestamp milissegundos para o formato ISO YYYY-MM-DD no fuso de Brasília.
+ * @param ms Timestamp em milissegundos.
+ * @returns Data formatada.
+ */
 function dataBrasil(ms: number): string {
   return new Date(ms).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 }
 
-/* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
+/**
+ * Normaliza o relacionamento de loja retornado pelo Supabase.
+ * @param rel Objeto ou array de relacionamento.
+ * @returns Nome da loja.
+ */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
+/**
+ * Ponto amostral para o gráfico de evolução temporal de preços.
+ */
 type Ponto = { data: string; valor: number };
 
-/*
-GET /api/v1/games/[id]/history (RF09): histórico de preços para o gráfico, uma série por loja.
-
-Cada ponto é um valor registrado (o histórico guarda um registro sempre que o preço muda). O último ponto de
-cada série é o preço atual de preco_jogo, com a data de hoje, para o gráfico terminar no valor mais recente.
-Cada série traz também um resumo { atual, menor, maior } calculado sobre o período pedido.
-A resposta não fica em cache, para refletir o preço que acabou de ser atualizado.
-
-@query dias Quantos dias para trás (padrão 90, máximo 3650).
-@query store Id da loja, para ver só uma série (opcional).
-@returns 200 { idJogo, dias, menorGeral, series: [{ idLoja, loja, pontos, resumo }] }; 400 id inválido; 500 erro no banco.
-*/
+/**
+ * Endpoint para obter a série temporal histórica de preços por loja (GET /api/v1/games/[id]/history - RF09).
+ *
+ * Gera a série de pontos e consolida estatísticas de menor preço histórico, maior preço e valor vigente.
+ *
+ * @param request Requisição HTTP com os query params opcionais `dias` e `store`.
+ * @param context Parâmetros da rota contendo `id`.
+ * @returns Resposta com as séries cronológicas separadas por loja.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

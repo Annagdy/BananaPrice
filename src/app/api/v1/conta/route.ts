@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
-/*
-GET /api/v1/conta: retorna os dados, preferências da conta e vínculo da Steam.
-@returns 200 { id, nomeUsuario, email, notificarEmail, steamConectada, idSteam }; 401 não autenticado; 404 usuário não encontrado.
-*/
+/**
+ * Endpoint para obter os dados do perfil, preferências e vínculo Steam do usuário (GET /api/v1/conta).
+ *
+ * @returns JSON `{ id, nomeUsuario, email, notificarEmail, steamConectada, idSteam }` ou erro 401/404.
+ */
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -40,19 +41,18 @@ export async function GET() {
   });
 }
 
-/*
-PATCH /api/v1/conta: altera os dados da conta logada. Todos os campos são opcionais.
-
-- nomeUsuario: valida formato e unicidade; atualiza "usuario" e o user_metadata.
-- email: o Supabase envia um link de confirmação ao NOVO endereço; só vale depois do clique.
-  Não aceita endereços @steam.local.
-- senha: mínimo 8 caracteres. Permite entrar por e-mail em contas criadas pela Steam.
-- notificarEmail: boolean com preferência de recebimento de e-mails de alerta.
-
-@body { nomeUsuario?, email?, senha?, notificarEmail? }
-@returns 200 { ok, aviso }; 400 dado inválido; 401 não autenticado; 404 usuário não encontrado;
-         409 nome de usuário em uso.
-*/
+/**
+ * Endpoint para atualizar dados e preferências da conta do usuário logado (PATCH /api/v1/conta).
+ *
+ * Suporta alteração de:
+ * - `nomeUsuario`: Atualiza nome único e metadados.
+ * - `email`: Dispara confirmação pelo Supabase Auth (rejeitando emails `@steam.local`).
+ * - `senha`: Permite definir credenciais em contas criadas via Steam.
+ * - `notificarEmail`: Liga ou desliga envio de alertas por e-mail.
+ *
+ * @param request Requisição HTTP com o payload parcial de atualização.
+ * @returns Status 200 `{ ok, aviso }` ou erros de validação e conflito (400, 401, 404, 409).
+ */
 export async function PATCH(request: Request) {
   const { origin } = new URL(request.url);
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? origin;

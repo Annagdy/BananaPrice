@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 
-/*
-GET /api/v1/auth/confirm: recebe o link de confirmação de e-mail enviado pelo Supabase.
-
-Troca o "code" da URL por uma sessão.
-
-@query code Código de confirmação.
-@returns Redirecionamento para /conta?email=confirmado ou /conta?erro=confirmacao.
-*/
+/**
+ * Endpoint de confirmação de e-mail (GET /api/v1/auth/confirm).
+ *
+ * Recebe o código temporário enviado pelo Supabase Auth e o troca pela sessão ativa do usuário.
+ *
+ * @param request Requisição HTTP contendo o query parameter `code`.
+ * @returns Redirecionamento para a página de perfil com o status da validação.
+ */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");

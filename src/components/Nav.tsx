@@ -11,15 +11,32 @@ import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons
 import { createClient } from '@/lib/supabase.ts/client'
 import { tema } from '../mocks/tema'
 
+/**
+ * Modos de busca disponíveis na barra de navegação:
+ * - `nativa`: Busca por correspondência textual direta ou via árvore Trie.
+ * - `ia`: Busca semântica e interpretativa por inteligência artificial.
+ */
 export type ModoBusca = 'nativa' | 'ia'
 
-type NavProps = {
+/**
+ * Propriedades para customização e controle do componente de navegação global.
+ */
+export type NavProps = {
   onSearch?: (value: string, modo: ModoBusca) => void
   valorBusca?: string
   modoInicial?: ModoBusca
   logado?: boolean
 }
 
+/**
+ * Barra de navegação global do BananaPrice (Nav).
+ *
+ * Fornece campo de pesquisa instantânea (com alternador de busca normal / IA),
+ * contador de notificações não lidas e botões de atalho para perfil e lista de desejos.
+ *
+ * @param props Propriedades de controle e callbacks de busca.
+ * @returns Cabeçalho global do site.
+ */
 export default function Nav({
   onSearch,
   valorBusca = '',

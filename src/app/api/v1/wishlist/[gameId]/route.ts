@@ -2,13 +2,20 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server.ts";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
-/* Valida o gameId da URL. Devolve o número, ou null se for inválido. */
+/**
+ * Converte e valida o identificador do jogo vindo dos parâmetros de URL.
+ * @param gameId String com o id informado na URL.
+ * @returns Número inteiro positivo válido ou null.
+ */
 function lerIdJogo(gameId: string): number | null {
   const idJogo = Number(gameId);
   return Number.isInteger(idJogo) && idJogo > 0 ? idJogo : null;
 }
 
-/* Descobre o id_usuario (tabela "usuario") de quem está logado. */
+/**
+ * Consulta o id do usuário logado através da sessão dos cookies da requisição.
+ * @returns Identificador numérico do usuário ou null se não autenticado.
+ */
 async function usuarioLogado(): Promise<number | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -23,13 +30,15 @@ async function usuarioLogado(): Promise<number | null> {
   return data?.id_usuario ?? null;
 }
 
-/*
-GET /api/v1/wishlist/[gameId]: diz se o jogo está na lista de desejos do usuário logado.
-
-Leve de propósito (não monta preços): serve para o coração da página do jogo abrir cheio ou vazio.
-
-@returns 200 { naLista }; 400 gameId inválido; 401 não autenticado.
-*/
+/**
+ * Verifica se um jogo específico está presente na lista de desejos do usuário (GET /api/v1/wishlist/[gameId]).
+ *
+ * Utilizado pelos componentes de botão de ação e coração da interface para refletir o estado instantaneamente.
+ *
+ * @param _request Objeto de requisição.
+ * @param context Parâmetros da rota contendo `gameId`.
+ * @returns JSON `{ naLista: boolean }` ou erro 400/401.
+ */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ gameId: string }> }
@@ -65,14 +74,13 @@ export async function GET(
   return NextResponse.json({ naLista: !!item }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
-/*
-DELETE /api/v1/wishlist/[gameId] (RF10): remove um jogo da wishlist do usuário logado.
-
-Só apaga da lista do próprio usuário, então não afeta a lista de outras pessoas.
-
-@param params.gameId id_jogo a remover (Promise, como exige o Next 15+).
-@returns 200 { ok }; 400 gameId inválido; 401 não autenticado; 404 usuário não encontrado; 500 erro no banco.
-*/
+/**
+ * Endpoint para remover um jogo específico da lista de desejos do usuário (DELETE /api/v1/wishlist/[gameId] - RF10).
+ *
+ * @param _request Objeto de requisição.
+ * @param context Parâmetros da rota contendo `gameId`.
+ * @returns JSON `{ ok: true }` ou erro correspondente.
+ */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ gameId: string }> }

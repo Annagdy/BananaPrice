@@ -10,11 +10,23 @@ const brl = (v: number | null | undefined) => {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-type GameCardProps = {
+/**
+ * Propriedades para renderização do card de jogo.
+ */
+export type GameCardProps = {
   game: Game
   variant?: 'default' | 'wide'
 }
 
+/**
+ * Componente de Card de Jogo (GameCard) da vitrine do BananaPrice.
+ *
+ * Exibe a imagem de capa com fallback automático, percentual de desconto, loja da melhor oferta,
+ * preços promocional e original, além do botão de redirecionamento ou ativação do Destaque Turbo.
+ *
+ * @param props Propriedades contendo o jogo e a variante de exibição ('default' ou 'wide').
+ * @returns Elemento JSX renderizado.
+ */
 export default function GameCard({ game, variant = 'default' }: GameCardProps) {
   const wide = variant === 'wide'
 

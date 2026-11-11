@@ -3,14 +3,17 @@ import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 import { validarLoginSteam, importarWishlistSteam } from "@/lib/steam.ts";
 
-/*
-GET /api/v1/auth/steam/callback (RF04, RF05): conclui o login com a Steam.
-
-Valida a assinatura com a Steam e trata três casos:
-1. Steam já vinculada: entra na conta dona dela.
-2. Usuário já logado: vincula a Steam à conta atual (conta_steam).
-3. Steam nova e ninguém logado: cria usuário, conta_steam e abre a sessão.
-*/
+/**
+ * Callback de autenticação OpenID da Steam (GET /api/v1/auth/steam/callback - RF04, RF05).
+ *
+ * Processa a validação criptográfica da Steam e atende aos 3 cenários de autenticação:
+ * 1. Steam já cadastrada: autentica diretamente na conta associada.
+ * 2. Usuário logado: vincula a Steam à conta atual na tabela `conta_steam`.
+ * 3. Novo usuário: cria a conta correspondente e sincroniza a lista de desejos (Wishlist).
+ *
+ * @param request Requisição HTTP com os parâmetros OpenID enviados pela Steam.
+ * @returns Redirecionamento para a página inicial, página de completar cadastro ou erro.
+ */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? origin;

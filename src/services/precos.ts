@@ -1,19 +1,19 @@
 import { supabase, chamarSupabase } from "../lib/supabase.ts";
 import type { ResultadoPrecoApi } from "../types/preco";
 
-/* Grava os preços de um lote de resultados de `buscarPrecosLote` nas tabelas `preco_jogo` e `preco_historico`.
-
-Primeiro garante que todas as lojas envolvidas existem em `loja` (criando as que faltarem) para resolver os ids. Depois grava:
-- `preco_jogo`: preço atual por jogo+loja (upsert, sempre substitui o valor anterior). Linhas duplicadas de jogo+loja
-    dentro do mesmo lote são deduplicadas antes do upsert, porque o Postgres não permite atualizar a mesma linha duas vezes numa só
-    operação de ON CONFLICT.
-- `preco_historico`: uma linha nova por jogo+loja+dia (insert puro, sem upsert), formando a série histórica.
-
-@param resultados Resposta crua de `buscarPrecosLote`.
-@param mapaItadParaIdJogo Mapa `itad_id` -> `id_jogo`, vindo de `salvarJogos`, usado para resolver a chave estrangeira
-    de cada preço. Jogos ausentes do mapa são pulados (com aviso no log).
-
-*/
+/**
+ * Grava os preços de um lote de resultados de `buscarPrecosLote` nas tabelas `preco_jogo` e `preco_historico`.
+ *
+ * Primeiro garante que todas as lojas envolvidas existem em `loja` (criando as que faltarem) para resolver os ids. Depois grava:
+ * - `preco_jogo`: preço atual por jogo+loja (upsert, sempre substitui o valor anterior). Linhas duplicadas de jogo+loja
+ *   dentro do mesmo lote são deduplicadas antes do upsert, porque o Postgres não permite atualizar a mesma linha duas vezes numa só
+ *   operação de ON CONFLICT.
+ * - `preco_historico`: uma linha nova por jogo+loja+dia (insert puro, sem upsert), formando a série histórica.
+ *
+ * @param resultados Resposta crua de `buscarPrecosLote`.
+ * @param mapaItadParaIdJogo Mapa `itad_id` -> `id_jogo`, vindo de `salvarJogos`, usado para resolver a chave estrangeira
+ *   de cada preço. Jogos ausentes do mapa são pulados (com aviso no log).
+ */
 export async function salvarPrecos(
     resultados: ResultadoPrecoApi[],
     mapaItadParaIdJogo: Map<string, number>

@@ -9,6 +9,12 @@ type DivisorProps = {
   className?: string
 }
 
+/**
+ * Componente de Linha Divisória estilizada de acordo com o design system do BananaPrice.
+ *
+ * @param props Tipo de divisor ('secao' espesso ou 'fino'), cor opcional e classes tailwind adicionais.
+ * @returns Elemento JSX da linha divisória.
+ */
 export default function Divisor({ tipo = 'secao', cor, className = '' }: DivisorProps) {
   if (tipo === 'fino') {
     return (

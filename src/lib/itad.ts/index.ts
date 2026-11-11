@@ -23,6 +23,11 @@ function calcularEspera429(erro: any): number {
     return 5 * 60 * 1000;
 }
 
+/**
+ * Gera um slug amigável para URLs a partir do título do jogo.
+ * @param texto Título original do jogo.
+ * @returns Slug formatado em minúsculas separado por hífens.
+ */
 export function slugify(texto: string) {
     return texto
         .normalize("NFD")
@@ -33,6 +38,11 @@ export function slugify(texto: string) {
         .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Busca uma página do catálogo de jogos na API ITAD com suporte a paginação contínua via cursor.
+ * @param ultimoId Cursor do último jogo retornado da página anterior.
+ * @returns Dados brutos retornados pela API ITAD.
+ */
 export async function buscarPaginaJogos(ultimoId?: string) {
     console.log("Buscando jogos...");
     const response = await axios.get(
@@ -67,6 +77,13 @@ export async function buscarGenero(itadId: string): Promise<string | null> {
     }
 }
 
+/**
+ * Consulta informações detalhadas do jogo no ITAD para extrair gêneros e classificação etária adulta.
+ * Trata limite de requisições HTTP 429 com repetição exponencial.
+ *
+ * @param itadId Identificador do jogo no ITAD.
+ * @returns Objeto contendo os gêneros separados por vírgula e se é classificado para adultos.
+ */
 export async function buscarInfoJogo(itadId: string): Promise<{ genero: string | null; adulto: boolean | null }> {
     while (true) {
         try {
@@ -90,6 +107,14 @@ export async function buscarInfoJogo(itadId: string): Promise<{ genero: string |
     }
 }
 
+/**
+ * Busca os preços atuais de um lote de jogos no ITAD para a região do Brasil.
+ *
+ * @param ids Lista de IDs do ITAD a serem consultados.
+ * @param inicio Índice de início para controle de loteamento.
+ * @param fim Índice de fim para controle de loteamento.
+ * @returns Resposta da API com as promoções vigentes.
+ */
 export async function buscarPrecosLote(ids: string[], inicio: number, fim: number) {
     while (true) {
         try {
@@ -110,6 +135,12 @@ export async function buscarPrecosLote(ids: string[], inicio: number, fim: numbe
     }
 }
 
+/**
+ * Converte uma lista de Steam App IDs para seus respectivos IDs no catálogo ITAD.
+ *
+ * @param appIds Array com os App IDs numéricos da Steam.
+ * @returns Lista de IDs ITAD correspondentes.
+ */
 export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<string[]> {
     const resultado: string[] = [];
     const tamanhoLote = 200;
@@ -137,7 +168,13 @@ export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<str
 const cacheOfertas = new Map<string, { expira: number; deals: any[] }>();
 const TTL_OFERTAS_MS = 10 * 60 * 1000;
 
-/* Busca ofertas diretamente da API da Steam Store */
+/**
+ * Consulta as ofertas vigentes de um jogo diretamente na API pública da Steam Store.
+ * Trata tanto jogos gratuitos quanto preços em Reais (BRL).
+ *
+ * @param appid Código numérico do jogo na Steam.
+ * @returns Array com oferta normalizada no formato padrão do sistema.
+ */
 export async function buscarOfertasSteam(appid: number): Promise<any[]> {
     try {
         console.log(`[STEAM API] Consultando ofertas para appid ${appid}...`);
@@ -185,7 +222,16 @@ export async function buscarOfertasSteam(appid: number): Promise<any[]> {
     }
 }
 
-/* Busca ofertas no ITAD com Fallback automático para a Steam */
+/**
+ * Busca as melhores ofertas de um jogo no ITAD com fallback automático para a Steam Store
+ * caso nenhuma oferta seja encontrada na base do ITAD.
+ *
+ * Utiliza cache em memória de 10 minutos para proteger contra requisições excessivas.
+ *
+ * @param itadId Identificador do jogo no ITAD.
+ * @param appid Código Steam App ID opcional para busca de fallback rápida.
+ * @returns Lista de ofertas encontradas com loja, preço e link.
+ */
 export async function buscarOfertasJogo(itadId: string, appid?: number | null): Promise<any[]> {
     const emCache = cacheOfertas.get(itadId);
     if (emCache && emCache.expira > Date.now()) {
@@ -230,6 +276,11 @@ export async function buscarOfertasJogo(itadId: string, appid?: number | null): 
     return deals;
 }
 
+/**
+ * Mapeia os links oficiais de compra para cada loja a partir da lista de promoções.
+ * @param deals Lista de ofertas retornada pelo ITAD ou Steam.
+ * @returns Dicionário indexado pelo nome da loja em minúsculas contendo a URL de destino.
+ */
 export function linksDasOfertas(deals: any[]): Record<string, string> {
     const links: Record<string, string> = {};
     for (const deal of deals) {
@@ -242,6 +293,11 @@ export function linksDasOfertas(deals: any[]): Record<string, string> {
     return links;
 }
 
+/**
+ * Atalho que busca ofertas e devolve diretamente o mapa de links por loja.
+ * @param itadId ID do jogo no ITAD.
+ * @returns Objeto com as URLs das lojas.
+ */
 export async function buscarLinksOfertas(itadId: string): Promise<Record<string, string>> {
     return linksDasOfertas(await buscarOfertasJogo(itadId));
 }
@@ -295,6 +351,13 @@ export async function buscarInfoBasica(itadId: string): Promise<{ capa: string |
     }
 }
 
+/**
+ * Constrói a URL direta de banner ou imagem de capa nos servidores de assets do ITAD.
+ *
+ * @param itadId ID do jogo no ITAD.
+ * @param tamanho Dimensão da imagem ('banner300', 'banner600', 'boxart', etc.). Padrão é 'banner300'.
+ * @returns URL completa do arquivo de imagem.
+ */
 export function urlCapaItad(
     itadId: string,
     tamanho: "banner145" | "banner300" | "banner400" | "banner600" | "boxart" = "banner300"

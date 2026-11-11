@@ -1,6 +1,13 @@
 import Image from 'next/image'
 import { macaco } from './assets'
 
+/**
+ * Seção de destaque inicial da página principal (Hero).
+ *
+ * Apresenta o slogan de boas-vindas e a ilustração do mascote oficial do BananaPrice.
+ *
+ * @returns Elemento JSX da seção Hero.
+ */
 export default function Hero() {
   return (
     <section className="relative m-2.5 flex min-h-[241px] items-center justify-between overflow-hidden rounded-3xl bg-[linear-gradient(90deg,rgba(50,40,36,.8),rgba(39,29,26,.62)_49%,rgba(35,25,22,.71))] px-[60px] py-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[1100px]:flex-col max-[1100px]:gap-4 max-[1100px]:p-6 max-[1100px]:text-center">

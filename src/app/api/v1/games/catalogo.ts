@@ -6,18 +6,32 @@ import { adultoPermitido } from "@/lib/adulto";
 const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 50;
 
-/* Converte um parâmetro da URL em número, ou null se vazio/inválido. */
+/**
+ * Converte um parâmetro da URL em número ou null se vazio/inválido.
+ * @param valor String vinda da searchParams.
+ * @returns Número validado ou null.
+ */
 function numeroOuNull(valor: string | null): number | null {
   if (valor === null || valor.trim() === "") return null;
   const n = Number(valor);
   return Number.isFinite(n) ? n : null;
 }
 
-/* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
+/**
+ * Normaliza a relação com loja do Supabase (que pode vir como objeto ou array).
+ * @param rel Objeto ou array de relacionamentos.
+ * @returns Nome da loja ou null.
+ */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
+/**
+ * Realiza paginação e filtros avançados no catálogo de jogos (preço máximo, desconto mínimo, loja e busca).
+ *
+ * @param request Requisição HTTP com os parâmetros de consulta.
+ * @returns Resposta JSON com a página de jogos formatados e o totalizador.
+ */
 export async function listarCatalogo(request: Request) {
   const { searchParams } = new URL(request.url);
 

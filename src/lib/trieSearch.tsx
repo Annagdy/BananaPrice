@@ -1,5 +1,10 @@
 import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 
+/**
+ * Normaliza um texto para busca removendo acentuações e caracteres especiais.
+ * @param texto String original para sanitização.
+ * @returns Texto em minúsculas e sem diacríticos.
+ */
 function normalizar(texto: string): string {
   return texto
     .normalize('NFD')
@@ -9,6 +14,9 @@ function normalizar(texto: string): string {
     .trim()
 }
 
+/**
+ * Representação condensada de um jogo indexado na estrutura Trie para buscas instantâneas.
+ */
 export type JogoResumido = {
   id_jogo: number
   titulo: string
@@ -20,6 +28,10 @@ class TrieNode {
   jogos: Set<JogoResumido> = new Set()
 }
 
+/**
+ * Mecanismo de busca textual em memória baseado na estrutura de dados Trie (Árvore de Prefixos).
+ * Fornece autocompletar e busca por múltiplas palavras com caching automático do catálogo.
+ */
 export class EngineBuscaTrie {
   private raiz: TrieNode = new TrieNode()
   private inicializado: boolean = false
@@ -37,6 +49,10 @@ export class EngineBuscaTrie {
     }
   }
 
+  /**
+   * Divide o título do jogo em palavras e indexa cada uma na árvore Trie.
+   * @param jogo Objeto do jogo a ser indexado.
+   */
   public indexarJogo(jogo: JogoResumido) {
     const tituloNorm = normalizar(jogo.titulo)
     const palavras = tituloNorm.split(' ').filter(p => p.length > 0)
@@ -47,6 +63,9 @@ export class EngineBuscaTrie {
     }
   }
 
+  /**
+   * Carrega todos os jogos do banco de dados na árvore em memória caso o cache tenha expirado.
+   */
   public async carregarCatalogo() {
     const agora = Date.now()
     if (this.inicializado && agora - this.ultimaAtualizacao < this.CACHE_TTL_MS) {
@@ -116,5 +135,7 @@ export class EngineBuscaTrie {
   }
 }
 
-// Instância única em memória (Singleton)
+/**
+ * Instância Singleton global da engine Trie para ser compartilhada pelas rotas da aplicação.
+ */
 export const trieEngine = new EngineBuscaTrie()

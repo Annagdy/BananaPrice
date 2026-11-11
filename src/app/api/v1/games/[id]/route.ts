@@ -11,6 +11,16 @@ function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
+/**
+ * Detalhes completos de um jogo (GET /api/v1/games/[id]).
+ *
+ * Retorna metadados do jogo, capa em alta resolução, melhor preço de cada loja, links diretos de compra,
+ * lista de DLCs associados e controle de acesso a conteúdo adulto via cookies.
+ *
+ * @param request Objeto da requisição.
+ * @param context Objeto contendo os parâmetros de rota com o `id` do jogo.
+ * @returns JSON detalhado do jogo ou 404/403.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

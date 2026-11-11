@@ -3,20 +3,20 @@ import { slugify, buscarInfoJogo } from "../lib/itad.ts/index.ts";
 import { BUSCAR_GENERO } from "../lib/config.ts/index.ts";
 import type { JogoApi } from "../types/jogo";
 
-/* Grava um lote de jogos na tabela `jogo` (upsert em massa, chave de conflito `itad_id`).
-
-Preenche `itad_id`, `titulo`, `slug` (com fallback via `slugify` quando a API não manda), `genero` e `adulto`.
-Gênero e classificação adulta vêm da mesma chamada (`buscarInfoJogo`), feita só para jogos que ainda não têm
-gênero salvo OU cuja classificação adulta ainda não foi verificada (`adulto` nulo), para não gastar requisições
-à toa em reimportações.
-
-`adulto` nulo significa "ainda não verificado". O valor que já existe no banco nunca é sobrescrito por nulo.
-
-@param jogos Jogos crus vindos de `buscarPaginaJogos` (cada um com `id`, `title` e, às vezes, `slug`).
-@returns Um mapa de `itad_id` -> `id_jogo` (o id gerado pelo Supabase), usado depois em `salvarPrecos` para resolver a
-chave estrangeira de `preco_jogo`/`preco_historico`.
-
-*/
+/**
+ * Grava um lote de jogos na tabela `jogo` (upsert em massa, chave de conflito `itad_id`).
+ *
+ * Preenche `itad_id`, `titulo`, `slug` (com fallback via `slugify` quando a API não manda), `genero` e `adulto`.
+ * Gênero e classificação adulta vêm da mesma chamada (`buscarInfoJogo`), feita só para jogos que ainda não têm
+ * gênero salvo OU cuja classificação adulta ainda não foi verificada (`adulto` nulo), para não gastar requisições
+ * à toa em reimportações.
+ *
+ * `adulto` nulo significa "ainda não verificado". O valor que já existe no banco nunca é sobrescrito por nulo.
+ *
+ * @param jogos Jogos crus vindos de `buscarPaginaJogos` (cada um com `id`, `title` e, às vezes, `slug`).
+ * @returns Um mapa de `itad_id` -> `id_jogo` (o id gerado pelo Supabase), usado depois em `salvarPrecos` para resolver a
+ * chave estrangeira de `preco_jogo`/`preco_historico`.
+ */
 export async function salvarJogos(
     jogos: JogoApi[]
 ): Promise<Map<string, number>> {

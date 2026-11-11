@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer'
 
-/* Configura transporter SMTP caso as variáveis estejam definidas no ambiente (.env / .env.local). */
+/**
+ * Configura o transporter SMTP utilizando as credenciais definidas em variáveis de ambiente.
+ * @returns Instância do Transporter do Nodemailer ou null se as variáveis não estiverem configuradas.
+ */
 function criarTransporter() {
   const host = process.env.SMTP_HOST
   const port = Number(process.env.SMTP_PORT || 587)
@@ -22,6 +25,9 @@ function criarTransporter() {
   })
 }
 
+/**
+ * Parâmetros para envio de e-mail de notificação de alerta de preço.
+ */
 export type EmailNotificacaoParams = {
   para: string
   nomeUsuario: string
@@ -32,8 +38,12 @@ export type EmailNotificacaoParams = {
   urlJogo: string
 }
 
-/* Envia e-mail de alerta de preço para o usuário.
-Devolve status de sucesso e detalhes em caso de falha para facilitar diagnóstico. */
+/**
+ * Envia um e-mail com layout temático de alerta de preço para o usuário.
+ *
+ * @param params Dados para montagem da mensagem (destinatário, jogo, preço, desconto, loja e link).
+ * @returns Resultado do envio contendo sucesso e mensagem de erro caso falhe.
+ */
 export async function enviarEmailAlertaPreco({
   para,
   nomeUsuario,

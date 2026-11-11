@@ -26,15 +26,10 @@ if (!supabaseUrl || !chaveServiceRole) {
     );
 }
 
-/*
-Cliente Supabase autenticado com a service_role key.
-
-Só para uso em scripts e códigos de servidor (route handlers, cron, services). Ela ignora RLS.
-NUNCA importe este arquivo em componente "use client" nem no middleware.ts.
-
-Não guarda nem renova sessão: é um cliente de "sistema", sem usuário logado. Isso também evita que o
-supabase.auth.admin.* acumule estado entre requisições no servidor.
-*/
+/**
+ * Cliente Supabase com privilégios administrativos (chave `service_role`).
+ * Utilizado exclusivamente em scripts e route handlers no servidor para operações que ignoram RLS.
+ */
 export const supabase = createClient(supabaseUrl, chaveServiceRole, {
     auth: {
         autoRefreshToken: false,
@@ -42,18 +37,14 @@ export const supabase = createClient(supabaseUrl, chaveServiceRole, {
     }
 });
 
-/*
-Executa uma chamada ao Supabase com até 5 tentativas, em vez de derrubar a importação inteira na primeira falha.
-
-Erros de rede passageiros são tentados de novo com espera crescente. Erros vindos do próprio banco não se resolvem
-tentando de novo, então são lançados na hora.
-
-@param descricao Texto curto usado só nos logs, para identificar qual chamada falhou.
-@param chamar Função que dispara a chamada ao Supabase e devolve o '{ data, error }' padrão do supabase-js.
-              Pode devolver direto o query builder (ex: () => supabase.from("games").select("id")).
-@returns O 'data' da chamada, quando bem-sucedida.
-@throws O erro original, depois de esgotar as tentativas, ou na hora, se for erro do banco.
-*/
+/**
+ * Executa uma chamada ao Supabase com até 5 tentativas e backoff exponencial em caso de falha transitória de rede.
+ *
+ * @param descricao Texto curto usado nos logs para identificar a chamada.
+ * @param chamar Função que dispara a chamada e devolve `{ data, error }`.
+ * @returns O resultado `data` quando bem-sucedido.
+ * @throws O erro original caso as tentativas se esgotem ou ocorra falha no banco.
+ */
 export async function chamarSupabase<T>(
     descricao: string,
     chamar: () => PromiseLike<{ data: T; error: any }>

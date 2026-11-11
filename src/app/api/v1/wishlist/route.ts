@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase.ts/server.ts";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 import { urlCapaItad } from "@/lib/itad.ts";
 
-/* Descobre o id_usuario (da nossa tabela) de quem está logado. */
+/**
+ * Obtém o `id_usuario` na tabela local correspondente ao usuário autenticado no Supabase Auth.
+ * @returns Identificador numérico do usuário ou null se não autenticado.
+ */
 async function usuarioLogado(): Promise<number | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -18,15 +21,13 @@ async function usuarioLogado(): Promise<number | null> {
   return data?.id_usuario ?? null;
 }
 
-/*
-GET /api/v1/wishlist (RF10): lista a wishlist do usuário logado.
-
-Para cada jogo devolve a melhor oferta atual (menor valor_atual em preco_jogo), a capa (montada pelo
-itad_id) e o link da página interna do jogo. O preço original é calculado a partir do valor atual e do desconto.
-
-@returns 200 { jogos: [{ id, nome, capa, precoOriginal, precoComDesconto, desconto, loja, url }] };
-         401 não autenticado; 500 erro ao ler o banco.
-*/
+/**
+ * Endpoint para listar todos os jogos da lista de desejos do usuário autenticado (GET /api/v1/wishlist - RF10).
+ *
+ * Enriquece cada jogo com melhor preço vigente, percentual de desconto, loja da melhor oferta e URL de capa.
+ *
+ * @returns Resposta com a lista de jogos ou 401 para requisições não autenticadas.
+ */
 export async function GET() {
   const idUsuario = await usuarioLogado();
   if (idUsuario === null) {
@@ -91,13 +92,13 @@ export async function GET() {
   return NextResponse.json({ jogos: resultado });
 }
 
-/*
-POST /api/v1/wishlist (RF10): adiciona um jogo à wishlist. Cria a lista do usuário se ainda
-não existir. Adicionar um jogo repetido não gera erro.
-
-@body { idJogo } id_jogo existente na tabela "jogo".
-@returns 201 { ok }; 400 idJogo inválido; 401 não autenticado; 404 jogo não encontrado; 500 erro no banco.
-*/
+/**
+ * Endpoint para adicionar um jogo à lista de desejos (POST /api/v1/wishlist - RF10).
+ * Cria a lista automaticamente caso ainda não exista e ignora duplicatas.
+ *
+ * @param request Requisição HTTP contendo `{ idJogo: number }` no corpo.
+ * @returns Status 201 em caso de sucesso ou erro apropriado (400, 401, 404, 500).
+ */
 export async function POST(request: Request) {
   const idUsuario = await usuarioLogado();
   if (idUsuario === null) {

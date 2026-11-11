@@ -2,6 +2,13 @@ import Image from 'next/image'
 import { logo } from './assets'
 import { tema } from '../mocks/tema'
 
+/**
+ * Rodapé institucional do BananaPrice (Footer).
+ *
+ * Apresenta o manifesto do projeto, termos de transparência e os créditos da API IsThereAnyDeal.
+ *
+ * @returns Elemento JSX do rodapé.
+ */
 export default function Footer() {
   return (
     <footer className="w-full bg-bp-nav">

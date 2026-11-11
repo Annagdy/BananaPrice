@@ -2,6 +2,9 @@ import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 import { urlCapaItad } from '@/lib/itad.ts'
 import { enviarEmailAlertaPreco } from '@/lib/email'
 
+/**
+ * Formato unificado de notificação entregue para a interface do usuário.
+ */
 export type NotificacaoFormatada = {
   id: number
   idJogo: number
@@ -19,7 +22,12 @@ export type NotificacaoFormatada = {
 const brl = (valor: number): string =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-/* Busca ou cria o id_lista pertencente ao usuário. */
+/**
+ * Busca ou cria o registro de lista de desejos (`lista_desejo`) pertencente a um usuário.
+ *
+ * @param idUsuario Identificador único do usuário (`id_usuario`).
+ * @returns O identificador da lista (`id_lista`) ou null em caso de erro na consulta/criação.
+ */
 export async function obterOuCriarListaUsuario(idUsuario: number): Promise<number | null> {
   const { data: existente } = await supabaseAdmin
     .from('lista_desejo')
@@ -46,8 +54,13 @@ export async function obterOuCriarListaUsuario(idUsuario: number): Promise<numbe
   return Number(nova.id_lista)
 }
 
-/* Busca as notificações do usuário logado, incluindo contagem de não lidas.
-Totalmente tolerante a variações no schema (com ou sem colunas extras). */
+/**
+ * Busca as notificações de um usuário logado, incluindo contagem de não lidas.
+ * É tolerante a variações no schema do banco de dados (colunas extras como mensagem, preco, desconto).
+ *
+ * @param idUsuario Identificador do usuário.
+ * @returns Lista de notificações formatadas e total de não lidas.
+ */
 export async function buscarNotificacoesUsuario(idUsuario: number): Promise<{
   notificacoes: NotificacaoFormatada[]
   naoLidas: number
@@ -198,7 +211,13 @@ export async function buscarNotificacoesUsuario(idUsuario: number): Promise<{
   return { notificacoes: lista, naoLidas }
 }
 
-/* Marca notificação(ões) como lida(s). */
+/**
+ * Marca uma ou todas as notificações de um usuário como lidas.
+ *
+ * @param idUsuario Identificador do usuário.
+ * @param params Opções com o id da notificação específica ou sinalizador para marcar todas.
+ * @returns Verdadeiro se a atualização foi executada com sucesso.
+ */
 export async function marcarNotificacoesLidas(
   idUsuario: number,
   params: { idNotificacao?: number; todas?: boolean }
@@ -228,7 +247,13 @@ export async function marcarNotificacoesLidas(
   }
 }
 
-/* Exclui notificação(ões) do usuário. */
+/**
+ * Exclui uma notificação específica ou limpa todas as notificações de um usuário.
+ *
+ * @param idUsuario Identificador do usuário.
+ * @param params Identificador da notificação a remover ou sinalizador `todas: true`.
+ * @returns Verdadeiro caso a exclusão seja realizada sem falhas.
+ */
 export async function excluirNotificacoes(
   idUsuario: number,
   params: { idNotificacao?: number; todas?: boolean }
@@ -255,6 +280,9 @@ export async function excluirNotificacoes(
   }
 }
 
+/**
+ * Parâmetros para disparo em massa de alertas de preço.
+ */
 export type DispararAlertaParams = {
   idJogo: number
   novoPreco: number
@@ -263,7 +291,15 @@ export type DispararAlertaParams = {
   precoAnterior?: number | null
 }
 
-/* Dispara notificações para todos os usuários que têm o jogo na Wishlist quando há queda de preço/oferta. */
+/**
+ * Dispara notificações no sistema e por e-mail para todos os usuários que possuem o jogo
+ * em sua lista de desejos quando é detectada uma queda de preço ou promoção.
+ *
+ * Inclui deduplicação automática evitando notificações repetidas em menos de 24 horas.
+ *
+ * @param params Dados da nova oferta (jogo, novo preço, desconto e loja).
+ * @returns Quantidade total de notificações registradas no banco.
+ */
 export async function notificarQuedaDePreco({
   idJogo,
   novoPreco,
@@ -394,8 +430,13 @@ export async function notificarQuedaDePreco({
   }
 }
 
-/* Cria uma notificação direta (usado para testes ou eventos especiais).
-Valida o jogo e garante compatibilidade com o banco de dados. */
+/**
+ * Cria uma notificação direta no sistema com suporte a fallback de schema e envio opcional de e-mail.
+ * Utilizado por rotas de teste ou eventos manuais administrativos.
+ *
+ * @param params Configurações da notificação (usuário, mensagem, dados de preço e flag de e-mail).
+ * @returns Objeto com status da operação e informações de entrega do e-mail.
+ */
 export async function criarNotificacaoManual(params: {
   idUsuario: number
   idJogo?: number

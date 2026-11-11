@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
-/*
-POST /api/v1/auth/register (RF02): cadastro por e-mail.
-
-O trigger do banco cria a linha em "usuario" a partir do user_metadata.
-
-@body { nomeUsuario, email, senha } nomeUsuario: 3 a 20 caracteres [a-z0-9_.]; senha: mínimo 6.
-@returns 201 { user, needsEmailConfirmation }; 400 dados inválidos; 409 nome de usuário em uso.
-*/
+/**
+ * Endpoint para cadastro de nova conta por e-mail e senha (POST /api/v1/auth/register - RF02).
+ *
+ * Valida o formato do nome de usuário, força unicidade e dispara fluxo de confirmação por e-mail do Supabase Auth.
+ *
+ * @param request Requisição HTTP contendo `{ nomeUsuario, email, senha }`.
+ * @returns Status 201 com dados do usuário e flag de confirmação, ou erro 400/409.
+ */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 

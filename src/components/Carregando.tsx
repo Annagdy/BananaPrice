@@ -4,7 +4,12 @@ import Footer from './Footer'
 import { carregando } from '../mocks/carregando'
 import { tema } from '../mocks/tema'
 
-// Tela de carregamento, com o mesmo layout para todas as transições.
+/**
+ * Tela e esqueleto de carregamento com o layout padrão do BananaPrice.
+ * Exibe cabeçalho, card animado e rodapé para transições assíncronas.
+ *
+ * @returns Elemento JSX da tela de loading.
+ */
 export default function Carregando() {
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">

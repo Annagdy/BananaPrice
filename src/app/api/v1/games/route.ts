@@ -195,6 +195,16 @@ function aplicarFiltroStatus(lista: any[], statusFiltro: string | null) {
   })
 }
 
+/**
+ * Endpoint de listagem e busca geral de jogos (GET /api/v1/games).
+ * Suporta filtros por:
+ * - Vitrine Turbo (`?turbo=1`)
+ * - Busca de texto nativa, rápida via Trie ou semântica com IA (`?busca=...&modo=trie|ia|nativa`)
+ * - Status de precificação (`?status=PAGO|FREE_TO_PLAY|PROMO_GRATIS|INDISPONIVEL`)
+ *
+ * @param request Objeto da requisição HTTP.
+ * @returns JSON com a lista de jogos enriquecida com as melhores ofertas e capa.
+ */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)

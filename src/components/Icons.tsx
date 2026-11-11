@@ -1,6 +1,9 @@
 import type { SVGProps } from 'react'
 
-type IconProps = SVGProps<SVGSVGElement>
+/**
+ * Propriedades para renderização de ícones SVG vetorizados.
+ */
+export type IconProps = SVGProps<SVGSVGElement>
 
 const base = {
   fill: 'none',
@@ -13,7 +16,9 @@ const base = {
 // Classe reutilizável para efeito de hover e clique tátil
 const interativo = 'transition-transform duration-150 hover:scale-110 active:scale-90 cursor-pointer'
 
-// Ícone de Pesquisa (Sem efeito de clique/hover por ser passivo)
+/**
+ * Ícone SVG de Pesquisa / Lupa.
+ */
 export const SearchIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="28" height="28" viewBox="0 0 24 24" {...base} className={className} {...p}>
     <circle cx="11" cy="11" r="7" />
@@ -21,7 +26,9 @@ export const SearchIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
-// Ícone de Notificação (Com efeito de escala + rotação suave ao passar o mouse)
+/**
+ * Ícone SVG de Sino / Notificações com animação tátil no hover.
+ */
 export const BellIcon = ({ className = '', ...p }: IconProps) => (
   <svg
     width="30"
@@ -36,6 +43,9 @@ export const BellIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Cadastro / Adicionar Usuário.
+ */
 export const UserPlusIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="22" height="18" viewBox="0 0 24 20" {...base} className={`${interativo} ${className}`} {...p}>
     <circle cx="9" cy="6" r="4" />
@@ -44,12 +54,18 @@ export const UserPlusIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Raio / Destaque Turbo.
+ */
 export const BoltIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="30" height="40" viewBox="0 0 24 32" fill="currentColor" className={`${interativo} ${className}`} {...p}>
     <path d="M14 0L1 18h9l-3 14L23 12h-9z" />
   </svg>
 )
 
+/**
+ * Ícone SVG de Etiqueta de Promoção / Preço.
+ */
 export const TagIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" className={`${interativo} ${className}`} {...p}>
     <path d="M3 12.5V4a1 1 0 011-1h8.5a1 1 0 01.7.3l8 8a1 1 0 010 1.4l-8.5 8.5a1 1 0 01-1.4 0l-8-8a1 1 0 01-.3-.7z" />
@@ -57,6 +73,9 @@ export const TagIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Arroba / E-mail.
+ */
 export const AtIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="15" height="15" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <circle cx="12" cy="12" r="4" />
@@ -64,6 +83,9 @@ export const AtIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Cadeado / Senha.
+ */
 export const LockIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="14" height="16" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <rect x="4" y="11" width="16" height="10" rx="2" />
@@ -71,6 +93,9 @@ export const LockIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Olho Aberto / Visualizar senha.
+ */
 export const EyeIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="17" height="12" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
@@ -78,12 +103,18 @@ export const EyeIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Olho Oculto / Esconder senha.
+ */
 export const EyeOffIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="17" height="12" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <path d="M17.9 17.9A10.9 10.9 0 0112 20C5 20 1 12 1 12a18.5 18.5 0 015.1-5.9M9.9 4.2A9.1 9.1 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.2 3.2M1 1l22 22" />
   </svg>
 )
 
+/**
+ * Ícone SVG de Controle de Videogame / Joystick.
+ */
 export const GamepadIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="15" height="11" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <path d="M6 12h4M8 10v4" />
@@ -93,6 +124,9 @@ export const GamepadIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Restaurar / Sincronizar.
+ */
 export const RestoreIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="15" height="15" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.7L3 8" />
@@ -100,12 +134,18 @@ export const RestoreIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Seta para a Direita.
+ */
 export const ArrowRight = ({ className = '', ...p }: IconProps) => (
   <svg width="12" height="12" viewBox="0 0 24 24" {...base} strokeWidth={2.4} className={`${interativo} ${className}`} {...p}>
     <path d="M5 12h14M13 5l7 7-7 7" />
   </svg>
 )
 
+/**
+ * Ícone SVG de Visitante / Anônimo.
+ */
 export const VisitorIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="12" height="12" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <circle cx="12" cy="7" r="4" />
@@ -113,14 +153,9 @@ export const VisitorIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
-export const UserPlusSmall = ({ className = '', ...p }: IconProps) => (
-  <svg width="20" height="15" viewBox="0 0 24 20" {...base} className={`${interativo} ${className}`} {...p}>
-    <circle cx="9" cy="6" r="4" />
-    <path d="M1.5 19c0-4 3.2-6.5 7.5-6.5s7.5 2.5 7.5 6.5" />
-    <path d="M20 5v6M17 8h6" />
-  </svg>
-)
-
+/**
+ * Ícone SVG do Logotipo da Steam Store.
+ */
 export const SteamIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className={`${interativo} ${className}`} {...p}>
     <circle cx="12" cy="12" r="11" fill="#fff" />
@@ -128,12 +163,18 @@ export const SteamIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Coração / Lista de Desejos.
+ */
 export const HeartIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 000-7.8z" />
   </svg>
 )
 
+/**
+ * Ícone SVG de Usuário / Perfil.
+ */
 export const UserIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="14" height="16" viewBox="0 0 24 24" {...base} className={`${interativo} ${className}`} {...p}>
     <circle cx="12" cy="7" r="4" />
@@ -141,6 +182,9 @@ export const UserIcon = ({ className = '', ...p }: IconProps) => (
   </svg>
 )
 
+/**
+ * Ícone SVG de Loja / Estabelecimento Parceiro.
+ */
 export const StoreIcon = ({ className = '', ...p }: IconProps) => (
   <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" className={`${interativo} ${className}`} {...p}>
     <path d="M4 3h16l2 6a3 3 0 01-5 2 3 3 0 01-5 0 3 3 0 01-5 0 3 3 0 01-5-2z" />

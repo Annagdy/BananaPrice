@@ -3,7 +3,12 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { logo, palmeira, bananas } from './assets'
 
-/** Fundo (palmeira, banana, brilho), logo e cartão das telas de login e cadastro */
+/**
+ * Envelope visual (Shell) com cenários temáticos (palmeiras, bananas e logo) para as telas de login e cadastro.
+ *
+ * @param props Contém os elementos filhos `children` exibidos no interior do card.
+ * @returns Elemento JSX com a moldura de autenticação.
+ */
 export default function AuthShell({ children }: { children: ReactNode }) {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bp-bg px-4 py-10">
