@@ -154,6 +154,17 @@ export const VisitorIcon = ({ className = '', ...p }: IconProps) => (
 )
 
 /**
+ * Ícone SVG compacto de Adicionar Usuário / Cadastro.
+ */
+export const UserPlusSmall = ({ className = '', ...p }: IconProps) => (
+  <svg width="20" height="15" viewBox="0 0 24 20" {...base} className={`${interativo} ${className}`} {...p}>
+    <circle cx="9" cy="6" r="4" />
+    <path d="M1.5 19c0-4 3.2-6.5 7.5-6.5s7.5 2.5 7.5 6.5" />
+    <path d="M20 5v6M17 8h6" />
+  </svg>
+)
+
+/**
  * Ícone SVG do Logotipo da Steam Store.
  */
 export const SteamIcon = ({ className = '', ...p }: IconProps) => (
