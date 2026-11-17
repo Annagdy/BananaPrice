@@ -6,6 +6,7 @@ import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 import { urlCapaItad } from '@/lib/itad.ts'
 import { trieEngine } from '@/lib/trieSearch'
 import { adultoPermitido } from '@/lib/adulto'
+import { ehConsoleOuGiftCard } from '@/lib/hardwareGiftCard'
 import { listarCatalogo } from './catalogo'
 
 const execFileAsync = promisify(execFile)
@@ -213,6 +214,8 @@ export async function GET(request: Request) {
     const busca = (searchParams.get('busca') || searchParams.get('search'))?.trim()
     const modo = searchParams.get('modo') ?? 'nativa'
     const statusFiltro = searchParams.get('status')
+    // Se ?hardware=1, inclui consoles e gift cards; caso contrário (padrão), filtra-os fora.
+    const incluirHardware = searchParams.get('hardware') === '1'
     // Mesmo critério do catálogo: sem o cookie `bp_adulto=1`, só entram jogos com adulto = false.
     const verAdulto = adultoPermitido(request)
 
@@ -242,7 +245,11 @@ export async function GET(request: Request) {
 
       if (!jogos) return NextResponse.json({ jogos: [] })
 
-      const jogosFormatados = await enriquecerJogosComPromocoes(jogos)
+      const filtradosHardware = incluirHardware
+        ? jogos
+        : jogos.filter((j: any) => !ehConsoleOuGiftCard(j.titulo))
+
+      const jogosFormatados = await enriquecerJogosComPromocoes(filtradosHardware)
       return NextResponse.json({ jogos: aplicarFiltroStatus(jogosFormatados, statusFiltro) })
     }
 
@@ -250,7 +257,7 @@ export async function GET(request: Request) {
     if (busca) {
       if (modo === 'nativa') {
         await trieEngine.carregarCatalogo()
-        let jogosMatcheados: Jogo[] = trieEngine.buscar(busca, 50, verAdulto)
+        let jogosMatcheados: Jogo[] = trieEngine.buscar(busca, 50, verAdulto, incluirHardware)
 
         if (jogosMatcheados.length === 0) {
           let consultaNativa = supabaseAdmin
@@ -259,9 +266,11 @@ export async function GET(request: Request) {
             .ilike('titulo', `%${busca}%`)
           if (!verAdulto) consultaNativa = consultaNativa.eq('adulto', false)
 
-          const { data } = await consultaNativa.limit(50)
-
-          jogosMatcheados = (data ?? []) as Jogo[]
+          const { data } = await consultaNativa.limit(100)
+          const dataFiltrada = (data ?? []) as Jogo[]
+          jogosMatcheados = incluirHardware
+            ? dataFiltrada.slice(0, 50)
+            : dataFiltrada.filter((j) => !ehConsoleOuGiftCard(j.titulo)).slice(0, 50)
         }
 
         const jogosComPromocoes = await enriquecerJogosComPromocoes(jogosMatcheados)
@@ -289,11 +298,13 @@ export async function GET(request: Request) {
             .ilike('titulo', `%${nomeLimp}%`)
           if (!verAdulto) consultaIA = consultaIA.eq('adulto', false)
 
-          const { data } = await consultaIA.limit(15)
+          const { data } = await consultaIA.limit(25)
 
           if (data) {
             for (const j of data) {
-              candidatosMap.set(j.id_jogo, j)
+              if (incluirHardware || !ehConsoleOuGiftCard(j.titulo)) {
+                candidatosMap.set(j.id_jogo, j)
+              }
             }
           }
         }
@@ -326,7 +337,11 @@ export async function GET(request: Request) {
         return NextResponse.json({ jogos: [], total: 0 })
       }
 
-      const jogosEnriquecidos = await enriquecerJogosComPromocoes(todosJogos)
+      const jogosValidos = incluirHardware
+        ? todosJogos
+        : todosJogos.filter((j: any) => !ehConsoleOuGiftCard(j.titulo))
+
+      const jogosEnriquecidos = await enriquecerJogosComPromocoes(jogosValidos)
       const jogosFiltrados = aplicarFiltroStatus(jogosEnriquecidos, statusFiltro)
 
       const total = jogosFiltrados.length

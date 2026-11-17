@@ -15,6 +15,7 @@ import { palmeira } from '../../components/assets'
 import { STORES, PRICE_FILTERS, CUT_FILTERS, PER_PAGE } from '../../mocks/promos'
 import type { Game } from '../../mocks/games'
 import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
+import { ehConsoleOuGiftCard } from '../../lib/hardwareGiftCard'
 import { urlCapaItad } from '../../lib/itad.ts'
 
 export const dynamic = 'force-dynamic'
@@ -94,6 +95,26 @@ function ContentIcon(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
+function HardwareIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+      {...props}
+    >
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <path d="M6 12h4m-2-2v4" />
+      <circle cx="17" cy="10" r="1" fill="currentColor" />
+      <circle cx="15" cy="14" r="1" fill="currentColor" />
+    </svg>
+  )
+}
+
 // Adaptador para converter dados da API no tipo esperado pelo GameCard
 const paraCard = (j: any): Game => {
   const coverUrl = j.capa ?? (j.itad_id ? urlCapaItad(String(j.itad_id)) : null)
@@ -158,6 +179,7 @@ type FiltrosBusca = {
   precoMax: number | null
   corteMin: number | null
   lojas: string[]
+  incluirHardware: boolean
 }
 
 // Nomes (em minúsculas) das lojas que têm oferta para o jogo
@@ -171,8 +193,12 @@ function lojasDoJogo(j: any): string[] {
   return nomes.map((n) => String(n).toLowerCase())
 }
 
-// Aplica no resultado da busca os mesmos filtros do painel lateral (Estado, Preços, Descontos e Lojas)
+// Aplica no resultado da busca os mesmos filtros do painel lateral (Estado, Preços, Descontos, Lojas e Hardware/Consoles)
 function passaNosFiltros(j: any, f: FiltrosBusca): boolean {
+  if (!f.incluirHardware && ehConsoleOuGiftCard(j.titulo ?? j.name)) {
+    return false
+  }
+
   const preco: number | null = j.melhorPreco ?? null
 
   if (f.status === 'GRATIS') {
@@ -285,6 +311,7 @@ function ConteudoJogos() {
   const [pagina, setPagina] = useState(1)
 
   const [adulto, setAdulto] = useState(false)
+  const [incluirHardware, setIncluirHardware] = useState(false)
 
   const [jogos, setJogos] = useState<any[]>([])
   const [total, setTotal] = useState(0)
@@ -298,9 +325,9 @@ function ConteudoJogos() {
   const resultadoFiltrado = useMemo(
     () =>
       resultadoBusca.filter((j) =>
-        passaNosFiltros(j, { status: filtroStatus, precoMax, corteMin, lojas })
+        passaNosFiltros(j, { status: filtroStatus, precoMax, corteMin, lojas, incluirHardware })
       ),
-    [resultadoBusca, filtroStatus, precoMax, corteMin, lojas]
+    [resultadoBusca, filtroStatus, precoMax, corteMin, lojas, incluirHardware]
   )
 
   const escolher = (
@@ -351,6 +378,7 @@ function ConteudoJogos() {
     const params = new URLSearchParams()
     params.set('busca', termoNaUrl)
     params.set('modo', modoNaUrl)
+    if (incluirHardware) params.set('hardware', '1')
 
     fetch(`/api/v1/games?${params.toString()}`, {
       signal: controller.signal,
@@ -381,7 +409,7 @@ function ConteudoJogos() {
       })
 
     return () => controller.abort()
-  }, [termoNaUrl, modoNaUrl, adulto])
+  }, [termoNaUrl, modoNaUrl, adulto, incluirHardware])
 
   // Busca do catálogo padrão paginado
   useEffect(() => {
@@ -396,6 +424,7 @@ function ConteudoJogos() {
     if (precoMax !== null) params.set('price', String(precoMax))
     if (corteMin !== null) params.set('discount', String(corteMin))
     if (lojas.length) params.set('store', lojas.join(','))
+    if (incluirHardware) params.set('hardware', '1')
 
     setCarregando(true)
     setErroCatalogo(null)
@@ -423,7 +452,7 @@ function ConteudoJogos() {
       })
 
     return () => controller.abort()
-  }, [termoNaUrl, filtroStatus, precoMax, corteMin, lojas, pagina, adulto])
+  }, [termoNaUrl, filtroStatus, precoMax, corteMin, lojas, pagina, adulto, incluirHardware])
 
   const executarBusca = (novoTermo: string, novoModo: ModoBusca = modoNaUrl) => {
     const termo = novoTermo.trim()
@@ -530,6 +559,17 @@ function ConteudoJogos() {
                   label="18+ Adulto"
                   ativa={adulto}
                   onClick={alternarAdulto}
+                />
+              </Grupo>
+
+              <Grupo titulo="Outros" icone={<HardwareIcon />} abertoPadrao={false}>
+                <Chip
+                  label="Consoles & Gift Cards"
+                  ativa={incluirHardware}
+                  onClick={() => {
+                    setIncluirHardware(!incluirHardware)
+                    setPagina(1)
+                  }}
                 />
               </Grupo>
             </aside>

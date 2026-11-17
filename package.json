@@ -9,7 +9,7 @@
     "dotenv": "^18.0.8",
     "lucide-react": "^1.69.0",
     "mercadopago": "^3.6.1",
-    "next": "^16.4.0",
+    "next": "^16.4.6",
     "nodemailer": "^10.3.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

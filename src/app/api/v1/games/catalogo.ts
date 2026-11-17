@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
 import { urlCapaItad } from "@/lib/itad.ts";
 import { adultoPermitido } from "@/lib/adulto";
+import { ehConsoleOuGiftCard } from "@/lib/hardwareGiftCard";
 
 const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 50;
@@ -78,6 +79,8 @@ export async function listarCatalogo(request: Request) {
   const verAdulto = adultoPermitido(request);
   if (!verAdulto) consulta = consulta.eq("adulto", false);
 
+  const incluirHardware = searchParams.get("hardware") === "1";
+
   const de = (pagina - 1) * limite;
   const { data, error, count } = await consulta.order("titulo").range(de, de + limite - 1);
 
@@ -86,7 +89,12 @@ export async function listarCatalogo(request: Request) {
     return NextResponse.json({ error: "Não foi possível buscar os jogos." }, { status: 500 });
   }
 
-  const jogos = ((data ?? []) as unknown as any[]).map((j) => {
+  const linhasValidas = ((data ?? []) as unknown as any[]).filter((j) => {
+    if (incluirHardware) return true;
+    return !ehConsoleOuGiftCard(j.titulo);
+  });
+
+  const jogos = linhasValidas.map((j) => {
     const melhor = (j.preco_jogo ?? [])
       .filter((p: any) => p.valor_atual != null)
       .sort((a: any, b: any) => a.valor_atual - b.valor_atual)[0];

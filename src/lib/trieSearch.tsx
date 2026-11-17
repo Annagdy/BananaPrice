@@ -1,4 +1,5 @@
 import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
+import { ehConsoleOuGiftCard } from '@/lib/hardwareGiftCard'
 
 /**
  * Normaliza um texto para busca removendo acentuações e caracteres especiais.
@@ -96,10 +97,11 @@ export class EngineBuscaTrie {
    * Busca jogos que satisfaçam todos os tokens digitados pelo usuário.
    *
    * @param termo Texto digitado.
-   * @param limite Máximo de resultados (aplicado depois do filtro de conteúdo adulto).
+   * @param limite Máximo de resultados (aplicado depois dos filtros).
    * @param incluirAdulto Se falso (padrão), só retorna jogos com `adulto === false`, igual ao catálogo.
+   * @param incluirHardware Se falso (padrão), oculta consoles, hardware e gift cards.
    */
-  public buscar(termo: string, limite = 10, incluirAdulto = false): JogoResumido[] {
+  public buscar(termo: string, limite = 10, incluirAdulto = false, incluirHardware = false): JogoResumido[] {
     const termoNorm = normalizar(termo)
     const tokens = termoNorm.split(' ').filter(t => t.length > 0)
 
@@ -138,9 +140,13 @@ export class EngineBuscaTrie {
     }
 
     const encontrados = Array.from(resultadosInterseccao ?? [])
-    const visiveis = incluirAdulto
+    let visiveis = incluirAdulto
       ? encontrados
       : encontrados.filter((j) => j.adulto === false)
+
+    if (!incluirHardware) {
+      visiveis = visiveis.filter((j) => !ehConsoleOuGiftCard(j.titulo))
+    }
 
     return visiveis.slice(0, limite)
   }

@@ -1,15 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { FormEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Bot } from 'lucide-react'
+import { Search, Bot, History, X } from 'lucide-react'
 import { logo } from './assets'
 import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons'
 import { createClient } from '@/lib/supabase.ts/client'
 import { tema } from '../mocks/tema'
+
+const CHAVE_HISTORICO_BUSCA = 'bp_historico_buscas'
+const MAX_HISTORICO = 6
 
 /**
  * Modos de busca disponíveis na barra de navegação:
@@ -50,6 +53,68 @@ export default function Nav({
   const [modo, setModo] = useState<ModoBusca>(modoInicial)
   const [estaLogado, setEstaLogado] = useState(logado)
   const [naoLidas, setNaoLidas] = useState(0)
+
+  const [historico, setHistorico] = useState<string[]>([])
+  const [menuAberto, setMenuAberto] = useState(false)
+  const containerBuscaRef = useRef<HTMLDivElement>(null)
+
+  // Carrega buscas recentes do localStorage
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem(CHAVE_HISTORICO_BUSCA)
+      if (salvo) {
+        const parsed = JSON.parse(salvo)
+        if (Array.isArray(parsed)) {
+          setHistorico(parsed.filter((item) => typeof item === 'string' && item.trim().length > 0))
+        }
+      }
+    } catch {
+      // Ignora erro em ambientes restritos
+    }
+  }, [])
+
+  // Fecha o dropdown se clicar fora
+  useEffect(() => {
+    function cliqueFora(e: MouseEvent) {
+      if (containerBuscaRef.current && !containerBuscaRef.current.contains(e.target as Node)) {
+        setMenuAberto(false)
+      }
+    }
+    document.addEventListener('mousedown', cliqueFora)
+    return () => document.removeEventListener('mousedown', cliqueFora)
+  }, [])
+
+  const salvarNoHistorico = (termo: string) => {
+    const t = termo.trim()
+    if (!t) return
+    setHistorico((antigo) => {
+      const filtrado = antigo.filter((item) => item.toLowerCase() !== t.toLowerCase())
+      const novo = [t, ...filtrado].slice(0, MAX_HISTORICO)
+      try {
+        localStorage.setItem(CHAVE_HISTORICO_BUSCA, JSON.stringify(novo))
+      } catch {}
+      return novo
+    })
+  }
+
+  const removerDoHistorico = (e: React.MouseEvent, termoParaRemover: string) => {
+    e.stopPropagation()
+    setHistorico((antigo) => {
+      const novo = antigo.filter((item) => item !== termoParaRemover)
+      try {
+        localStorage.setItem(CHAVE_HISTORICO_BUSCA, JSON.stringify(novo))
+      } catch {}
+      return novo
+    })
+  }
+
+  const limparTodoHistorico = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setHistorico([])
+    try {
+      localStorage.removeItem(CHAVE_HISTORICO_BUSCA)
+    } catch {}
+  }
 
   useEffect(() => {
     setTexto(valorBusca || searchParams.get('search') || searchParams.get('busca') || '')
@@ -93,6 +158,9 @@ export default function Nav({
   }, [estaLogado])
 
   const dispararBusca = (termo: string, modoAtual: ModoBusca) => {
+    salvarNoHistorico(termo)
+    setMenuAberto(false)
+
     if (onSearch) {
       onSearch(termo, modoAtual)
       return
@@ -106,6 +174,11 @@ export default function Nav({
   const pesquisar = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     dispararBusca(texto.trim(), modo)
+  }
+
+  const selecionarDoHistorico = (item: string) => {
+    setTexto(item)
+    dispararBusca(item, modo)
   }
 
   const alterarModo = (novoModo: ModoBusca) => {
@@ -140,10 +213,13 @@ export default function Nav({
           onSubmit={pesquisar}
           className="relative flex max-w-[580px] flex-1 items-center gap-2 max-[640px]:order-3 max-[640px]:max-w-none max-[640px]:basis-full"
         >
-          <div className="relative flex-1">
+          <div ref={containerBuscaRef} className="relative flex-1">
             <input
               type="search"
               name="search"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder={
                 modo === 'nativa'
                   ? 'Busca rápida de jogos (ex: Resident Evil)...'
@@ -152,8 +228,14 @@ export default function Nav({
               aria-label="Buscar jogos"
               maxLength={100}
               value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              className="h-[46px] w-full rounded-[13px] border border-bp-muted/30 bg-bp-nav pl-[18px] pr-[52px] text-xs text-bp-text outline-none placeholder:text-bp-muted/45 focus:border-bp-primary"
+              onFocus={() => {
+                if (historico.length > 0) setMenuAberto(true)
+              }}
+              onChange={(e) => {
+                setTexto(e.target.value)
+                if (historico.length > 0 && !menuAberto) setMenuAberto(true)
+              }}
+              className="h-[46px] w-full rounded-[13px] border border-bp-muted/30 bg-bp-nav pl-[18px] pr-[52px] text-xs text-bp-text outline-none placeholder:text-bp-muted/45 focus:border-bp-primary transition-colors"
             />
             <button
               type="submit"
@@ -163,6 +245,47 @@ export default function Nav({
             >
               <SearchIcon />
             </button>
+
+            {/* Menu Pop-over de Histórico Customizado */}
+            {menuAberto && historico.length > 0 && (
+              <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-[13px] border border-[#3d322e] bg-bp-surface shadow-2xl backdrop-blur-md">
+                <div className="flex items-center justify-between border-b border-[#3d322e]/60 px-3.5 py-2 text-[11px] text-bp-muted/70">
+                  <span className="flex items-center gap-1.5 font-head font-bold uppercase tracking-wider text-bp-primary/90">
+                    <History className="size-3" /> Buscas Recentes
+                  </span>
+                  <button
+                    type="button"
+                    onClick={limparTodoHistorico}
+                    className="cursor-pointer text-[10px] text-bp-muted/50 hover:text-bp-primary transition-colors"
+                  >
+                    Limpar tudo
+                  </button>
+                </div>
+
+                <ul className="flex flex-col py-1">
+                  {historico.map((item) => (
+                    <li
+                      key={item}
+                      onClick={() => selecionarDoHistorico(item)}
+                      className="group flex cursor-pointer items-center justify-between px-3.5 py-2 text-xs text-bp-text hover:bg-bp-nav/80 hover:text-bp-primary transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 truncate pr-2">
+                        <History className="size-3.5 shrink-0 text-bp-muted/40 group-hover:text-bp-primary" />
+                        <span className="truncate">{item}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => removerDoHistorico(e, item)}
+                        title="Remover do histórico"
+                        className="opacity-40 hover:opacity-100 hover:text-rose-400 p-1 transition-opacity"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Seletor do Modo de Pesquisa */}
