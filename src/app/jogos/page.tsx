@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -153,6 +153,55 @@ const paraCard = (j: any): Game => {
   }
 }
 
+type FiltrosBusca = {
+  status: FiltroStatus
+  precoMax: number | null
+  corteMin: number | null
+  lojas: string[]
+}
+
+// Nomes (em minúsculas) das lojas que têm oferta para o jogo
+function lojasDoJogo(j: any): string[] {
+  const promocoes: any[] = Array.isArray(j.promocoes) ? j.promocoes : []
+  const nomes: string[] = promocoes
+    .map((p) => (Array.isArray(p.loja) ? p.loja[0]?.nome : p.loja?.nome))
+    .filter(Boolean)
+
+  if (nomes.length === 0 && j.loja) nomes.push(j.loja)
+  return nomes.map((n) => String(n).toLowerCase())
+}
+
+// Aplica no resultado da busca os mesmos filtros do painel lateral (Estado, Preços, Descontos e Lojas)
+function passaNosFiltros(j: any, f: FiltrosBusca): boolean {
+  const preco: number | null = j.melhorPreco ?? null
+
+  if (f.status === 'GRATIS') {
+    const gratis = j.status === 'FREE_TO_PLAY' || j.status === 'PROMO_GRATIS' || preco === 0
+    if (!gratis) return false
+  }
+
+  if (f.status === 'INDISPONIVEL') {
+    if (!(j.status === 'INDISPONIVEL' || preco === null)) return false
+  }
+
+  if (f.precoMax !== null && (preco === null || preco > f.precoMax)) return false
+
+  if (f.corteMin !== null) {
+    const promocoes: any[] = Array.isArray(j.promocoes) ? j.promocoes : []
+    const descontos = promocoes
+      .map((p) => Number(p.percentual_desconto ?? 0))
+      .concat(promocoes.length === 0 ? [Number(j.desconto ?? 0)] : [])
+    if (!descontos.some((d) => d >= (f.corteMin as number))) return false
+  }
+
+  if (f.lojas.length > 0) {
+    const escolhidas = f.lojas.map((l) => l.toLowerCase())
+    if (!lojasDoJogo(j).some((nome) => escolhidas.includes(nome))) return false
+  }
+
+  return true
+}
+
 // Botão em formato de Chip compacto
 function Chip({
   label,
@@ -245,6 +294,15 @@ function ConteudoJogos() {
   const totalPaginas = Math.max(1, Math.ceil(total / PER_PAGE))
   const atual = Math.min(pagina, totalPaginas)
 
+  // Resultado da busca com os filtros do painel aplicados
+  const resultadoFiltrado = useMemo(
+    () =>
+      resultadoBusca.filter((j) =>
+        passaNosFiltros(j, { status: filtroStatus, precoMax, corteMin, lojas })
+      ),
+    [resultadoBusca, filtroStatus, precoMax, corteMin, lojas]
+  )
+
   const escolher = (
     definir: (v: number | null) => void,
     valorAtual: number | null,
@@ -277,7 +335,7 @@ function ConteudoJogos() {
     setAdulto(adultoAtivoNoNavegador())
   }, [])
 
-  // Reseta o filtro para 'TODOS' ao pesquisar um novo termo
+  // Busca por termo (os filtros do painel são aplicados depois, sobre o resultado)
   useEffect(() => {
     if (!termoNaUrl) {
       setResultadoBusca([])
@@ -285,8 +343,6 @@ function ConteudoJogos() {
       setCarregandoBusca(false)
       return
     }
-
-    setFiltroStatus('TODOS')
 
     const controller = new AbortController()
     setCarregandoBusca(true)
@@ -325,7 +381,7 @@ function ConteudoJogos() {
       })
 
     return () => controller.abort()
-  }, [termoNaUrl, modoNaUrl])
+  }, [termoNaUrl, modoNaUrl, adulto])
 
   // Busca do catálogo padrão paginado
   useEffect(() => {
@@ -371,7 +427,6 @@ function ConteudoJogos() {
 
   const executarBusca = (novoTermo: string, novoModo: ModoBusca = modoNaUrl) => {
     const termo = novoTermo.trim()
-    setFiltroStatus('TODOS')
     setPagina(1)
 
     if (termo) {
@@ -513,9 +568,13 @@ function ConteudoJogos() {
                 <p className="py-16 text-center text-bp-muted">
                   Nenhum jogo relacionado foi encontrado.
                 </p>
+              ) : resultadoFiltrado.length === 0 ? (
+                <p className="py-16 text-center text-bp-muted">
+                  Nenhum jogo da busca corresponde aos filtros selecionados.
+                </p>
               ) : (
                 <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
-                  {resultadoBusca.map((jogo, index) => (
+                  {resultadoFiltrado.map((jogo, index) => (
                     <li key={`${jogo.id_jogo ?? jogo.id ?? 'busca'}-${index}`} className="h-full">
                       <Link
                         href={`/jogos/${jogo.id_jogo ?? jogo.id}`}

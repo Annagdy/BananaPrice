@@ -21,6 +21,8 @@ export type JogoResumido = {
   id_jogo: number
   titulo: string
   itad_id: string | number | null
+  /** `true` = conteúdo adulto; `null` = classificação ainda não verificada. */
+  adulto?: boolean | null
 }
 
 class TrieNode {
@@ -74,7 +76,7 @@ export class EngineBuscaTrie {
 
     const { data: jogos, error } = await supabaseAdmin
       .from('jogo')
-      .select('id_jogo, titulo, itad_id')
+      .select('id_jogo, titulo, itad_id, adulto')
 
     if (error || !jogos) {
       console.error('[TrieEngine] Erro ao carregar jogos:', error?.message)
@@ -91,9 +93,13 @@ export class EngineBuscaTrie {
   }
 
   /**
-   * Busca jogos que satisfaçam todos os tokens digitados pelo usuário
+   * Busca jogos que satisfaçam todos os tokens digitados pelo usuário.
+   *
+   * @param termo Texto digitado.
+   * @param limite Máximo de resultados (aplicado depois do filtro de conteúdo adulto).
+   * @param incluirAdulto Se falso (padrão), só retorna jogos com `adulto === false`, igual ao catálogo.
    */
-  public buscar(termo: string, limite = 10): JogoResumido[] {
+  public buscar(termo: string, limite = 10, incluirAdulto = false): JogoResumido[] {
     const termoNorm = normalizar(termo)
     const tokens = termoNorm.split(' ').filter(t => t.length > 0)
 
@@ -131,7 +137,12 @@ export class EngineBuscaTrie {
       if (resultadosInterseccao.size === 0) break
     }
 
-    return Array.from(resultadosInterseccao ?? []).slice(0, limite)
+    const encontrados = Array.from(resultadosInterseccao ?? [])
+    const visiveis = incluirAdulto
+      ? encontrados
+      : encontrados.filter((j) => j.adulto === false)
+
+    return visiveis.slice(0, limite)
   }
 }
 

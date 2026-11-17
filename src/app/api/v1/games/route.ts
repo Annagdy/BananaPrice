@@ -5,6 +5,7 @@ import path from 'path'
 import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 import { urlCapaItad } from '@/lib/itad.ts'
 import { trieEngine } from '@/lib/trieSearch'
+import { adultoPermitido } from '@/lib/adulto'
 import { listarCatalogo } from './catalogo'
 
 const execFileAsync = promisify(execFile)
@@ -212,6 +213,8 @@ export async function GET(request: Request) {
     const busca = (searchParams.get('busca') || searchParams.get('search'))?.trim()
     const modo = searchParams.get('modo') ?? 'nativa'
     const statusFiltro = searchParams.get('status')
+    // Mesmo critério do catálogo: sem o cookie `bp_adulto=1`, só entram jogos com adulto = false.
+    const verAdulto = adultoPermitido(request)
 
     // 1. Vitrine Turbo
     if (isTurbo) {
@@ -229,11 +232,13 @@ export async function GET(request: Request) {
       const idsTurbinados = Array.from(new Set((turbos ?? []).map((t: any) => Number(t.id_jogo))))
       if (idsTurbinados.length === 0) return NextResponse.json({ jogos: [] })
 
-      const { data: jogos } = await supabaseAdmin
+      let consultaTurbo = supabaseAdmin
         .from('jogo')
         .select('id_jogo, titulo, itad_id')
         .in('id_jogo', idsTurbinados)
-        .limit(limit)
+      if (!verAdulto) consultaTurbo = consultaTurbo.eq('adulto', false)
+
+      const { data: jogos } = await consultaTurbo.limit(limit)
 
       if (!jogos) return NextResponse.json({ jogos: [] })
 
@@ -245,14 +250,16 @@ export async function GET(request: Request) {
     if (busca) {
       if (modo === 'nativa') {
         await trieEngine.carregarCatalogo()
-        let jogosMatcheados = trieEngine.buscar(busca, 50)
+        let jogosMatcheados: Jogo[] = trieEngine.buscar(busca, 50, verAdulto)
 
         if (jogosMatcheados.length === 0) {
-          const { data } = await supabaseAdmin
+          let consultaNativa = supabaseAdmin
             .from('jogo')
             .select('id_jogo, titulo, itad_id')
             .ilike('titulo', `%${busca}%`)
-            .limit(50)
+          if (!verAdulto) consultaNativa = consultaNativa.eq('adulto', false)
+
+          const { data } = await consultaNativa.limit(50)
 
           jogosMatcheados = (data ?? []) as Jogo[]
         }
@@ -276,11 +283,13 @@ export async function GET(request: Request) {
           const nomeLimp = limparNome(nomeIA)
           if (!nomeLimp) continue
 
-          const { data } = await supabaseAdmin
+          let consultaIA = supabaseAdmin
             .from('jogo')
             .select('id_jogo, titulo, itad_id')
             .ilike('titulo', `%${nomeLimp}%`)
-            .limit(15)
+          if (!verAdulto) consultaIA = consultaIA.eq('adulto', false)
+
+          const { data } = await consultaIA.limit(15)
 
           if (data) {
             for (const j of data) {
@@ -306,10 +315,12 @@ export async function GET(request: Request) {
       const page = Number(searchParams.get('page')) || 1
       const limit = Number(searchParams.get('limit')) || 18
 
-      const { data: todosJogos } = await supabaseAdmin
+      let consultaTodos = supabaseAdmin
         .from('jogo')
         .select('id_jogo, titulo, itad_id')
-        .order('id_jogo', { ascending: true })
+      if (!verAdulto) consultaTodos = consultaTodos.eq('adulto', false)
+
+      const { data: todosJogos } = await consultaTodos.order('id_jogo', { ascending: true })
 
       if (!todosJogos || todosJogos.length === 0) {
         return NextResponse.json({ jogos: [], total: 0 })
