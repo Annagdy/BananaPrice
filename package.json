@@ -23,7 +23,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "docs": "tsx scripts/gerarDocs.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
