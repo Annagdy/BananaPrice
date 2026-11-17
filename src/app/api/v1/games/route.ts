@@ -5,6 +5,8 @@ import path from 'path'
 import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 import { urlCapaItad } from '@/lib/itad.ts'
 import { trieEngine } from '@/lib/trieSearch'
+import { adultoPermitido } from '@/lib/adulto'
+import { ehConsoleOuGiftCard } from '@/lib/hardwareGiftCard'
 import { listarCatalogo } from './catalogo'
 
 const execFileAsync = promisify(execFile)
@@ -212,6 +214,10 @@ export async function GET(request: Request) {
     const busca = (searchParams.get('busca') || searchParams.get('search'))?.trim()
     const modo = searchParams.get('modo') ?? 'nativa'
     const statusFiltro = searchParams.get('status')
+    // Se ?hardware=1, inclui consoles e gift cards; caso contrário (padrão), filtra-os fora.
+    const incluirHardware = searchParams.get('hardware') === '1'
+    // Mesmo critério do catálogo: sem o cookie `bp_adulto=1`, só entram jogos com adulto = false.
+    const verAdulto = adultoPermitido(request)
 
     // 1. Vitrine Turbo
     if (isTurbo) {
@@ -229,15 +235,21 @@ export async function GET(request: Request) {
       const idsTurbinados = Array.from(new Set((turbos ?? []).map((t: any) => Number(t.id_jogo))))
       if (idsTurbinados.length === 0) return NextResponse.json({ jogos: [] })
 
-      const { data: jogos } = await supabaseAdmin
+      let consultaTurbo = supabaseAdmin
         .from('jogo')
         .select('id_jogo, titulo, itad_id')
         .in('id_jogo', idsTurbinados)
-        .limit(limit)
+      if (!verAdulto) consultaTurbo = consultaTurbo.eq('adulto', false)
+
+      const { data: jogos } = await consultaTurbo.limit(limit)
 
       if (!jogos) return NextResponse.json({ jogos: [] })
 
-      const jogosFormatados = await enriquecerJogosComPromocoes(jogos)
+      const filtradosHardware = incluirHardware
+        ? jogos
+        : jogos.filter((j: any) => !ehConsoleOuGiftCard(j.titulo))
+
+      const jogosFormatados = await enriquecerJogosComPromocoes(filtradosHardware)
       return NextResponse.json({ jogos: aplicarFiltroStatus(jogosFormatados, statusFiltro) })
     }
 
@@ -245,16 +257,20 @@ export async function GET(request: Request) {
     if (busca) {
       if (modo === 'nativa') {
         await trieEngine.carregarCatalogo()
-        let jogosMatcheados = trieEngine.buscar(busca, 50)
+        let jogosMatcheados: Jogo[] = trieEngine.buscar(busca, 50, verAdulto, incluirHardware)
 
         if (jogosMatcheados.length === 0) {
-          const { data } = await supabaseAdmin
+          let consultaNativa = supabaseAdmin
             .from('jogo')
             .select('id_jogo, titulo, itad_id')
             .ilike('titulo', `%${busca}%`)
-            .limit(50)
+          if (!verAdulto) consultaNativa = consultaNativa.eq('adulto', false)
 
-          jogosMatcheados = (data ?? []) as Jogo[]
+          const { data } = await consultaNativa.limit(100)
+          const dataFiltrada = (data ?? []) as Jogo[]
+          jogosMatcheados = incluirHardware
+            ? dataFiltrada.slice(0, 50)
+            : dataFiltrada.filter((j) => !ehConsoleOuGiftCard(j.titulo)).slice(0, 50)
         }
 
         const jogosComPromocoes = await enriquecerJogosComPromocoes(jogosMatcheados)
@@ -276,15 +292,19 @@ export async function GET(request: Request) {
           const nomeLimp = limparNome(nomeIA)
           if (!nomeLimp) continue
 
-          const { data } = await supabaseAdmin
+          let consultaIA = supabaseAdmin
             .from('jogo')
             .select('id_jogo, titulo, itad_id')
             .ilike('titulo', `%${nomeLimp}%`)
-            .limit(15)
+          if (!verAdulto) consultaIA = consultaIA.eq('adulto', false)
+
+          const { data } = await consultaIA.limit(25)
 
           if (data) {
             for (const j of data) {
-              candidatosMap.set(j.id_jogo, j)
+              if (incluirHardware || !ehConsoleOuGiftCard(j.titulo)) {
+                candidatosMap.set(j.id_jogo, j)
+              }
             }
           }
         }
@@ -306,16 +326,22 @@ export async function GET(request: Request) {
       const page = Number(searchParams.get('page')) || 1
       const limit = Number(searchParams.get('limit')) || 18
 
-      const { data: todosJogos } = await supabaseAdmin
+      let consultaTodos = supabaseAdmin
         .from('jogo')
         .select('id_jogo, titulo, itad_id')
-        .order('id_jogo', { ascending: true })
+      if (!verAdulto) consultaTodos = consultaTodos.eq('adulto', false)
+
+      const { data: todosJogos } = await consultaTodos.order('id_jogo', { ascending: true })
 
       if (!todosJogos || todosJogos.length === 0) {
         return NextResponse.json({ jogos: [], total: 0 })
       }
 
-      const jogosEnriquecidos = await enriquecerJogosComPromocoes(todosJogos)
+      const jogosValidos = incluirHardware
+        ? todosJogos
+        : todosJogos.filter((j: any) => !ehConsoleOuGiftCard(j.titulo))
+
+      const jogosEnriquecidos = await enriquecerJogosComPromocoes(jogosValidos)
       const jogosFiltrados = aplicarFiltroStatus(jogosEnriquecidos, statusFiltro)
 
       const total = jogosFiltrados.length
