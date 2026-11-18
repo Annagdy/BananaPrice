@@ -4,6 +4,33 @@ import { BUSCAR_GENERO } from "../lib/config.ts/index.ts";
 import type { JogoApi } from "../types/jogo";
 
 /**
+ * Palavras no título/slug que indicam conteúdo adulto. O ITAD não marca todos os jogos adultos como `mature`,
+ * então esta heurística complementa a classificação deles. Ajuste a lista conforme os falsos positivos que aparecerem.
+ */
+const PADRAO_TITULO_ADULTO =
+    /\b(sex|sexy|sexual|hentai|porn|nsfw|erotic|nude|nudes|uncensored|lewd|milf|xxx)\b/i;
+
+/** Tags de gênero (vindas do ITAD) que indicam conteúdo adulto. */
+const PADRAO_TAGS_ADULTAS = /(hentai|nudity|sexual content|nsfw|erotic)/i;
+
+/**
+ * Heurística de conteúdo adulto por título, slug e tags de gênero.
+ *
+ * @param titulo Título do jogo.
+ * @param slug Slug do jogo (os hífens são tratados como espaços).
+ * @param genero Tags de gênero separadas por vírgula.
+ * @returns Verdadeiro se algum dos sinais indicar conteúdo adulto.
+ */
+export function pareceConteudoAdulto(
+    titulo: string | null | undefined,
+    slug: string | null | undefined,
+    genero: string | null | undefined
+): boolean {
+    const texto = `${titulo ?? ""} ${(slug ?? "").replace(/-/g, " ")}`;
+    return PADRAO_TITULO_ADULTO.test(texto) || PADRAO_TAGS_ADULTAS.test(genero ?? "");
+}
+
+/**
  * Grava um lote de jogos na tabela `jogo` (upsert em massa, chave de conflito `itad_id`).
  *
  * Preenche `itad_id`, `titulo`, `slug` (com fallback via `slugify` quando a API não manda), `genero` e `adulto`.
@@ -12,6 +39,10 @@ import type { JogoApi } from "../types/jogo";
  * à toa em reimportações.
  *
  * `adulto` nulo significa "ainda não verificado". O valor que já existe no banco nunca é sobrescrito por nulo.
+ *
+ * Além do campo `mature` do ITAD, aplica `pareceConteudoAdulto` (título, slug e tags) a TODOS os jogos do lote,
+ * inclusive os já salvos, para reclassificar jogos adultos que o ITAD não marcou. A heurística só promove para
+ * `true`; ela nunca remove uma marcação adulta que já existe.
  *
  * @param jogos Jogos crus vindos de `buscarPaginaJogos` (cada um com `id`, `title` e, às vezes, `slug`).
  * @returns Um mapa de `itad_id` -> `id_jogo` (o id gerado pelo Supabase), usado depois em `salvarPrecos` para resolver a
@@ -66,6 +97,12 @@ export async function salvarJogos(
 
             genero = genero ?? info.genero;
             adulto = info.adulto ?? adulto;
+        }
+
+        // Complementa o `mature` do ITAD: título, slug e tags adultas promovem o jogo para adulto.
+        // Só promove para true; nunca rebaixa um jogo que já está marcado como adulto.
+        if (adulto !== true && pareceConteudoAdulto(jogo.title, slug, genero)) {
+            adulto = true;
         }
 
         // `adulto` entra em TODAS as linhas: o supabase-js preenche com null as colunas que faltam em

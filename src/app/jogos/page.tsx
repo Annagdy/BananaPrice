@@ -322,14 +322,24 @@ function ConteudoJogos() {
   const totalPaginas = Math.max(1, Math.ceil(total / PER_PAGE))
   const atual = Math.min(pagina, totalPaginas)
 
-  // Resultado da busca com os filtros do painel aplicados
-  const resultadoFiltrado = useMemo(
-    () =>
-      resultadoBusca.filter((j) =>
-        passaNosFiltros(j, { status: filtroStatus, precoMax, corteMin, lojas, incluirHardware })
-      ),
-    [resultadoBusca, filtroStatus, precoMax, corteMin, lojas, incluirHardware]
-  )
+  // Resultado da busca com os filtros do painel aplicados.
+  // Com filtro de desconto ou preço ativo, as melhores ofertas vêm primeiro:
+  // maior desconto e, como desempate (ou só com filtro de preço), menor preço.
+  const resultadoFiltrado = useMemo(() => {
+    const lista = resultadoBusca.filter((j) =>
+      passaNosFiltros(j, { status: filtroStatus, precoMax, corteMin, lojas, incluirHardware })
+    )
+
+    if (corteMin === null && precoMax === null) return lista
+
+    const desconto = (j: any) => Number(j.desconto ?? 0)
+    const preco = (j: any) => j.melhorPreco ?? Infinity // sem preço vai para o fim
+
+    return [...lista].sort((a, b) => {
+      if (corteMin !== null && desconto(b) !== desconto(a)) return desconto(b) - desconto(a)
+      return preco(a) - preco(b)
+    })
+  }, [resultadoBusca, filtroStatus, precoMax, corteMin, lojas, incluirHardware])
 
   const escolher = (
     definir: (v: number | null) => void,
