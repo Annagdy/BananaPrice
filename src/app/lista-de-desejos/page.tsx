@@ -65,6 +65,13 @@ export default function ListaDeDesejosPage() {
   const visiveis = itens.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
   const irPara = (p: number) => setPagina(Math.min(Math.max(p, 1), totalPaginas))
 
+  // Gera páginas para exibir de forma responsiva sem vazar números na tela
+  const paginasExibidas = (() => {
+    if (totalPaginas <= 7) return Array.from({ length: totalPaginas }, (_, i) => i + 1)
+    const set = new Set<number>([1, totalPaginas, pagina, pagina - 1, pagina + 1])
+    return Array.from(set).filter((p) => p >= 1 && p <= totalPaginas).sort((a, b) => a - b)
+  })()
+
   const remover = async (id: number) => {
     const res = await fetch(`/api/v1/wishlist/${id}`, { method: 'DELETE' })
     if (!res.ok) return
@@ -113,7 +120,7 @@ export default function ListaDeDesejosPage() {
             )}
 
             {!carregando && itens.length > POR_PAGINA && (
-              <nav aria-label="Paginação" className="flex items-center gap-3 rounded-lg bg-bp-nav px-3 py-1">
+              <nav aria-label="Paginação" className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-xl bg-bp-nav px-3 py-1.5 shadow-sm">
                 <button
                   type="button"
                   onClick={() => irPara(pagina - 1)}
@@ -121,20 +128,26 @@ export default function ListaDeDesejosPage() {
                   aria-label="Página anterior"
                   className="h-5 w-2 cursor-pointer bg-bp-primary [clip-path:polygon(100%_0,100%_100%,0_50%)] disabled:cursor-default disabled:opacity-40"
                 />
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => irPara(p)}
-                    aria-label={`Página ${p}`}
-                    aria-current={p === pagina ? 'page' : undefined}
-                    className={`grid size-[21px] cursor-pointer place-items-center rounded-full font-head text-[15px] font-extrabold ${
-                      p === pagina ? 'bg-[#ffecb9] text-bp-nav' : 'text-[#ffecb9]'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+                {paginasExibidas.map((p, idx) => {
+                  const anterior = paginasExibidas[idx - 1]
+                  const temSalto = anterior !== undefined && p - anterior > 1
+                  return (
+                    <span key={p} className="flex items-center gap-2">
+                      {temSalto && <span className="text-xs text-bp-muted/50">...</span>}
+                      <button
+                        type="button"
+                        onClick={() => irPara(p)}
+                        aria-label={`Página ${p}`}
+                        aria-current={p === pagina ? 'page' : undefined}
+                        className={`grid size-6 cursor-pointer place-items-center rounded-full font-head text-xs font-extrabold ${
+                          p === pagina ? 'bg-bp-primary text-bp-neutral shadow' : 'text-bp-muted hover:text-bp-primary'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </span>
+                  )
+                })}
                 <button
                   type="button"
                   onClick={() => irPara(pagina + 1)}
@@ -184,48 +197,51 @@ function CartaoDesejo({
   const capaRemota = !!item.capa && !falhou
 
   return (
-    <li className="relative flex min-h-[208px] items-center gap-2.5 overflow-hidden rounded-3xl bg-[#3d322e] p-2.5 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[640px]:flex-col max-[640px]:items-stretch">
-      <Image
-        src={capaRemota ? (item.capa as string) : capaExemplo}
-        alt={item.nome}
-        width={177}
-        height={177}
-        unoptimized={capaRemota}
-        onError={() => setFalhou(true)}
-        className="size-[177px] shrink-0 rounded-3xl object-cover max-[640px]:w-full"
-      />
+    <li className="relative flex flex-row items-center gap-2.5 sm:gap-3 overflow-hidden rounded-2xl sm:rounded-3xl bg-[#3d322e] p-2.5 sm:p-3 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)]">
+      {/* Capa Compacta no Mobile */}
+      <div className="relative size-[88px] sm:size-[140px] md:size-[177px] shrink-0 overflow-hidden rounded-xl sm:rounded-2xl">
+        <Image
+          src={capaRemota ? (item.capa as string) : capaExemplo}
+          alt={item.nome}
+          fill
+          sizes="(max-width: 640px) 88px, (max-width: 768px) 140px, 177px"
+          unoptimized={capaRemota}
+          onError={() => setFalhou(true)}
+          className="object-cover"
+        />
+      </div>
 
-      <div className="flex flex-1 flex-col justify-between gap-6 self-stretch py-5 pr-2.5 max-[640px]:py-2">
-        <h2 className="line-clamp-2 pr-28 font-head text-4xl font-extrabold text-bp-muted max-[640px]:text-2xl">
+      <div className="flex flex-1 flex-col justify-between gap-1.5 sm:gap-4 self-stretch py-0.5 sm:py-2 pr-0 sm:pr-2.5 min-w-0">
+        <h2 className="line-clamp-2 pr-12 sm:pr-20 font-head text-sm sm:text-2xl lg:text-3xl font-extrabold text-bp-muted leading-tight">
           {item.nome}
         </h2>
 
-        <div className="flex items-end justify-between gap-4 max-[640px]:flex-wrap">
-          <div className="flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-end justify-between gap-2 sm:gap-4 mt-auto">
+          <div className="flex flex-col gap-0.5 sm:gap-1.5">
             {temDesconto && (
-              <span className="text-xl text-bp-muted/60 line-through max-[640px]:text-base">
+              <span className="text-[10px] sm:text-sm lg:text-base text-bp-muted/60 line-through">
                 {brl(item.precoOriginal as number)}
               </span>
             )}
-            <span className="font-head text-2xl font-extrabold text-bp-primary max-[640px]:text-xl">
+            <span className="font-head text-sm sm:text-xl lg:text-2xl font-extrabold text-bp-primary leading-tight">
               {item.precoComDesconto !== null ? brl(item.precoComDesconto) : 'Sem preço'}
             </span>
-            {item.loja && <span className="text-sm text-bp-muted/70">na {item.loja}</span>}
+            {item.loja && <span className="text-[10px] sm:text-xs text-bp-muted/70">na {item.loja}</span>}
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => onRemover(item.id)}
-              className="cursor-pointer rounded-[9px] border border-bp-muted px-4 py-2 text-sm text-bp-muted transition hover:brightness-125 active:scale-95"
+              className="cursor-pointer rounded-[7px] sm:rounded-[9px] border border-bp-muted px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-sm text-bp-muted transition hover:brightness-125 active:scale-95"
             >
               Remover
             </button>
             <Link
               href={item.url}
-              className="inline-flex items-center gap-2 rounded-[9px] bg-bp-muted px-4 py-2 text-sm text-bp-neutral transition hover:brightness-110 active:scale-95"
+              className="inline-flex items-center gap-1 sm:gap-1.5 rounded-[7px] sm:rounded-[9px] bg-bp-muted px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-sm text-bp-neutral transition hover:brightness-110 active:scale-95"
             >
-              <ExternalIcon className="size-[25px]" />
+              <ExternalIcon className="size-3.5 sm:size-4" />
               Ver ofertas
             </Link>
           </div>
@@ -233,8 +249,8 @@ function CartaoDesejo({
       </div>
 
       {item.desconto > 0 && (
-        <div className="absolute right-0 top-6 flex h-[56px] items-center bg-bp-primary pl-9 pr-1 [clip-path:polygon(22px_0,100%_0,100%_100%,22px_100%,0_50%)]">
-          <span className="font-head text-[32px] font-extrabold leading-none text-bp-neutral">{item.desconto}%</span>
+        <div className="absolute right-0 top-2 sm:top-4 flex h-6 sm:h-9 items-center bg-bp-primary pl-3.5 sm:pl-7 pr-1 [clip-path:polygon(10px_0,100%_0,100%_100%,10px_100%,0_50%)] sm:[clip-path:polygon(16px_0,100%_0,100%_100%,16px_100%,0_50%)]">
+          <span className="font-head text-xs sm:text-lg font-extrabold leading-none text-bp-neutral">-{item.desconto}%</span>
         </div>
       )}
     </li>
