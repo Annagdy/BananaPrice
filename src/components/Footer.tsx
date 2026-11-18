@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { logo } from './assets'
 import { tema } from '../mocks/tema'
 
@@ -36,9 +37,21 @@ export default function Footer() {
             Transparência
           </h5>
           <ul className="flex list-none flex-col gap-1.5 text-xs text-[#8d7b74]">
-            <li><a href="#" className="hover:text-bp-muted">Termos de Uso</a></li>
-            <li><a href="#" className="hover:text-bp-muted">Política de Privacidade</a></li>
-            <li><a href="#" className="hover:text-bp-muted">Contato &amp; API Pública</a></li>
+            <li>
+              <Link href="/termos-de-uso" className="hover:text-bp-muted transition">
+                Termos de Uso
+              </Link>
+            </li>
+            <li>
+              <Link href="/politica-de-privacidade" className="hover:text-bp-muted transition">
+                Política de Privacidade
+              </Link>
+            </li>
+            <li>
+              <Link href="/contato-api" className="hover:text-bp-muted transition">
+                Contato &amp; API Pública
+              </Link>
+            </li>
           </ul>
         </div>
 

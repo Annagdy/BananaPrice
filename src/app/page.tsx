@@ -205,7 +205,7 @@ export default function HomePage() {
               Nenhuma oferta no momento.
             </p>
           ) : (
-            <div className="grid auto-rows-fr grid-cols-[repeat(4,minmax(0,283px))] justify-center gap-3 p-2.5 max-[1100px]:grid-cols-[repeat(2,minmax(0,283px))] max-[640px]:grid-cols-[minmax(0,283px)]">
+            <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 justify-center gap-2 sm:gap-3 p-1.5 sm:p-2.5">
               {ofertas.map((j) => (
                 <Link
                   key={j.id}

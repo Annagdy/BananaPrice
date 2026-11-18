@@ -312,6 +312,7 @@ function ConteudoJogos() {
 
   const [adulto, setAdulto] = useState(false)
   const [incluirHardware, setIncluirHardware] = useState(false)
+  const [filtrosMobileAbertos, setFiltrosMobileAbertos] = useState(false)
 
   const [jogos, setJogos] = useState<any[]>([])
   const [total, setTotal] = useState(0)
@@ -488,8 +489,29 @@ function ConteudoJogos() {
         <Divisor cor="#3d322e" className="mx-[55px] my-2" />
 
         <div className="relative z-[1] flex flex-1 items-start gap-8 px-[55px] pb-0 pt-6 max-[1100px]:flex-col max-[1100px]:items-center max-[640px]:px-4">
+          {/* Botão de abrir/fechar filtros no mobile */}
+          <div className="flex w-full items-center justify-between min-[1101px]:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltrosMobileAbertos((v) => !v)}
+              className="flex w-full items-center justify-between rounded-2xl border-2 border-[#3d322e] bg-bp-nav px-4 py-3 font-head text-sm font-bold text-bp-primary shadow-md active:scale-95 transition"
+            >
+              <span className="flex items-center gap-2">
+                <StoreIcon className="size-4" />
+                {filtrosMobileAbertos ? 'Ocultar Filtros' : 'Filtrar Ofertas e Categorias'}
+              </span>
+              <span className="text-xs text-bp-muted">
+                {filtrosMobileAbertos ? '▲' : '▼'}
+              </span>
+            </button>
+          </div>
+
           {/* Coluna Esquerda: Filtros e Palmeira grande colada à beirada */}
-          <div className="flex w-full max-w-[280px] shrink-0 flex-col justify-between self-stretch max-[1100px]:max-w-full">
+          <div
+            className={`w-full max-w-[280px] shrink-0 flex-col justify-between self-stretch max-[1100px]:max-w-full ${
+              filtrosMobileAbertos ? 'flex' : 'hidden min-[1101px]:flex'
+            }`}
+          >
             <aside
               aria-label="Filtros"
               className="flex w-full flex-col gap-4 rounded-3xl border-2 border-[#3d322e] bg-bp-nav p-5 shadow-lg"
@@ -613,7 +635,7 @@ function ConteudoJogos() {
                   Nenhum jogo da busca corresponde aos filtros selecionados.
                 </p>
               ) : (
-                <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
+                <ul className="grid w-full list-none auto-rows-fr grid-cols-2 gap-2 sm:gap-[13px] md:grid-cols-2 lg:grid-cols-3">
                   {resultadoFiltrado.map((jogo, index) => (
                     <li key={`${jogo.id_jogo ?? jogo.id ?? 'busca'}-${index}`} className="h-full">
                       <Link
@@ -637,7 +659,7 @@ function ConteudoJogos() {
                 Nenhuma oferta encontrada com esses filtros.
               </p>
             ) : (
-              <ul className="grid w-full list-none auto-rows-fr grid-cols-3 gap-[13px] max-[1250px]:grid-cols-2 max-[640px]:grid-cols-1">
+              <ul className="grid w-full list-none auto-rows-fr grid-cols-2 gap-2 sm:gap-[13px] md:grid-cols-2 lg:grid-cols-3">
                 {jogos.map((j, index) => (
                   <li key={`${j.id ?? j.id_jogo ?? 'catalogo'}-${index}`} className="h-full">
                     <Link
