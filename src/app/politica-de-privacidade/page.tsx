@@ -1,6 +1,8 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
+import { politicaDePrivacidadeImg } from '../../components/assets'
 
 export const metadata = {
   title: 'Política de Privacidade | BananaPrice',
@@ -16,13 +18,24 @@ export default function PoliticaDePrivacidadePage() {
 
       <main className="flex-1 px-4 py-8 sm:px-8 sm:py-12 lg:px-16 max-w-4xl mx-auto w-full">
         <div className="rounded-3xl border-2 border-[#3d322e] bg-bp-surface p-6 sm:p-10 shadow-xl space-y-6">
-          <div className="border-b border-[#3d322e] pb-4">
-            <h1 className="font-head text-3xl sm:text-4xl font-extrabold text-bp-primary">
-              Política de Privacidade
-            </h1>
-            <p className="mt-1 text-xs text-bp-muted/60">
-              Última atualização: Novembro de 2026
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#3d322e] pb-4">
+            <div>
+              <h1 className="font-head text-3xl sm:text-4xl font-extrabold text-bp-primary">
+                Política de Privacidade
+              </h1>
+              <p className="mt-1 text-xs text-bp-muted/60">
+                Última atualização: Novembro de 2026
+              </p>
+            </div>
+            <div className="relative size-24 sm:size-28 shrink-0 self-center sm:self-auto">
+              <Image
+                src={politicaDePrivacidadeImg}
+                alt="Política de Privacidade"
+                width={120}
+                height={120}
+                className="size-full object-contain drop-shadow-md"
+              />
+            </div>
           </div>
 
           <section className="space-y-3 text-sm sm:text-base leading-relaxed text-bp-muted">
