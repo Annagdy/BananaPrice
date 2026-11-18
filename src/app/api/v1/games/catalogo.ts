@@ -45,23 +45,34 @@ export async function listarCatalogo(request: Request) {
     Math.max(1, Math.floor(numeroOuNull(searchParams.get("limit")) ?? LIMITE_PADRAO))
   );
 
-  let idLoja: number | null = null;
-  const lojaParam = (searchParams.get("store") ?? "").trim();
-  if (lojaParam) {
-    if (/^\d+$/.test(lojaParam)) {
-      idLoja = Number(lojaParam);
-    } else {
-      const { data: loja } = await supabase
-        .from("loja")
-        .select("id_loja")
-        .ilike("nome", lojaParam)
-        .maybeSingle();
-      if (!loja) return NextResponse.json({ jogos: [], total: 0, pagina, limite });
-      idLoja = loja.id_loja;
-    }
+  // `store` aceita uma ou várias lojas separadas por vírgula, por nome ou por id
+  // (ex.: ?store=Steam,GOG ou ?store=1,3). O jogo entra se tiver oferta em QUALQUER uma delas.
+  let idsLojas: number[] | null = null;
+  const lojasParam = (searchParams.get("store") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  if (lojasParam.length > 0) {
+    const resolvidos = await Promise.all(
+      lojasParam.map(async (nomeOuId) => {
+        if (/^\d+$/.test(nomeOuId)) return Number(nomeOuId);
+        const { data: loja } = await supabase
+          .from("loja")
+          .select("id_loja")
+          .ilike("nome", nomeOuId)
+          .maybeSingle();
+        return loja?.id_loja ?? null;
+      })
+    );
+
+    idsLojas = Array.from(new Set(resolvidos.filter((id): id is number => id !== null)));
+    // Nenhuma das lojas pedidas existe: não há o que listar
+    if (idsLojas.length === 0) return NextResponse.json({ jogos: [], total: 0, pagina, limite });
   }
 
-  const filtrando = precoMax !== null || descontoMin !== null || idLoja !== null;
+  const filtrando = precoMax !== null || descontoMin !== null || idsLojas !== null;
   const embed = filtrando ? "preco_jogo!inner" : "preco_jogo";
 
   let consulta = supabase
@@ -74,7 +85,7 @@ export async function listarCatalogo(request: Request) {
   if (busca) consulta = consulta.ilike("titulo", `%${busca.replace(/[\\%_]/g, "\\$&")}%`);
   if (precoMax !== null) consulta = consulta.lte("preco_jogo.valor_atual", precoMax);
   if (descontoMin !== null) consulta = consulta.gte("preco_jogo.percentual_desconto", descontoMin);
-  if (idLoja !== null) consulta = consulta.eq("preco_jogo.id_loja", idLoja);
+  if (idsLojas !== null) consulta = consulta.in("preco_jogo.id_loja", idsLojas);
 
   const verAdulto = adultoPermitido(request);
   if (!verAdulto) consulta = consulta.eq("adulto", false);
