@@ -10,6 +10,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>({ logado: false })
 
+/**
+ * Provedor de contexto de autenticação para gerenciar o estado do usuário logado na interface.
+ *
+ * @param props Contém os componentes filhos `children`.
+ * @returns Elemento JSX Provider do AuthContext.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [logado, setLogado] = useState(false)
   const [idLista, setIdLista] = useState<string | undefined>(undefined)
@@ -41,4 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * Hook customizado para acessar o contexto de autenticação global.
+ * @returns Objeto contendo o estado `logado` e o `idLista`.
+ */
 export const useAuth = () => useContext(AuthContext)

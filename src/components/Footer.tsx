@@ -1,10 +1,22 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { logo } from './assets'
+import { tema } from '../mocks/tema'
 
+/**
+ * Rodapé institucional do BananaPrice (Footer).
+ *
+ * Apresenta o manifesto do projeto, termos de transparência e os créditos da API IsThereAnyDeal.
+ *
+ * @returns Elemento JSX do rodapé.
+ */
 export default function Footer() {
   return (
-    <footer className="mt-5 bg-bp-nav pt-2.5">
-      <div className="flex justify-between gap-10 px-[23px] pb-5 pt-2.5 max-[1100px]:flex-col">
+    <footer className="w-full bg-bp-nav">
+      {/* Linha Divisória Marrom no topo do Footer */}
+      <div className="h-[5px] w-full" style={{ background: tema.divisor }} />
+
+      <div className="flex justify-between gap-10 px-[23px] pb-5 pt-4 max-[1100px]:flex-col">
         <div className="flex w-[400px] max-w-full flex-col gap-[11px]">
           <div className="relative h-[63px] w-48 overflow-hidden">
             <Image
@@ -25,9 +37,21 @@ export default function Footer() {
             Transparência
           </h5>
           <ul className="flex list-none flex-col gap-1.5 text-xs text-[#8d7b74]">
-            <li><a href="#" className="hover:text-bp-muted">Termos de Uso</a></li>
-            <li><a href="#" className="hover:text-bp-muted">Política de Privacidade</a></li>
-            <li><a href="#" className="hover:text-bp-muted">Contato &amp; API Pública</a></li>
+            <li>
+              <Link href="/termos-de-uso" className="hover:text-bp-muted transition">
+                Termos de Uso
+              </Link>
+            </li>
+            <li>
+              <Link href="/politica-de-privacidade" className="hover:text-bp-muted transition">
+                Política de Privacidade
+              </Link>
+            </li>
+            <li>
+              <Link href="/contato-api" className="hover:text-bp-muted transition">
+                Contato &amp; API Pública
+              </Link>
+            </li>
           </ul>
         </div>
 

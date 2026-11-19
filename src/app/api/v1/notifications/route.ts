@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase.ts/server.ts'
+import { createClient } from '@/lib/supabase.ts/server'
 import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
 import {
   buscarNotificacoesUsuario,
@@ -17,29 +17,39 @@ const NO_CACHE_HEADERS = {
   Expires: '0',
 }
 
-/* Descobre o id_usuario (da tabela usuario) de quem está logado. */
+/**
+ * Helper privado para descobrir o `id_usuario` da tabela `usuario`
+ * a partir do UUID da sessão do Supabase Auth (`auth_id`).
+ */
 async function usuarioLogado(): Promise<number | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  const { data } = await supabaseAdmin
-    .from('usuario')
-    .select('id_usuario')
-    .eq('auth_id', user.id)
-    .maybeSingle()
+    if (!user) return null
 
-  return data?.id_usuario ?? null
+    const { data } = await supabaseAdmin
+      .from('usuario')
+      .select('id_usuario')
+      .eq('auth_id', user.id)
+      .maybeSingle()
+
+    return data?.id_usuario ?? null
+  } catch (error) {
+    console.error('[notifications route] Erro ao identificar usuário:', error)
+    return null
+  }
 }
 
-/*
-GET /api/v1/notifications: lista as notificações do usuário logado e quantidade de não lidas.
-@returns 200 { notificacoes, naoLidas }; 401 não autenticado; 500 erro no banco.
-*/
+/**
+ * GET /api/v1/notifications
+ * Retorna as notificações do usuário logado e a contagem de não lidas.
+ */
 export async function GET() {
   const idUsuario = await usuarioLogado()
+
   if (idUsuario === null) {
     return NextResponse.json(
       { error: 'Não autenticado.' },
@@ -59,13 +69,14 @@ export async function GET() {
   }
 }
 
-/*
-PATCH /api/v1/notifications: marca notificação(ões) como lida(s).
-@body { idNotificacao?: number, todas?: boolean }
-@returns 200 { ok: true }; 401 não autenticado; 400 dados inválidos.
-*/
+/**
+ * PATCH /api/v1/notifications
+ * Marca uma ou todas as notificações do usuário como lidas.
+ * @body { idNotificacao?: number, todas?: boolean }
+ */
 export async function PATCH(request: Request) {
   const idUsuario = await usuarioLogado()
+
   if (idUsuario === null) {
     return NextResponse.json(
       { error: 'Não autenticado.' },
@@ -95,13 +106,15 @@ export async function PATCH(request: Request) {
   return NextResponse.json({ ok: true }, { headers: NO_CACHE_HEADERS })
 }
 
-/*
-DELETE /api/v1/notifications: exclui notificação(ões) do usuário.
-@query id (opcional) ou @body { idNotificacao?, todas? }
-@returns 200 { ok: true }; 401 não autenticado.
-*/
+/**
+ * DELETE /api/v1/notifications
+ * Exclui uma notificação específica ou todas do usuário logado.
+ * @query ?id=123 ou ?todas=true
+ * @body { idNotificacao?: number, todas?: boolean }
+ */
 export async function DELETE(request: Request) {
   const idUsuario = await usuarioLogado()
+
   if (idUsuario === null) {
     return NextResponse.json(
       { error: 'Não autenticado.' },
@@ -140,13 +153,14 @@ export async function DELETE(request: Request) {
   return NextResponse.json({ ok: true }, { headers: NO_CACHE_HEADERS })
 }
 
-/*
-POST /api/v1/notifications: cria uma notificação direta para o usuário (testes ou avisos manuais).
-@body { idJogo?, titulo, mensagem, preco?, desconto?, loja?, enviarEmail? }
-@returns 201 { ok: true, emailEnviado, erroEmail, destinoEmail }; 400 dados inválidos; 401 não autenticado.
-*/
+/**
+ * POST /api/v1/notifications
+ * Cria uma notificação in-app para o usuário logado e valida a preferência `notificar_email` no banco.
+ * @body { idJogo?, idLista?, titulo, mensagem, preco?, desconto?, loja?, enviarEmail? }
+ */
 export async function POST(request: Request) {
   const idUsuario = await usuarioLogado()
+
   if (idUsuario === null) {
     return NextResponse.json(
       { error: 'Não autenticado.' },
@@ -168,6 +182,7 @@ export async function POST(request: Request) {
   const resultado = await criarNotificacaoManual({
     idUsuario,
     idJogo: body?.idJogo ? Number(body.idJogo) : undefined,
+    idLista: body?.idLista ? Number(body.idLista) : undefined,
     titulo,
     mensagem,
     preco: body?.preco != null ? Number(body.preco) : undefined,

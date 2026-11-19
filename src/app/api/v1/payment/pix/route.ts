@@ -15,7 +15,10 @@ const NO_CACHE_HEADERS = {
   Expires: '0',
 }
 
-/* Descobre o id_usuario (da tabela usuario) de quem está logado. */
+/**
+ * Identifica o usuário logado e seu e-mail a partir da sessão.
+ * @returns Objeto com `idUsuario` e `email` ou null.
+ */
 async function usuarioLogado(): Promise<{ idUsuario: number; email: string } | null> {
   const supabase = await createClient()
   const {
@@ -33,11 +36,12 @@ async function usuarioLogado(): Promise<{ idUsuario: number; email: string } | n
   return { idUsuario: data.id_usuario, email: data.email ?? user.email ?? '' }
 }
 
-/*
-POST /api/v1/payment/pix — Cria um pagamento Pix via Mercado Pago.
-@body { idJogo: number }
-@returns 201 { ok, idPagamento, pixCopiaCola, qrCodeBase64, valor, expiraEm }
-*/
+/**
+ * Cria uma cobrança Pix via Mercado Pago para impulsionar um jogo no Destaque Turbo (POST /api/v1/payment/pix).
+ *
+ * @param request Requisição HTTP com `{ idJogo: number }`.
+ * @returns Status 201 com QR Code em base64 e código Copia e Cola.
+ */
 export async function POST(request: Request) {
   const usuario = await usuarioLogado()
   if (!usuario) {
@@ -83,10 +87,14 @@ export async function POST(request: Request) {
   )
 }
 
-/*
-GET /api/v1/payment/pix?id={idPagamento} — Consulta o status de um pagamento (polling).
-@returns 200 { status }
-*/
+/**
+ * Consulta o status atual de uma ordem de pagamento Pix (GET /api/v1/payment/pix?id={idPagamento}).
+ *
+ * Utilizado para polling da tela de checkout em tempo real.
+ *
+ * @param request Requisição HTTP com parâmetro `id`.
+ * @returns Status da transação (`pendente`, `aprovado`, `expirado` ou `rejeitado`).
+ */
 export async function GET(request: Request) {
   const usuario = await usuarioLogado()
   if (!usuario) {

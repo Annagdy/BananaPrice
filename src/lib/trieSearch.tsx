@@ -1,0 +1,158 @@
+import { supabase as supabaseAdmin } from '@/lib/supabase.ts'
+import { ehConsoleOuGiftCard } from '@/lib/hardwareGiftCard'
+
+/**
+ * Normaliza um texto para busca removendo acentuações e caracteres especiais.
+ * @param texto String original para sanitização.
+ * @returns Texto em minúsculas e sem diacríticos.
+ */
+function normalizar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/**
+ * Representação condensada de um jogo indexado na estrutura Trie para buscas instantâneas.
+ */
+export type JogoResumido = {
+  id_jogo: number
+  titulo: string
+  itad_id: string | number | null
+  /** `true` = conteúdo adulto; `null` = classificação ainda não verificada. */
+  adulto?: boolean | null
+}
+
+class TrieNode {
+  filhos: Map<string, TrieNode> = new Map()
+  jogos: Set<JogoResumido> = new Set()
+}
+
+/**
+ * Mecanismo de busca textual em memória baseado na estrutura de dados Trie (Árvore de Prefixos).
+ * Fornece autocompletar e busca por múltiplas palavras com caching automático do catálogo.
+ */
+export class EngineBuscaTrie {
+  private raiz: TrieNode = new TrieNode()
+  private inicializado: boolean = false
+  private ultimaAtualizacao: number = 0
+  private CACHE_TTL_MS = 1000 * 60 * 30 // Recarrega a árvore a cada 30 min
+
+  private inserirPalavra(palavra: string, jogo: JogoResumido) {
+    let no = this.raiz
+    for (const char of palavra) {
+      if (!no.filhos.has(char)) {
+        no.filhos.set(char, new TrieNode())
+      }
+      no = no.filhos.get(char)!
+      no.jogos.add(jogo)
+    }
+  }
+
+  /**
+   * Divide o título do jogo em palavras e indexa cada uma na árvore Trie.
+   * @param jogo Objeto do jogo a ser indexado.
+   */
+  public indexarJogo(jogo: JogoResumido) {
+    const tituloNorm = normalizar(jogo.titulo)
+    const palavras = tituloNorm.split(' ').filter(p => p.length > 0)
+
+    // Indexa cada palavra individualmente (ex: "Grand", "Theft", "Auto")
+    for (const palavra of palavras) {
+      this.inserirPalavra(palavra, jogo)
+    }
+  }
+
+  /**
+   * Carrega todos os jogos do banco de dados na árvore em memória caso o cache tenha expirado.
+   */
+  public async carregarCatalogo() {
+    const agora = Date.now()
+    if (this.inicializado && agora - this.ultimaAtualizacao < this.CACHE_TTL_MS) {
+      return
+    }
+
+    const { data: jogos, error } = await supabaseAdmin
+      .from('jogo')
+      .select('id_jogo, titulo, itad_id, adulto')
+
+    if (error || !jogos) {
+      console.error('[TrieEngine] Erro ao carregar jogos:', error?.message)
+      return
+    }
+
+    this.raiz = new TrieNode()
+    for (const j of jogos) {
+      this.indexarJogo(j)
+    }
+
+    this.inicializado = true
+    this.ultimaAtualizacao = agora
+  }
+
+  /**
+   * Busca jogos que satisfaçam todos os tokens digitados pelo usuário.
+   *
+   * @param termo Texto digitado.
+   * @param limite Máximo de resultados (aplicado depois dos filtros).
+   * @param incluirAdulto Se falso (padrão), só retorna jogos com `adulto === false`, igual ao catálogo.
+   * @param incluirHardware Se falso (padrão), oculta consoles, hardware e gift cards.
+   */
+  public buscar(termo: string, limite = 10, incluirAdulto = false, incluirHardware = false): JogoResumido[] {
+    const termoNorm = normalizar(termo)
+    const tokens = termoNorm.split(' ').filter(t => t.length > 0)
+
+    if (tokens.length === 0) return []
+
+    let resultadosInterseccao: Set<JogoResumido> | null = null
+
+    for (const token of tokens) {
+      let no = this.raiz
+      let encontrou = true
+
+      for (const char of token) {
+        if (!no.filhos.has(char)) {
+          encontrou = false
+          break
+        }
+        no = no.filhos.get(char)!
+      }
+
+      const jogosDoToken = encontrou ? no.jogos : new Set<JogoResumido>()
+
+      if (resultadosInterseccao === null) {
+        resultadosInterseccao = new Set(jogosDoToken)
+      } else {
+        // Realiza intersecção para garantir que todas as palavras pesquisadas existam no título
+        const novosResultados = new Set<JogoResumido>()
+        for (const j of resultadosInterseccao) {
+          if (jogosDoToken.has(j)) {
+            novosResultados.add(j)
+          }
+        }
+        resultadosInterseccao = novosResultados
+      }
+
+      if (resultadosInterseccao.size === 0) break
+    }
+
+    const encontrados = Array.from(resultadosInterseccao ?? [])
+    let visiveis = incluirAdulto
+      ? encontrados
+      : encontrados.filter((j) => j.adulto === false)
+
+    if (!incluirHardware) {
+      visiveis = visiveis.filter((j) => !ehConsoleOuGiftCard(j.titulo))
+    }
+
+    return visiveis.slice(0, limite)
+  }
+}
+
+/**
+ * Instância Singleton global da engine Trie para ser compartilhada pelas rotas da aplicação.
+ */
+export const trieEngine = new EngineBuscaTrie()

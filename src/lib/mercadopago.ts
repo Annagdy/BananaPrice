@@ -11,7 +11,13 @@ if (!accessToken) {
 
 const config = new MercadoPagoConfig({ accessToken })
 
+/**
+ * Cliente de pagamentos oficial do SDK do Mercado Pago para processamento de Pix.
+ */
 export const paymentClient = new Payment(config)
 
+/**
+ * Instância de configuração global do Mercado Pago com a chave de acesso da aplicação.
+ */
 export { config as mpConfig }
 

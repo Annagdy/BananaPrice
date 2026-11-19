@@ -2,22 +2,37 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase.ts";
 import { urlCapaItad } from "@/lib/itad.ts";
 import { adultoPermitido } from "@/lib/adulto";
+import { ehConsoleOuGiftCard } from "@/lib/hardwareGiftCard";
 
 const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 50;
 
-/* Converte um parâmetro da URL em número, ou null se vazio/inválido. */
+/**
+ * Converte um parâmetro da URL em número ou null se vazio/inválido.
+ * @param valor String vinda da searchParams.
+ * @returns Número validado ou null.
+ */
 function numeroOuNull(valor: string | null): number | null {
   if (valor === null || valor.trim() === "") return null;
   const n = Number(valor);
   return Number.isFinite(n) ? n : null;
 }
 
-/* Normaliza o embed "loja ( nome )", que o Supabase pode devolver como objeto ou array. */
+/**
+ * Normaliza a relação com loja do Supabase (que pode vir como objeto ou array).
+ * @param rel Objeto ou array de relacionamentos.
+ * @returns Nome da loja ou null.
+ */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
+/**
+ * Realiza paginação e filtros avançados no catálogo de jogos (preço máximo, desconto mínimo, loja e busca).
+ *
+ * @param request Requisição HTTP com os parâmetros de consulta.
+ * @returns Resposta JSON com a página de jogos formatados e o totalizador.
+ */
 export async function listarCatalogo(request: Request) {
   const { searchParams } = new URL(request.url);
 
@@ -30,23 +45,34 @@ export async function listarCatalogo(request: Request) {
     Math.max(1, Math.floor(numeroOuNull(searchParams.get("limit")) ?? LIMITE_PADRAO))
   );
 
-  let idLoja: number | null = null;
-  const lojaParam = (searchParams.get("store") ?? "").trim();
-  if (lojaParam) {
-    if (/^\d+$/.test(lojaParam)) {
-      idLoja = Number(lojaParam);
-    } else {
-      const { data: loja } = await supabase
-        .from("loja")
-        .select("id_loja")
-        .ilike("nome", lojaParam)
-        .maybeSingle();
-      if (!loja) return NextResponse.json({ jogos: [], total: 0, pagina, limite });
-      idLoja = loja.id_loja;
-    }
+  // `store` aceita uma ou várias lojas separadas por vírgula, por nome ou por id
+  // (ex.: ?store=Steam,GOG ou ?store=1,3). O jogo entra se tiver oferta em QUALQUER uma delas.
+  let idsLojas: number[] | null = null;
+  const lojasParam = (searchParams.get("store") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  if (lojasParam.length > 0) {
+    const resolvidos = await Promise.all(
+      lojasParam.map(async (nomeOuId) => {
+        if (/^\d+$/.test(nomeOuId)) return Number(nomeOuId);
+        const { data: loja } = await supabase
+          .from("loja")
+          .select("id_loja")
+          .ilike("nome", nomeOuId)
+          .maybeSingle();
+        return loja?.id_loja ?? null;
+      })
+    );
+
+    idsLojas = Array.from(new Set(resolvidos.filter((id): id is number => id !== null)));
+    // Nenhuma das lojas pedidas existe: não há o que listar
+    if (idsLojas.length === 0) return NextResponse.json({ jogos: [], total: 0, pagina, limite });
   }
 
-  const filtrando = precoMax !== null || descontoMin !== null || idLoja !== null;
+  const filtrando = precoMax !== null || descontoMin !== null || idsLojas !== null;
   const embed = filtrando ? "preco_jogo!inner" : "preco_jogo";
 
   let consulta = supabase
@@ -59,10 +85,12 @@ export async function listarCatalogo(request: Request) {
   if (busca) consulta = consulta.ilike("titulo", `%${busca.replace(/[\\%_]/g, "\\$&")}%`);
   if (precoMax !== null) consulta = consulta.lte("preco_jogo.valor_atual", precoMax);
   if (descontoMin !== null) consulta = consulta.gte("preco_jogo.percentual_desconto", descontoMin);
-  if (idLoja !== null) consulta = consulta.eq("preco_jogo.id_loja", idLoja);
+  if (idsLojas !== null) consulta = consulta.in("preco_jogo.id_loja", idsLojas);
 
   const verAdulto = adultoPermitido(request);
   if (!verAdulto) consulta = consulta.eq("adulto", false);
+
+  const incluirHardware = searchParams.get("hardware") === "1";
 
   const de = (pagina - 1) * limite;
   const { data, error, count } = await consulta.order("titulo").range(de, de + limite - 1);
@@ -72,7 +100,12 @@ export async function listarCatalogo(request: Request) {
     return NextResponse.json({ error: "Não foi possível buscar os jogos." }, { status: 500 });
   }
 
-  const jogos = ((data ?? []) as unknown as any[]).map((j) => {
+  const linhasValidas = ((data ?? []) as unknown as any[]).filter((j) => {
+    if (incluirHardware) return true;
+    return !ehConsoleOuGiftCard(j.titulo);
+  });
+
+  const jogos = linhasValidas.map((j) => {
     const melhor = (j.preco_jogo ?? [])
       .filter((p: any) => p.valor_atual != null)
       .sort((a: any, b: any) => a.valor_atual - b.valor_atual)[0];

@@ -3,18 +3,15 @@ import { processarWebhookPagamento } from '@/services/pagamentoTurbo'
 
 export const dynamic = 'force-dynamic'
 
-/*
-POST /api/v1/webhooks/pix — Recebe notificações do Mercado Pago (IPN).
-O Mercado Pago envia um POST quando o status de um pagamento muda.
-Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
-
-Formatos possíveis do body:
-1) Webhook v2: { action: "payment.updated", data: { id: "12345" } }
-2) IPN: { topic: "payment", id: 12345 }
-3) Query params: ?topic=payment&id=12345
-
-Retorna 200 sempre para o MP não reenviar em loop.
-*/
+/**
+ * Webhook assíncrono para notificações instantâneas de pagamento (IPN) do Mercado Pago (POST /api/v1/webhooks/pix).
+ *
+ * Suporta payloads nos formatos Webhook v2 e IPN tradicional. Atualiza a tabela `pagamento_turbo`
+ * para status `aprovado` liberando o destaque turbo na vitrine do jogo.
+ *
+ * @param request Requisição HTTP enviada pelos servidores do Mercado Pago.
+ * @returns HTTP 200 `{ recebido: true }` garantindo confirmação ao gateway.
+ */
 export async function POST(request: Request) {
   let idPagamentoMp: number | null = null
 

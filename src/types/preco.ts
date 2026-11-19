@@ -1,4 +1,6 @@
-/* Uma oferta de preço, como vem dentro de `deals` na API de preços. */
+/**
+ * Uma oferta individual de preço, como vem no array `deals` da API do ITAD.
+ */
 export interface OfertaApi {
     shop: { name: string };
     price: { amount: number };
@@ -6,14 +8,18 @@ export interface OfertaApi {
     cut: number;
 }
 
-/* Resposta crua da API de preços para um jogo. */
+/**
+ * Resposta de cotação de preços da API externa para um jogo específico.
+ */
 export interface ResultadoPrecoApi {
     id: string;
     historyLow?: unknown;
     deals?: OfertaApi[];
 }
 
-/* Linha da tabela `preco_jogo` (preço atual por jogo+loja). */
+/**
+ * Entidade da tabela `preco_jogo` representando o menor valor corrente por loja.
+ */
 export interface PrecoJogo {
     id_jogo: number;
     id_loja: number;
@@ -22,7 +28,9 @@ export interface PrecoJogo {
     atualizado_em: string;
 }
 
-/* Linha da tabela `preco_historico` (uma por jogo+loja+dia). */
+/**
+ * Entidade de série histórica da tabela `preco_historico` com o registro diário de preços.
+ */
 export interface PrecoHistorico {
     id_jogo: number;
     id_loja: number;

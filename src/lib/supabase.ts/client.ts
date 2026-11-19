@@ -1,12 +1,12 @@
-/*
-Cria o cliente Supabase para componentes "use client" (navegador).
-
-Usa a anon key e guarda a sessão nos cookies do navegador. Nunca importe aqui o cliente com service_role.
-
-@returns Cliente Supabase para uso no navegador.
-*/
 import { createBrowserClient } from "@supabase/ssr";
 
+/**
+ * Cria o cliente Supabase para componentes "use client" (navegador).
+ *
+ * Utiliza a chave pública anônima (`NEXT_PUBLIC_SUPABASE_ANON_KEY`) e armazena a sessão nos cookies do navegador.
+ *
+ * @returns Cliente Supabase configurado para execução no client-side.
+ */
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

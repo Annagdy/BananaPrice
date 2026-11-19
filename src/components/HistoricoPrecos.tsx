@@ -53,6 +53,15 @@ Por padrão mostra só as 3 lojas mais baratas, porque com muitas lojas as linha
 estica a escala e achata as demais. As outras podem ser ligadas pelos botões.
 
 @param idJogo jogo.id_jogo (lê GET /api/v1/games/[id]/history). */
+/**
+ * Componente interativo de Gráfico de Histórico de Preços (HistoricoPrecos).
+ *
+ * Utiliza Recharts para plotar a evolução temporal de valores por loja em degraus,
+ * com alternância de períodos (30d, 90d, 1 ano, Tudo) e comparação simultânea entre plataformas.
+ *
+ * @param props Propriedades contendo o `idJogo` consultado.
+ * @returns Painel com gráfico de linha temporal e tabela comparativa.
+ */
 export default function HistoricoPrecos({ idJogo }: { idJogo: number }) {
   const [dias, setDias] = useState(90)
   const [dados, setDados] = useState<Resposta | null>(null)

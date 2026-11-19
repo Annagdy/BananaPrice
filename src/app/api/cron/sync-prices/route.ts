@@ -6,17 +6,15 @@ import { atualizarPrecosDoJogo } from '@/services/atualizarPrecoJogo'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-/*
-GET /api/cron/sync-prices:
-Percorre todos os jogos presentes nas listas de desejos dos usuários,
-consulta as ofertas atuais na API da IsThereAnyDeal (ITAD) e atualiza o banco de dados.
-Se o preço cair ou houver uma nova promoção, as notificações no site e por e-mail
-são disparadas automaticamente pelo serviço atualizarPrecosDoJogo.
-
-Segurança:
-Se CRON_SECRET estiver definido no .env, exige o header "Authorization: Bearer <CRON_SECRET>"
-ou o parâmetro de URL "?secret=<CRON_SECRET>".
-*/
+/**
+ * Rotina automatizada cron para sincronização periódica de preços de todos os jogos em wishlists (GET /api/cron/sync-prices).
+ *
+ * Busca cotações atualizadas no ITAD e Steam, executa deduplicação de jogos e dispara notificações
+ * por e-mail e no painel para os usuários afetados em caso de queda de preço.
+ *
+ * @param request Requisição HTTP com cabeçalho ou parâmetro `Authorization: Bearer <CRON_SECRET>`.
+ * @returns Relatório JSON com o total de jogos analisados e atualizados.
+ */
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret) {

@@ -1,6 +1,9 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
 
-type AuthFieldProps = InputHTMLAttributes<HTMLInputElement> & {
+/**
+ * Propriedades para renderização de campos de formulário de autenticação.
+ */
+export type AuthFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   id: string
   label: string
   /** Ícone à esquerda do input */
@@ -14,6 +17,12 @@ type AuthFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   error?: string
 }
 
+/**
+ * Campo de formulário de autenticação customizado com suporte a ícones, validações e alertas.
+ *
+ * @param props Propriedades do campo de entrada.
+ * @returns Elemento JSX do input estilizado.
+ */
 export default function AuthField({
   id,
   label,

@@ -5,10 +5,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
+import Divisor from '../../components/Divisor'
 import Loading from '@/components/loading'
 import { BellIcon } from '../../components/Icons'
 import { capaExemplo, macacotudo, macacoFeliz } from '../../components/assets'
-import { createClient } from '@/lib/supabase.ts/client.ts'
+import { createClient } from '@/lib/supabase.ts/client'
 
 type Notificacao = {
   id: number
@@ -152,8 +153,12 @@ export default function NotificacoesPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
-      <Nav logado />
+      {/* Topo Fixo com a linha marrom integrada no Nav */}
+      <header className="sticky top-0 z-50 w-full shrink-0">
+        <Nav logado />
+      </header>
 
+      {/* Conteúdo Principal mantendo os espaçamentos originais */}
       <main className="relative flex-1 overflow-hidden pb-16">
         {/* Cabeçalho */}
         <section className="flex flex-wrap items-center justify-between gap-4 px-[45px] pt-4 max-[640px]:px-4">
@@ -167,7 +172,7 @@ export default function NotificacoesPage() {
             <button
               type="button"
               onClick={() => carregarNotificacoes(true)}
-              className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs text-bp-muted transition hover:bg-[#4d4039] hover:text-bp-primary"
+              className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs text-bp-muted transition hover:bg-[#4d4039] hover:text-bp-primary active:scale-95"
               title="Atualizar lista"
             >
               🔄 Atualizar
@@ -178,7 +183,7 @@ export default function NotificacoesPage() {
                   <button
                     type="button"
                     onClick={marcarTodasComoLidas}
-                    className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs font-semibold text-bp-primary transition hover:bg-[#4d4039]"
+                    className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs font-semibold text-bp-primary transition hover:bg-[#4d4039] active:scale-95"
                   >
                     Marcar todas como lidas
                   </button>
@@ -186,7 +191,7 @@ export default function NotificacoesPage() {
                 <button
                   type="button"
                   onClick={limparTodas}
-                  className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs text-bp-muted transition hover:text-red-400"
+                  className="cursor-pointer rounded-lg bg-bp-nav px-3 py-1.5 text-xs text-bp-muted transition hover:text-red-400 active:scale-95"
                 >
                   Limpar todas
                 </button>
@@ -195,7 +200,8 @@ export default function NotificacoesPage() {
           </div>
         </section>
 
-        <div className="mx-2.5 my-3 h-[5px] rounded-[2px] bg-[#3d3b2e]" />
+        {/* Divisor Marrom com a cor `#3d322e` padronizada dos cards */}
+        <Divisor cor="#3d322e" className="my-3" />
 
         {/* Abas de filtro */}
         <div className="flex items-center gap-4 px-[55px] pt-2 max-[640px]:px-4">
@@ -254,7 +260,7 @@ export default function NotificacoesPage() {
               </p>
               <Link
                 href="/jogos"
-                className="mt-2 inline-flex items-center rounded-xl bg-bp-primary px-5 py-2.5 text-sm font-bold text-bp-neutral transition hover:brightness-110"
+                className="mt-2 inline-flex items-center rounded-xl bg-bp-primary px-5 py-2.5 text-sm font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
               >
                 Explorar Catálogo
               </Link>
@@ -307,7 +313,7 @@ export default function NotificacoesPage() {
                         type="button"
                         onClick={(e) => marcarComoLida(n.id, e)}
                         title="Marcar como lida"
-                        className="cursor-pointer rounded-lg p-2 text-bp-muted hover:bg-bp-nav hover:text-bp-primary"
+                        className="cursor-pointer rounded-lg p-2 text-bp-muted hover:bg-bp-nav hover:text-bp-primary active:scale-95"
                         aria-label="Marcar como lida"
                       >
                         <svg
@@ -328,7 +334,7 @@ export default function NotificacoesPage() {
                       type="button"
                       onClick={(e) => excluirNotificacao(n.id, e)}
                       title="Excluir notificação"
-                      className="cursor-pointer rounded-lg p-2 text-bp-muted hover:bg-bp-nav hover:text-red-400"
+                      className="cursor-pointer rounded-lg p-2 text-bp-muted hover:bg-bp-nav hover:text-red-400 active:scale-95"
                       aria-label="Excluir notificação"
                     >
                       <svg
@@ -361,7 +367,7 @@ export default function NotificacoesPage() {
         />
       </main>
 
-      <div className="h-[5px] bg-[#3d322e]" />
+      {/* Footer no final do scroll */}
       <Footer />
     </div>
   )
