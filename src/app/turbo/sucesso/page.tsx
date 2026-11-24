@@ -1,12 +1,17 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '../../../components/Nav'
 import Footer from '../../../components/Footer'
 import { sucesso } from '../../../mocks/sucesso'
 import { tema } from '../../../mocks/tema'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 export default function TurboSucessoPage() {
-  const { titulo, mensagem, botao, botaoHref, imagens } = sucesso
+  const { imagens } = sucesso
+  const { t } = useIdioma()
+  const tt = t.turbo
 
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
@@ -19,13 +24,13 @@ export default function TurboSucessoPage() {
           style={{ background: tema.painel }}
         >
           <h1 className="p-2.5 text-center font-head text-[64px] font-extrabold leading-[72px] text-bp-primary max-[900px]:text-4xl max-[900px]:leading-tight">
-            {titulo}
+            {tt.sucessoTitulo}
           </h1>
 
           {imagens.check && <Image src={imagens.check} alt="" width={134} height={134} unoptimized />}
 
           <p className="w-[385px] max-w-full p-2.5 text-center font-body text-[40px] font-bold leading-[48px] text-bp-muted max-[900px]:text-2xl max-[900px]:leading-snug">
-            {mensagem}
+            {tt.sucessoMensagem}
           </p>
 
           {imagens.mascote && (
@@ -41,10 +46,10 @@ export default function TurboSucessoPage() {
         </section>
 
         <Link
-          href={botaoHref}
+          href="/"
           className="rounded-[9px] bg-bp-muted px-6 py-2.5 font-body text-[15px] text-bp-neutral transition hover:brightness-110"
         >
-          {botao}
+          {tt.sucessoBotao}
         </Link>
       </main>
 

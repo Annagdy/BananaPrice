@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SVGProps } from 'react'
 import Link from 'next/link'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 const base = {
   fill: 'none',
@@ -67,6 +68,8 @@ Lista de desejos (sem Steam):
 DLCs: o botão do pacote abre um pop-up (janela modal) com a lista de DLCs, com preço e desconto. Fecha com o X,
 com Esc ou clicando fora. Com mais de 8 DLCs aparece um campo de busca. */
 export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs?: DlcJogo[] }) {
+  const { t, formatarMoeda } = useIdioma()
+  const tj = t.jogoDetalhe
   const [naLista, setNaLista] = useState(false)
   const [pronto, setPronto] = useState(false) // já sabemos se o jogo está na lista?
   const [salvando, setSalvando] = useState(false)
@@ -180,7 +183,7 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
       }
 
       setNaLista(!naLista)
-      avisar(naLista ? 'Jogo removido da lista de desejos.' : 'Jogo adicionado à lista de desejos.')
+      avisar(naLista ? tj.removerDesejos : tj.adicionarDesejos)
     } catch {
       avisar('Falha de conexão. Tente novamente.')
     } finally {
@@ -188,8 +191,8 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
     }
   }
 
-  const rotuloLista = naLista ? 'Remover da lista de desejos' : 'Adicionar à lista de desejos'
-  const rotuloDlcs = `Ver DLCs (${dlcs.length})`
+  const rotuloLista = naLista ? tj.removerDesejos : tj.adicionarDesejos
+  const rotuloDlcs = tj.verDlcs(dlcs.length)
 
   return (
     <>
@@ -197,7 +200,7 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
         aria-label="Ações do jogo"
         className="flex w-full max-w-[1200px] flex-row gap-3 2xl:absolute 2xl:right-full 2xl:top-0 2xl:mr-4 2xl:w-auto 2xl:flex-col"
       >
-        <Link href="/jogos" title="Voltar ao catálogo" aria-label="Voltar ao catálogo" className={classeBotao}>
+        <Link href="/jogos" title={tj.voltarOfertas} aria-label={tj.voltarOfertas} className={classeBotao}>
           <SetaEsquerda />
         </Link>
 
@@ -254,8 +257,8 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
               <button
                 type="button"
                 onClick={fecharDlcs}
-                aria-label="Fechar"
-                title="Fechar"
+                aria-label={tj.fechar}
+                title={tj.fechar}
                 className="grid size-9 cursor-pointer place-items-center rounded-full text-bp-muted transition hover:bg-bp-muted/10 hover:text-bp-primary"
               >
                 <Fechar />
@@ -268,8 +271,8 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
                   type="search"
                   value={filtro}
                   onChange={(e) => setFiltro(e.target.value)}
-                  placeholder="Buscar DLC..."
-                  aria-label="Buscar DLC"
+                  placeholder={tj.buscarDlc}
+                  aria-label={tj.buscarDlc}
                   className="h-10 w-full rounded-[10px] border border-[#3d322e] bg-bp-neutral px-4 text-sm text-white outline-none transition focus:border-bp-primary"
                 />
               </div>
@@ -277,7 +280,7 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
 
             <ul className="flex list-none flex-col gap-2.5 overflow-y-auto px-5 py-4">
               {dlcsFiltradas.length === 0 ? (
-                <li className="py-6 text-center text-sm text-bp-muted/70">Nenhuma DLC encontrada.</li>
+                <li className="py-6 text-center text-sm text-bp-muted/70">{tj.nenhumaDlc}</li>
               ) : (
                 dlcsFiltradas.map((dlc) => (
                   <li key={dlc.id}>
@@ -290,7 +293,7 @@ export default function BotoesJogo({ idJogo, dlcs = [] }: { idJogo: number; dlcs
                       <span className="flex shrink-0 items-center gap-3 text-sm">
                         {dlc.desconto > 0 && <span>-{dlc.desconto}%</span>}
                         <strong className="font-head text-bp-primary">
-                          {dlc.preco !== null ? brl(dlc.preco) : 'Sem preço'}
+                          {dlc.preco !== null ? formatarMoeda(dlc.preco) : t.wishlist.semPreco}
                         </strong>
                       </span>
                     </Link>

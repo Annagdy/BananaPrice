@@ -5,11 +5,12 @@ import type { FormEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Bot, History, X, Menu } from 'lucide-react'
+import { Search, Bot, History, X, Menu, Globe } from 'lucide-react'
 import { logo } from './assets'
 import { SearchIcon, UserPlusIcon, HeartIcon, UserIcon, BellIcon } from './Icons'
 import { createClient } from '@/lib/supabase.ts/client'
 import { tema } from '../mocks/tema'
+import { useIdioma } from './contexts/IdiomaContext'
 
 const CHAVE_HISTORICO_BUSCA = 'bp_historico_buscas'
 const MAX_HISTORICO = 6
@@ -48,6 +49,7 @@ export default function Nav({
 }: NavProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { idioma, mudarIdioma, t } = useIdioma()
 
   const [texto, setTexto] = useState(valorBusca)
   const [modo, setModo] = useState<ModoBusca>(modoInicial)
@@ -215,8 +217,19 @@ export default function Nav({
           />
         </Link>
 
-        {/* Botões de Ação Mobile (Lupa para abrir busca + Menu de 3 linhas) */}
-        <div className="flex items-center gap-2 sm:hidden">
+        {/* Botões de Ação Mobile (Lupa para abrir busca + Seletor de Idioma + Menu de 3 linhas) */}
+        <div className="flex items-center gap-1.5 sm:hidden">
+          {/* Seletor de Idioma Mobile */}
+          <button
+            type="button"
+            onClick={() => mudarIdioma(idioma === 'pt-BR' ? 'en-US' : 'pt-BR')}
+            title={idioma === 'pt-BR' ? 'Switch to English (USA)' : 'Mudar para Português (Brasil)'}
+            aria-label="Alternar Idioma"
+            className="inline-flex size-9 items-center justify-center rounded-[9px] border border-bp-muted/30 bg-bp-nav/90 text-xs font-bold text-bp-primary shadow-sm transition active:scale-95"
+          >
+            {idioma === 'pt-BR' ? '🇺🇸 EN' : '🇧🇷 PT'}
+          </button>
+
           {/* Botão da Lupa no Mobile */}
           <button
             type="button"
@@ -260,10 +273,10 @@ export default function Nav({
               spellCheck={false}
               placeholder={
                 modo === 'nativa'
-                  ? 'Busca rápida de jogos (ex: Resident Evil)...'
-                  : 'Busca profunda com IA...'
+                  ? t.nav.placeholderNativa
+                  : t.nav.placeholderIa
               }
-              aria-label="Buscar jogos"
+              aria-label={t.nav.ariaBuscar}
               maxLength={100}
               value={texto}
               onFocus={() => {
@@ -289,14 +302,14 @@ export default function Nav({
               <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-[13px] border border-[#3d322e] bg-bp-surface shadow-2xl backdrop-blur-md">
                 <div className="flex items-center justify-between border-b border-[#3d322e]/60 px-3.5 py-2 text-[11px] text-bp-muted/70">
                   <span className="flex items-center gap-1.5 font-head font-bold uppercase tracking-wider text-bp-primary/90">
-                    <History className="size-3" /> Buscas Recentes
+                    <History className="size-3" /> {t.nav.buscasRecentes}
                   </span>
                   <button
                     type="button"
                     onClick={limparTodoHistorico}
                     className="cursor-pointer text-[10px] text-bp-muted/50 hover:text-bp-primary transition-colors"
                   >
-                    Limpar tudo
+                    {t.nav.limparTudo}
                   </button>
                 </div>
 
@@ -338,7 +351,7 @@ export default function Nav({
                   : 'text-bp-muted hover:text-bp-primary'
               }`}
             >
-              <Search className="size-3.5" /> Nativa
+              <Search className="size-3.5" /> {t.nav.nativa}
             </button>
             <button
               type="button"
@@ -350,51 +363,81 @@ export default function Nav({
                   : 'text-bp-muted hover:text-bp-primary'
               }`}
             >
-              <Bot className="size-3.5" /> IA
+              <Bot className="size-3.5" /> {t.nav.ia}
             </button>
           </div>
         </form>
 
         {/* Links do Usuário (Desktop) */}
-        {estaLogado ? (
-          <div className="hidden sm:flex shrink-0 items-center gap-3 lg:gap-[19px] pr-2.5">
-            <Link
-              href="/notificacoes"
-              aria-label="Notificações"
-              className="relative inline-flex size-[38px] items-center justify-center rounded-[9px] bg-bp-primary text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
+        <div className="hidden sm:flex shrink-0 items-center gap-2.5 lg:gap-3.5 pr-2.5">
+          {/* Alternador de Idioma Desktop */}
+          <div className="flex h-[38px] items-center rounded-[9px] border border-bp-muted/30 bg-bp-nav p-0.5">
+            <button
+              type="button"
+              onClick={() => mudarIdioma('pt-BR')}
+              title="Português (Brasil)"
+              className={`flex h-full items-center gap-1 rounded-[7px] px-2 text-xs font-bold transition-all ${
+                idioma === 'pt-BR'
+                  ? 'bg-bp-primary text-bp-neutral shadow-sm'
+                  : 'text-bp-muted hover:text-bp-primary'
+              }`}
             >
-              <BellIcon width={20} height={20} />
-              {naoLidas > 0 && (
-                <span
-                  className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-head text-[10px] font-extrabold text-white ring-2 ring-bp-nav"
-                  aria-label={`${naoLidas} notificações não lidas`}
-                >
-                  {naoLidas > 99 ? '99+' : naoLidas}
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/lista-de-desejos"
-              className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3.5 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
+              🇧🇷 PT
+            </button>
+            <button
+              type="button"
+              onClick={() => mudarIdioma('en-US')}
+              title="English (USA)"
+              className={`flex h-full items-center gap-1 rounded-[7px] px-2 text-xs font-bold transition-all ${
+                idioma === 'en-US'
+                  ? 'bg-bp-primary text-bp-neutral shadow-sm'
+                  : 'text-bp-muted hover:text-bp-primary'
+              }`}
             >
-              <HeartIcon /> Lista de Desejos
-            </Link>
-            <Link
-              href="/conta"
-              className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3.5 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
-            >
-              <UserIcon /> Conta
-            </Link>
+              🇺🇸 EN
+            </button>
           </div>
-        ) : (
-          <Link
-            href="/login"
-            className="hidden sm:inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-4 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
-          >
-            <UserPlusIcon />
-            Login / Cadastrar
-          </Link>
-        )}
+
+          {estaLogado ? (
+            <>
+              <Link
+                href="/notificacoes"
+                aria-label={t.nav.notificacoes}
+                className="relative inline-flex size-[38px] items-center justify-center rounded-[9px] bg-bp-primary text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
+              >
+                <BellIcon width={20} height={20} />
+                {naoLidas > 0 && (
+                  <span
+                    className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-head text-[10px] font-extrabold text-white ring-2 ring-bp-nav"
+                    aria-label={`${naoLidas} notificações não lidas`}
+                  >
+                    {naoLidas > 99 ? '99+' : naoLidas}
+                  </span>
+                )}
+              </Link>
+              <Link
+                href="/lista-de-desejos"
+                className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3.5 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
+              >
+                <HeartIcon /> {t.nav.listaDeDesejos}
+              </Link>
+              <Link
+                href="/conta"
+                className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-3.5 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
+              >
+                <UserIcon /> {t.nav.conta}
+              </Link>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-[9px] bg-bp-primary px-4 font-head text-xs font-bold text-bp-neutral shadow-sm transition-all duration-150 hover:brightness-110 active:scale-95"
+            >
+              <UserPlusIcon />
+              {t.nav.loginCadastrar}
+            </Link>
+          )}
+        </div>
       </nav>
 
       {/* Menu Hambúrguer Suspenso (Apenas Mobile) */}
@@ -411,11 +454,11 @@ export default function Nav({
                 className="flex items-center justify-between rounded-xl bg-bp-neutral px-3.5 py-2.5 text-xs font-bold text-bp-text hover:text-bp-primary transition"
               >
                 <span className="flex items-center gap-2.5">
-                  <BellIcon width={18} height={18} className="text-bp-primary" /> Notificações
+                  <BellIcon width={18} height={18} className="text-bp-primary" /> {t.nav.notificacoes}
                 </span>
                 {naoLidas > 0 && (
                   <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                    {naoLidas} novas
+                    {naoLidas} {t.nav.novas}
                   </span>
                 )}
               </Link>
@@ -424,14 +467,14 @@ export default function Nav({
                 onClick={() => setMenuMobileAberto(false)}
                 className="flex items-center gap-2.5 rounded-xl bg-bp-neutral px-3.5 py-2.5 text-xs font-bold text-bp-text hover:text-bp-primary transition"
               >
-                <HeartIcon className="text-bp-primary" /> Lista de Desejos
+                <HeartIcon className="text-bp-primary" /> {t.nav.listaDeDesejos}
               </Link>
               <Link
                 href="/conta"
                 onClick={() => setMenuMobileAberto(false)}
                 className="flex items-center gap-2.5 rounded-xl bg-bp-neutral px-3.5 py-2.5 text-xs font-bold text-bp-text hover:text-bp-primary transition"
               >
-                <UserIcon className="text-bp-primary" /> Minha Conta
+                <UserIcon className="text-bp-primary" /> {t.nav.conta}
               </Link>
             </div>
           ) : (
@@ -441,7 +484,7 @@ export default function Nav({
                 onClick={() => setMenuMobileAberto(false)}
                 className="flex items-center justify-center gap-2 rounded-xl bg-bp-primary px-4 py-2.5 font-head text-xs font-bold text-bp-neutral shadow-sm"
               >
-                <UserPlusIcon /> Fazer Login / Cadastrar
+                <UserPlusIcon /> {t.nav.loginCadastrar}
               </Link>
             </div>
           )}

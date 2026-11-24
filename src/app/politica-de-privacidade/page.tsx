@@ -1,15 +1,16 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import Nav from '../../components/Nav'
 import Footer from '../../components/Footer'
 import { politicaDePrivacidadeImg } from '../../components/assets'
-
-export const metadata = {
-  title: 'Política de Privacidade | BananaPrice',
-  description: 'Política de privacidade e proteção de dados da plataforma BananaPrice.',
-}
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 export default function PoliticaDePrivacidadePage() {
+  const { t } = useIdioma()
+  const tp = t.transparencia
+
   return (
     <div className="flex min-h-screen flex-col bg-bp-bg">
       <header className="sticky top-0 z-50 w-full shrink-0">
@@ -21,16 +22,16 @@ export default function PoliticaDePrivacidadePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#3d322e] pb-4">
             <div>
               <h1 className="font-head text-3xl sm:text-4xl font-extrabold text-bp-primary">
-                Política de Privacidade
+                {tp.politicaTitulo}
               </h1>
               <p className="mt-1 text-xs text-bp-muted/60">
-                Última atualização: Novembro de 2026
+                {tp.ultimaAtualizacao}
               </p>
             </div>
             <div className="relative size-24 sm:size-28 shrink-0 self-center sm:self-auto">
               <Image
                 src={politicaDePrivacidadeImg}
-                alt="Política de Privacidade"
+                alt={tp.politicaTitulo}
                 width={120}
                 height={120}
                 className="size-full object-contain drop-shadow-md"
@@ -40,51 +41,51 @@ export default function PoliticaDePrivacidadePage() {
 
           <section className="space-y-3 text-sm sm:text-base leading-relaxed text-bp-muted">
             <h2 className="font-head text-xl font-bold text-bp-text">
-              1. Coleta de Informações
+              {tp.politicaSec1Titulo}
             </h2>
             <p>
-              O BananaPrice preza pela sua privacidade e coleta apenas os dados essenciais para o funcionamento dos recursos da plataforma:
+              {tp.politicaSec1Texto}
             </p>
             <ul className="list-disc pl-5 space-y-1 text-bp-muted/90">
-              <li><strong>Conta e Autenticação:</strong> Nome de usuário, e-mail e hash seguro da senha ao se cadastrar diretamente.</li>
-              <li><strong>Integração com a Steam:</strong> Identificador público Steam ID e itens públicos da wishlist para sincronização automática de ofertas (sem acesso a senhas ou dados de pagamento da Steam).</li>
-              <li><strong>Lista de Desejos e Notificações:</strong> Jogos salvos pelo usuário para fins de alerta de menor preço histórico.</li>
+              <li>{tp.politicaSec1Item1}</li>
+              <li>{tp.politicaSec1Item2}</li>
+              <li>{tp.politicaSec1Item3}</li>
             </ul>
           </section>
 
           <section className="space-y-3 text-sm sm:text-base leading-relaxed text-bp-muted">
             <h2 className="font-head text-xl font-bold text-bp-text">
-              2. Uso dos Dados
+              {tp.politicaSec2Titulo}
             </h2>
             <p>
-              Os dados coletados são utilizados exclusivamente para:
+              {tp.politicaSec2Texto}
             </p>
             <ul className="list-disc pl-5 space-y-1 text-bp-muted/90">
-              <li>Autenticar o acesso do usuário à sua conta;</li>
-              <li>Salvar jogos preferidos na Lista de Desejos;</li>
-              <li>Disparar notificações no site e por e-mail quando jogos desejados atingirem novos descontos;</li>
-              <li>Melhorar a experiência de navegação e histórico de buscas recentes (armazenado localmente no seu próprio navegador via <code className="text-bp-primary">localStorage</code>).</li>
+              <li>{tp.politicaSec2Item1}</li>
+              <li>{tp.politicaSec2Item2}</li>
+              <li>{tp.politicaSec2Item3}</li>
+              <li>{tp.politicaSec2Item4}</li>
             </ul>
           </section>
 
           <section className="space-y-3 text-sm sm:text-base leading-relaxed text-bp-muted">
             <h2 className="font-head text-xl font-bold text-bp-text">
-              3. Compartilhamento e Terceiros
+              {tp.politicaSec3Titulo}
             </h2>
             <p>
-              Não vendemos, alugamos ou comercializamos dados pessoais de usuários com anunciantes ou terceiros.
+              {tp.politicaSec3P1}
             </p>
             <p>
-              Links que direcionam para lojas parceiras podem conter parâmetros de rastreamento de afiliados e identificadores seguros para viabilizar a manutenção e gratuidade da plataforma.
+              {tp.politicaSec3P2}
             </p>
           </section>
 
           <section className="space-y-3 text-sm sm:text-base leading-relaxed text-bp-muted">
             <h2 className="font-head text-xl font-bold text-bp-text">
-              4. Seus Direitos (LGPD)
+              {tp.politicaSec4Titulo}
             </h2>
             <p>
-              Conforme a Lei Geral de Proteção de Dados (LGPD), você possui o direito de solicitar a qualquer momento a visualização, alteração ou exclusão definitiva da sua conta e de todos os dados associados através da página de Conta ou entrando em contato com a equipe.
+              {tp.politicaSec4Texto}
             </p>
           </section>
 
@@ -93,13 +94,13 @@ export default function PoliticaDePrivacidadePage() {
               href="/"
               className="inline-flex items-center gap-2 rounded-xl bg-bp-primary px-4 py-2 font-head text-xs font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
             >
-              ← Voltar para o Início
+              {tp.voltarInicio}
             </Link>
             <Link
               href="/termos-de-uso"
               className="text-xs text-bp-muted hover:text-bp-primary transition underline"
             >
-              Ver Termos de Uso
+              {tp.verTermos}
             </Link>
           </div>
         </div>

@@ -1,7 +1,10 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { logo, palmeira, bananas } from './assets'
+import { useIdioma } from './contexts/IdiomaContext'
 
 /**
  * Envelope visual (Shell) com cenários temáticos (palmeiras, bananas e logo) para as telas de login e cadastro.
@@ -10,8 +13,40 @@ import { logo, palmeira, bananas } from './assets'
  * @returns Elemento JSX com a moldura de autenticação.
  */
 export default function AuthShell({ children }: { children: ReactNode }) {
+  const { idioma, mudarIdioma } = useIdioma()
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bp-bg px-4 py-10">
+      {/* Seletor de Idioma no Canto Superior */}
+      <aside aria-label="Seleção de idioma" className="absolute top-4 right-4 z-20 flex items-center gap-1 rounded-full border border-bp-nav/80 bg-bp-surface/90 p-1 shadow-md backdrop-blur-sm">
+        <button
+          type="button"
+          onClick={() => mudarIdioma('pt-BR')}
+          title="Português (Brasil)"
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition ${
+            idioma === 'pt-BR'
+              ? 'bg-bp-primary text-bp-neutral shadow-sm'
+              : 'text-bp-muted hover:text-white'
+          }`}
+        >
+          <span>🇧🇷</span>
+          <span>PT</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => mudarIdioma('en-US')}
+          title="English (US)"
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition ${
+            idioma === 'en-US'
+              ? 'bg-bp-primary text-bp-neutral shadow-sm'
+              : 'text-bp-muted hover:text-white'
+          }`}
+        >
+          <span>🇺🇸</span>
+          <span>EN</span>
+        </button>
+      </aside>
+
       <Image
         src={palmeira}
         alt=""
