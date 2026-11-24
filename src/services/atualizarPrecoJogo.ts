@@ -5,7 +5,8 @@ const emAtualizacao = new Set<number>();
 
 /**
  * Retorna a data atual no fuso horário do Brasil (America/Sao_Paulo) no padrão ISO YYYY-MM-DD.
- * @returns Data formatada.
+ * | Returns the current date in Brazil's time zone (America/Sao_Paulo) in ISO YYYY-MM-DD format.
+ * @returns Data formatada. | Formatted date.
  */
 function hojeBrasil(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -13,18 +14,22 @@ function hojeBrasil(): string {
 
 /**
  * Atualiza os preços atuais e o histórico diário de um jogo específico a partir de uma lista de ofertas (deals).
+ * | Updates the current prices and the daily history of a specific game from a list of offers (deals).
  *
- * Realiza as seguintes operações:
- * - Filtra a melhor oferta por loja.
+ * Realiza as seguintes operações: | Performs the following operations:
+ * - Filtra a melhor oferta por loja. | Filters the best offer per store.
  * - Compara com o menor preço anterior para verificar se houve queda de preço.
- * - Garante a criação de lojas inexistentes na tabela `loja`.
- * - Realiza upsert dos preços vigentes em `preco_jogo`.
- * - Registra snapshot diário em `preco_historico`.
+ *   | Compares with the previous lowest price to check whether the price dropped.
+ * - Garante a criação de lojas inexistentes na tabela `loja`. | Ensures nonexistent stores are created in the `loja` table.
+ * - Realiza upsert dos preços vigentes em `preco_jogo`. | Upserts the current prices into `preco_jogo`.
+ * - Registra snapshot diário em `preco_historico`. | Records a daily snapshot in `preco_historico`.
  * - Dispara notificações de queda de preço para usuários com o jogo na lista de desejos.
+ *   | Triggers price-drop notifications for users who have the game on their wishlist.
  *
- * @param idJogo Identificador único do jogo no banco local.
- * @param deals Lista de ofertas retornadas pelas APIs de preço (ITAD/Steam).
+ * @param idJogo Identificador único do jogo no banco local. | Unique identifier of the game in the local database.
+ * @param deals Lista de ofertas retornadas pelas APIs de preço (ITAD/Steam). | List of offers returned by the price APIs (ITAD/Steam).
  * @returns Verdadeiro se a atualização foi concluída com sucesso ou falso caso o jogo já estivesse em processamento ou não houvesse ofertas válidas.
+ *   | True if the update completed successfully, or false if the game was already being processed or there were no valid offers.
  */
 export async function atualizarPrecosDoJogo(idJogo: number, deals: any[]): Promise<boolean> {
   if (emAtualizacao.has(idJogo)) {

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase.ts/server";
 
 /**
- * Endpoint de confirmação de e-mail (GET /api/v1/auth/confirm).
+ * Endpoint de confirmação de e-mail (GET /api/v1/auth/confirm). | Email confirmation endpoint (GET /api/v1/auth/confirm).
  *
  * Recebe o código temporário enviado pelo Supabase Auth e o troca pela sessão ativa do usuário.
+ * | Receives the temporary code sent by Supabase Auth and exchanges it for the user's active session.
  *
- * @param request Requisição HTTP contendo o query parameter `code`.
+ * @param request Requisição HTTP contendo o query parameter `code`. | HTTP request containing the `code` query parameter.
  * @returns Redirecionamento para a página de perfil com o status da validação.
+ *   | Redirect to the profile page with the validation status.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);

@@ -9,8 +9,9 @@ const LIMITE_MAXIMO = 50;
 
 /**
  * Converte um parâmetro da URL em número ou null se vazio/inválido.
- * @param valor String vinda da searchParams.
- * @returns Número validado ou null.
+ * | Converts a URL parameter into a number, or null if empty/invalid.
+ * @param valor String vinda da searchParams. | String coming from searchParams.
+ * @returns Número validado ou null. | Validated number or null.
  */
 function numeroOuNull(valor: string | null): number | null {
   if (valor === null || valor.trim() === "") return null;
@@ -20,8 +21,9 @@ function numeroOuNull(valor: string | null): number | null {
 
 /**
  * Normaliza a relação com loja do Supabase (que pode vir como objeto ou array).
- * @param rel Objeto ou array de relacionamentos.
- * @returns Nome da loja ou null.
+ * | Normalizes the store relation from Supabase (which can come as an object or an array).
+ * @param rel Objeto ou array de relacionamentos. | Object or array of relations.
+ * @returns Nome da loja ou null. | Store name or null.
  */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
@@ -29,9 +31,11 @@ function nomeDaLoja(rel: any): string | null {
 
 /**
  * Realiza paginação e filtros avançados no catálogo de jogos (preço máximo, desconto mínimo, loja e busca).
+ * | Performs pagination and advanced filters on the game catalog (maximum price, minimum discount, store and search).
  *
- * @param request Requisição HTTP com os parâmetros de consulta.
+ * @param request Requisição HTTP com os parâmetros de consulta. | HTTP request with the query parameters.
  * @returns Resposta JSON com a página de jogos formatados e o totalizador.
+ *   | JSON response with the page of formatted games and the total count.
  */
 export async function listarCatalogo(request: Request) {
   const { searchParams } = new URL(request.url);

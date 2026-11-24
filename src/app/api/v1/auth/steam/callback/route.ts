@@ -5,14 +5,21 @@ import { validarLoginSteam, importarWishlistSteam } from "@/lib/steam.ts";
 
 /**
  * Callback de autenticação OpenID da Steam (GET /api/v1/auth/steam/callback - RF04, RF05).
+ * | Steam OpenID authentication callback (GET /api/v1/auth/steam/callback - RF04, RF05).
  *
  * Processa a validação criptográfica da Steam e atende aos 3 cenários de autenticação:
+ * | Handles Steam's cryptographic validation and covers the 3 authentication scenarios:
  * 1. Steam já cadastrada: autentica diretamente na conta associada.
+ *    | Steam already registered: authenticates directly into the associated account.
  * 2. Usuário logado: vincula a Steam à conta atual na tabela `conta_steam`.
+ *    | Logged-in user: links Steam to the current account in the `conta_steam` table.
  * 3. Novo usuário: cria a conta correspondente e sincroniza a lista de desejos (Wishlist).
+ *    | New user: creates the corresponding account and syncs the wishlist.
  *
  * @param request Requisição HTTP com os parâmetros OpenID enviados pela Steam.
+ *   | HTTP request with the OpenID parameters sent by Steam.
  * @returns Redirecionamento para a página inicial, página de completar cadastro ou erro.
+ *   | Redirect to the home page, the complete-registration page or an error.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);

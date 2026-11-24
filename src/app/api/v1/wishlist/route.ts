@@ -5,7 +5,8 @@ import { urlCapaItad } from "@/lib/itad.ts";
 
 /**
  * Obtém o `id_usuario` na tabela local correspondente ao usuário autenticado no Supabase Auth.
- * @returns Identificador numérico do usuário ou null se não autenticado.
+ * | Gets the `id_usuario` in the local table that corresponds to the user authenticated in Supabase Auth.
+ * @returns Identificador numérico do usuário ou null se não autenticado. | Numeric user identifier, or null if not authenticated.
  */
 async function usuarioLogado(): Promise<number | null> {
   const supabase = await createClient();
@@ -23,10 +24,13 @@ async function usuarioLogado(): Promise<number | null> {
 
 /**
  * Endpoint para listar todos os jogos da lista de desejos do usuário autenticado (GET /api/v1/wishlist - RF10).
+ * | Endpoint to list all games on the authenticated user's wishlist (GET /api/v1/wishlist - RF10).
  *
  * Enriquece cada jogo com melhor preço vigente, percentual de desconto, loja da melhor oferta e URL de capa.
+ * | Enriches each game with the current best price, discount percentage, store of the best offer and cover URL.
  *
  * @returns Resposta com a lista de jogos ou 401 para requisições não autenticadas.
+ *   | Response with the list of games, or 401 for unauthenticated requests.
  */
 export async function GET() {
   const idUsuario = await usuarioLogado();
@@ -95,9 +99,12 @@ export async function GET() {
 /**
  * Endpoint para adicionar um jogo à lista de desejos (POST /api/v1/wishlist - RF10).
  * Cria a lista automaticamente caso ainda não exista e ignora duplicatas.
+ * | Endpoint to add a game to the wishlist (POST /api/v1/wishlist - RF10). Automatically creates the list if it does not exist yet and
+ *   ignores duplicates.
  *
- * @param request Requisição HTTP contendo `{ idJogo: number }` no corpo.
+ * @param request Requisição HTTP contendo `{ idJogo: number }` no corpo. | HTTP request containing `{ idJogo: number }` in the body.
  * @returns Status 201 em caso de sucesso ou erro apropriado (400, 401, 404, 500).
+ *   | Status 201 on success or the appropriate error (400, 401, 404, 500).
  */
 export async function POST(request: Request) {
   const idUsuario = await usuarioLogado();

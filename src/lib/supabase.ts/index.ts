@@ -29,6 +29,8 @@ if (!supabaseUrl || !chaveServiceRole) {
 /**
  * Cliente Supabase com privilégios administrativos (chave `service_role`).
  * Utilizado exclusivamente em scripts e route handlers no servidor para operações que ignoram RLS.
+ * | Supabase client with administrative privileges (`service_role` key). Used exclusively in server scripts and route handlers for
+ *   operations that bypass RLS.
  */
 export const supabase = createClient(supabaseUrl, chaveServiceRole, {
     auth: {
@@ -39,11 +41,14 @@ export const supabase = createClient(supabaseUrl, chaveServiceRole, {
 
 /**
  * Executa uma chamada ao Supabase com até 5 tentativas e backoff exponencial em caso de falha transitória de rede.
+ * | Executes a Supabase call with up to 5 attempts and exponential backoff on transient network failure.
  *
- * @param descricao Texto curto usado nos logs para identificar a chamada.
+ * @param descricao Texto curto usado nos logs para identificar a chamada. | Short text used in logs to identify the call.
  * @param chamar Função que dispara a chamada e devolve `{ data, error }`.
- * @returns O resultado `data` quando bem-sucedido.
+ *   | Function that fires the call and returns `{ data, error }`.
+ * @returns O resultado `data` quando bem-sucedido. | The `data` result when successful.
  * @throws O erro original caso as tentativas se esgotem ou ocorra falha no banco.
+ *   | The original error if attempts run out or a database failure occurs.
  */
 export async function chamarSupabase<T>(
     descricao: string,

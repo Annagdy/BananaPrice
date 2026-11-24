@@ -12,14 +12,17 @@ function nomeDaLoja(rel: any): string | null {
 }
 
 /**
- * Detalhes completos de um jogo (GET /api/v1/games/[id]).
+ * Detalhes completos de um jogo (GET /api/v1/games/[id]). | Full details of a game (GET /api/v1/games/[id]).
  *
  * Retorna metadados do jogo, capa em alta resolução, melhor preço de cada loja, links diretos de compra,
  * lista de DLCs associados e controle de acesso a conteúdo adulto via cookies.
+ * | Returns game metadata, high-resolution cover, best price in each store, direct purchase links, list of associated DLCs and adult
+ *   content access control via cookies.
  *
- * @param request Objeto da requisição.
+ * @param request Objeto da requisição. | Request object.
  * @param context Objeto contendo os parâmetros de rota com o `id` do jogo.
- * @returns JSON detalhado do jogo ou 404/403.
+ *   | Object containing the route parameters with the game `id`.
+ * @returns JSON detalhado do jogo ou 404/403. | Detailed game JSON or 404/403.
  */
 export async function GET(
   request: Request,
