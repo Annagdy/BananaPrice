@@ -49,7 +49,7 @@ export default function ContatoApiPage() {
                 {tp.apiSecTitulo}
               </h2>
             </div>
-            
+
             <p className="text-sm sm:text-base leading-relaxed text-bp-muted">
               {tp.apiSecTexto}{' '}
               <a
@@ -121,6 +121,23 @@ export default function ContatoApiPage() {
                 </a>
                 <p className="mt-1 text-xs text-bp-muted/70">
                   {tp.comunidadeDesc}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#3d322e] bg-bp-neutral p-4 sm:col-span-2">
+                <span className="block text-xs uppercase font-bold text-bp-primary tracking-wider mb-1">
+                  {tp.feedbackTitulo}
+                </span>
+                <a
+                  href="https://forms.gle/qQhhwYT7QhDh4u6CA"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-head text-base sm:text-lg font-bold text-bp-text hover:text-bp-primary transition"
+                >
+                  {tp.feedbackLink}
+                </a>
+                <p className="mt-1 text-xs text-bp-muted/70">
+                  {tp.feedbackDesc}
                 </p>
               </div>
             </div>

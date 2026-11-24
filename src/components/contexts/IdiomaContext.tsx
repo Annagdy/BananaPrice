@@ -248,6 +248,9 @@ export type Dicionario = {
     emailDesc: string
     comunidadeTitulo: string
     comunidadeDesc: string
+    feedbackTitulo: string
+    feedbackLink: string
+    feedbackDesc: string
   }
   turbo: {
     titulo: string
@@ -530,6 +533,9 @@ export const dicionarios: Record<Idioma, Dicionario> = {
       emailDesc: 'Para dúvidas gerais, feedback e relatos de erros.',
       comunidadeTitulo: 'Comunidade & Repositório',
       comunidadeDesc: 'Acompanhe issues, releases e novidades da ferramenta.',
+      feedbackTitulo: 'Feedback',
+      feedbackLink: 'Formulário de Feedback',
+      feedbackDesc: 'Conte o que achou do site, sugira melhorias ou reporte algum erro. Leva menos de 5 minutos.',
     },
     turbo: {
       titulo: 'Dar um Turbo',
@@ -810,6 +816,9 @@ export const dicionarios: Record<Idioma, Dicionario> = {
       emailDesc: 'For general questions, feedback, and bug reports.',
       comunidadeTitulo: 'Community & Repository',
       comunidadeDesc: 'Follow issues, releases, and platform updates.',
+      feedbackTitulo: 'Feedback',
+      feedbackLink: 'Feedback Form',
+      feedbackDesc: 'Tell us what you think of the site, suggest improvements, or report a bug. It takes less than 5 minutes.',
     },
     turbo: {
       titulo: 'Boost with Turbo',
