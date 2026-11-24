@@ -1,7 +1,10 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import { logo } from './assets'
 import { tema } from '../mocks/tema'
+import { useIdioma } from './contexts/IdiomaContext'
 
 /**
  * Rodapé institucional do BananaPrice (Footer).
@@ -11,6 +14,8 @@ import { tema } from '../mocks/tema'
  * @returns Elemento JSX do rodapé.
  */
 export default function Footer() {
+  const { t } = useIdioma()
+
   return (
     <footer className="w-full bg-bp-nav">
       {/* Linha Divisória Marrom no topo do Footer */}
@@ -28,35 +33,35 @@ export default function Footer() {
             />
           </div>
           <p className="text-xs leading-[19.5px] text-bp-muted">
-            BananaPrice é uma ferramenta independente feita por e para gamers brasileiros. Monitoramos lojas oficiais, atualizando a cada 24 horas para garantir que você compre seus títulos favoritos pelo menor preço real.
+            {t.footer.descricao}
           </p>
         </div>
 
         <div className="flex w-[384px] max-w-full flex-col gap-2">
           <h5 className="font-head text-xs font-bold uppercase tracking-[.6px] text-bp-primary">
-            Transparência
+            {t.footer.transparencia}
           </h5>
           <ul className="flex list-none flex-col gap-1.5 text-xs text-[#8d7b74]">
             <li>
               <Link href="/termos-de-uso" className="hover:text-bp-muted transition">
-                Termos de Uso
+                {t.footer.termosDeUso}
               </Link>
             </li>
             <li>
               <Link href="/politica-de-privacidade" className="hover:text-bp-muted transition">
-                Política de Privacidade
+                {t.footer.politicaDePrivacidade}
               </Link>
             </li>
             <li>
               <Link href="/contato-api" className="hover:text-bp-muted transition">
-                Contato &amp; API Pública
+                {t.footer.contatoApi}
               </Link>
             </li>
           </ul>
         </div>
 
         <p className="w-[384px] max-w-full text-xs leading-[19.5px] text-[#8d7b74]">
-          Informações e dados de preços coletados através da IsThereAnyDeal API. Para mais informações, acesse{' '}
+          {t.footer.itadDesc}{' '}
           <a
             href="https://isthereanydeal.com"
             target="_blank"
@@ -70,7 +75,7 @@ export default function Footer() {
       </div>
 
       <div className="border-t-2 border-bp-muted/35 px-[23px] pb-3.5 pt-2.5 text-sm text-bp-muted/70">
-        © 2026 BananaPrice. Todos os direitos reservados. Marcas e imagens são propriedade de suas respectivas desenvolvedoras e editoras.
+        {t.footer.direitos}
       </div>
     </footer>
   )

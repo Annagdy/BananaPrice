@@ -12,7 +12,7 @@ const URL_LOGIN_STEAM = "https://steamcommunity.com/openid/login";
 const URL_API_STEAM = "https://api.steampowered.com";
 
 /**
- * Perfil público retornado pela API da Steam.
+ * Perfil público retornado pela API da Steam. | Public profile returned by the Steam API.
  */
 export type PerfilSteam = {
     steamid: string;
@@ -105,12 +105,15 @@ export function montarUrlLoginSteam(site: string): string {
 
 /**
  * Valida a resposta que a Steam devolveu no callback OpenID e extrai o SteamID64 do usuário.
+ * | Validates the response Steam returned on the OpenID callback and extracts the user's SteamID64.
  *
  * Realiza checagem de assinatura (`check_authentication`) diretamente com os servidores da Steam.
+ * | Performs a signature check (`check_authentication`) directly with Steam's servers.
  *
- * @param parametros Query string recebida na rota de callback.
- * @param site URL base da aplicação para validação do retorno.
+ * @param parametros Query string recebida na rota de callback. | Query string received on the callback route.
+ * @param site URL base da aplicação para validação do retorno. | Base URL of the application for return validation.
  * @returns O SteamID64 numérico de 17 dígitos caso seja autenticado, ou null se a assinatura for inválida.
+ *   | The 17-digit numeric SteamID64 if authenticated, or null if the signature is invalid.
  */
 export async function validarLoginSteam(parametros: URLSearchParams, site: string): Promise<string | null> {
 
@@ -145,9 +148,10 @@ export async function validarLoginSteam(parametros: URLSearchParams, site: strin
 
 /**
  * Busca nome de exibição, avatar e link do perfil de um usuário através da Steam Web API.
+ * | Fetches a user's display name, avatar and profile link through the Steam Web API.
  *
- * @param steamId SteamID64 do usuário.
- * @returns Perfil do usuário ou null em caso de erro.
+ * @param steamId SteamID64 do usuário. | The user's SteamID64.
+ * @returns Perfil do usuário ou null em caso de erro. | User profile or null in case of error.
  */
 export async function buscarPerfilSteam(steamId: string): Promise<PerfilSteam | null> {
 
@@ -167,9 +171,10 @@ export async function buscarPerfilSteam(steamId: string): Promise<PerfilSteam | 
 
 /**
  * Consulta a lista de desejos (Wishlist) pública do usuário na Steam através da IWishlistService.
+ * | Queries the user's public Steam wishlist through IWishlistService.
  *
- * @param steamId SteamID64 do usuário.
- * @returns Array com os App IDs numéricos dos jogos desejados.
+ * @param steamId SteamID64 do usuário. | The user's SteamID64.
+ * @returns Array com os App IDs numéricos dos jogos desejados. | Array with the numeric App IDs of the wished games.
  */
 export async function buscarWishlistSteam(steamId: string): Promise<number[]> {
 
@@ -195,12 +200,15 @@ export async function buscarWishlistSteam(steamId: string): Promise<number[]> {
 
 /**
  * Importa a lista de desejos da Steam para a lista de desejos do usuário no banco local (RF05).
+ * | Imports the Steam wishlist into the user's wishlist in the local database (RF05).
  *
  * Mapeamento: Steam App IDs -> ITAD IDs -> Catálogo de Jogos -> Tabela `lista_jogo`.
+ * | Mapping: Steam App IDs -> ITAD IDs -> Game Catalog -> `lista_jogo` table.
  *
- * @param idUsuario Identificador `id_usuario` no banco de dados.
- * @param steamId SteamID64 do usuário na Steam.
+ * @param idUsuario Identificador `id_usuario` no banco de dados. | `id_usuario` identifier in the database.
+ * @param steamId SteamID64 do usuário na Steam. | The user's SteamID64 on Steam.
  * @returns Quantidade total de jogos sincronizados com sucesso na lista de desejos.
+ *   | Total number of games successfully synced to the wishlist.
  */
 export async function importarWishlistSteam(idUsuario: number, steamId: string): Promise<number> {
 
@@ -265,9 +273,11 @@ export async function importarWishlistSteam(idUsuario: number, steamId: string):
 /**
  * Busca os Steam App IDs de todos os DLCs vinculados a um jogo base através da Steam Store API.
  * Em caso de indisponibilidade ou ausência de conteúdos adicionais, devolve lista vazia.
+ * | Fetches the Steam App IDs of all DLCs linked to a base game through the Steam Store API. In case of unavailability or no
+ *   additional content, returns an empty list.
  *
- * @param appid Código numérico do jogo na Steam.
- * @returns Array contendo os IDs dos DLCs.
+ * @param appid Código numérico do jogo na Steam. | Numeric game code on Steam.
+ * @returns Array contendo os IDs dos DLCs. | Array containing the DLC IDs.
  */
 export async function buscarDlcsSteam(appid: number): Promise<number[]> {
 

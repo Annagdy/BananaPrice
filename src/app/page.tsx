@@ -10,6 +10,7 @@ import Divisor from '../components/Divisor'
 import Loading from '@/components/loading'
 import { BoltIcon, TagIcon } from '../components/Icons'
 import type { Game } from '../mocks/games'
+import { useIdioma } from '../components/contexts/IdiomaContext'
 
 const OFERTAS_NA_HOME = 8
 
@@ -41,6 +42,7 @@ const paraCard = (j: JogoApi): Game => {
 }
 
 export default function HomePage() {
+  const { t } = useIdioma()
   const [start, setStart] = useState(0)
   const [ofertas, setOfertas] = useState<JogoApi[]>([])
   const [jogosTurbo, setJogosTurbo] = useState<JogoApi[]>([])
@@ -131,22 +133,22 @@ export default function HomePage() {
         <section className="px-5 py-2.5">
           <div className="flex items-center justify-between p-2.5">
             <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
-              <BoltIcon /> Vitrine Turbo
+              <BoltIcon /> {t.home.vitrineTurbo}
             </h2>
 
             <Link
               href="/jogos"
               className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-bp-primary px-4 py-[9px] text-xs font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
             >
-              <BoltIcon width={12} height={16} /> Dar um turbo
+              <BoltIcon width={12} height={16} /> {t.home.darUmTurbo}
             </Link>
           </div>
 
           {carregando ? (
-            <Loading mensagem="Carregando destaques..." />
+            <Loading mensagem={t.home.carregandoDestaques} />
           ) : featured.length === 0 ? (
             <p className="py-10 text-center text-bp-muted">
-              Nenhum jogo na Vitrine Turbo no momento. Seja o primeiro a impulsionar um jogo!
+              {t.home.nenhumTurbo}
             </p>
           ) : (
             <div className="flex items-center justify-center gap-[29px] p-2.5">
@@ -190,19 +192,19 @@ export default function HomePage() {
         <section className="px-5 py-2.5">
           <div className="flex items-center justify-between p-2.5">
             <h2 className="flex items-center gap-3 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
-              <TagIcon /> Ofertas do Momento
+              <TagIcon /> {t.home.ofertasDoMomento}
             </h2>
           </div>
 
           {carregando ? (
-            <Loading mensagem="Carregando ofertas do momento..." />
+            <Loading mensagem={t.home.carregandoOfertas} />
           ) : erro ? (
             <p role="alert" className="py-10 text-center text-red-400">
               {erro}
             </p>
           ) : ofertas.length === 0 ? (
             <p className="py-10 text-center text-bp-muted">
-              Nenhuma oferta no momento.
+              {t.home.nenhumaOferta}
             </p>
           ) : (
             <div className="grid auto-rows-fr grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 justify-center gap-2 sm:gap-3 p-1.5 sm:p-2.5">
@@ -223,7 +225,7 @@ export default function HomePage() {
               href="/jogos"
               className="rounded-[9px] bg-bp-primary px-3 py-[5px] text-base font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
             >
-              Ver Mais
+              {t.home.verMais}
             </Link>
           </div>
         </section>

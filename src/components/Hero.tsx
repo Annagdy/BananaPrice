@@ -1,5 +1,8 @@
+'use client'
+
 import Image from 'next/image'
 import { macaco } from './assets'
+import { useIdioma } from './contexts/IdiomaContext'
 
 /**
  * Seção de destaque inicial da página principal (Hero).
@@ -9,14 +12,16 @@ import { macaco } from './assets'
  * @returns Elemento JSX da seção Hero.
  */
 export default function Hero() {
+  const { t } = useIdioma()
+
   return (
     <section className="relative m-2.5 flex min-h-[241px] items-center justify-between overflow-hidden rounded-3xl bg-[linear-gradient(90deg,rgba(50,40,36,.8),rgba(39,29,26,.62)_49%,rgba(35,25,22,.71))] px-[60px] py-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[1100px]:flex-col max-[1100px]:gap-4 max-[1100px]:p-6 max-[1100px]:text-center">
       <div className="mx-auto max-w-[620px] flex-1 text-center">
         <h1 className="font-head text-[36px] font-extrabold leading-[1.2] text-bp-muted max-[640px]:text-[26px]">
-          BananaPrice: O seu radar de games a preço de banana!
+          {t.hero.titulo}
         </h1>
         <p className="mx-auto mt-4 max-w-[380px] text-2xl leading-7 text-bp-muted max-[640px]:text-lg">
-          Acompanhe descontos reais e o menor preço histórico nas principais lojas.
+          {t.hero.subtitulo}
         </p>
       </div>
 

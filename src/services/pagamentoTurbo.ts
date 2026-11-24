@@ -31,6 +31,7 @@ export type CriarPagamentoResult = {
 /**
  * Valida se a URL do site é pública e HTTPS.
  * Retorna undefined em localhost para não quebrar a API do Mercado Pago.
+ * | Validates whether the site URL is public and HTTPS. Returns undefined on localhost so as not to break the Mercado Pago API.
  */
 function obterNotificationUrl(): string | undefined {
   const rawUrl =
@@ -48,6 +49,7 @@ function obterNotificationUrl(): string | undefined {
 
 /**
  * Cria um pagamento Pix via Mercado Pago e salva na tabela pagamento_turbo.
+ * | Creates a Pix payment via Mercado Pago and saves it in the pagamento_turbo table.
  */
 export async function criarPagamentoPix(params: {
   idUsuario: number
@@ -174,6 +176,7 @@ export async function criarPagamentoPix(params: {
 
 /**
  * Consulta o status de um pagamento pelo ID interno (sincroniza com o MP se pendente).
+ * | Queries the status of a payment by its internal ID (syncs with MP if pending).
  */
 export async function consultarStatusPagamento(
   idPagamento: number,
@@ -228,7 +231,7 @@ export async function consultarStatusPagamento(
 }
 
 /**
- * Verifica se o usuário já tem Turbo ativo para um jogo.
+ * Verifica se o usuário já tem Turbo ativo para um jogo. | Checks whether the user already has Turbo active for a game.
  */
 export async function verificarTurboAtivo(
   idUsuario: number,
@@ -248,6 +251,7 @@ export async function verificarTurboAtivo(
 /**
  * Processa notificação do webhook do Mercado Pago.
  * Consulta o pagamento diretamente na API do MP para confirmar o status real.
+ * | Processes a Mercado Pago webhook notification. Queries the payment directly in the MP API to confirm the real status.
  */
 export async function processarWebhookPagamento(
   idPagamentoMp: number

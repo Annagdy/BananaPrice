@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { useIdioma } from './contexts/IdiomaContext'
 
 type LoadingProps = {
   mensagem?: string
@@ -8,22 +9,26 @@ type LoadingProps = {
 }
 
 export default function Loading({
-  mensagem = 'Carregando...',
+  mensagem,
   tamanho = 200,
 }: LoadingProps) {
+  const { idioma } = useIdioma()
+  const textoPadrao = idioma === 'en-US' ? 'Loading...' : 'Carregando...'
+  const textoExibido = mensagem !== undefined ? mensagem : textoPadrao
+
   return (
     <div className="flex flex-col items-center justify-center py-10 gap-3">
       <Image
         src="/assets/loading.gif" // Caminho correto apontando para public/assets/
-        alt="Carregando..."
+        alt={textoPadrao}
         width={tamanho}
         height={tamanho}
         unoptimized
         className="object-contain"
       />
-      {mensagem && (
+      {textoExibido && (
         <p className="font-head text-sm font-semibold text-bp-muted animate-pulse">
-          {mensagem}
+          {textoExibido}
         </p>
       )}
     </div>

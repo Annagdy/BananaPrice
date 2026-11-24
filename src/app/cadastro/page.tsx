@@ -16,6 +16,7 @@ import {
   UserPlusSmall,
   SteamIcon,
 } from '../../components/Icons'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 type Form = { nome: string; email: string; senha: string; confirma: string }
 type Erros = Partial<Record<'nome' | 'email' | 'senha' | 'confirma' | 'termos', string>>
@@ -38,6 +39,8 @@ const checkInput =
 
 export default function CadastroPage() {
   const router = useRouter()
+  const { t } = useIdioma()
+  const ta = t.auth
   const [f, setF] = useState<Form>({ nome: '', email: '', senha: '', confirma: '' })
   const [ver, setVer] = useState(false)
   const [termos, setTermos] = useState(false)
@@ -101,25 +104,25 @@ export default function CadastroPage() {
         <span className="mb-1 grid size-10 place-items-center rounded-full bg-bp-input text-bp-primary">
           <UserPlusSmall />
         </span>
-        <h1 className="font-head text-2xl font-bold leading-8 tracking-[-.6px] text-bp-text">Criar sua conta</h1>
-        <p className="text-sm leading-5 text-bp-muted">Monitore promoções e nunca mais pague caro em games</p>
+        <h1 className="font-head text-2xl font-bold leading-8 tracking-[-.6px] text-bp-text">{ta.criarConta}</h1>
+        <p className="text-sm leading-5 text-bp-muted">{ta.monitorePromocoes}</p>
       </div>
 
       <a
         href="/api/v1/auth/steam"
         className="flex items-center justify-center gap-2 rounded-full bg-bp-steam px-4 py-2 text-sm tracking-[.28px] text-bp-text hover:brightness-110"
       >
-        <SteamIcon /> Cadastrar com a Steam
+        <SteamIcon /> {ta.cadastrarComSteam}
       </a>
 
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-[.55px] text-bp-muted/70 before:h-px before:flex-1 before:bg-bp-nav before:content-[''] after:h-px after:flex-1 after:bg-bp-nav after:content-['']">
-        ou cadastre com e-mail
+        {ta.ouCadastreEmail}
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={enviar} noValidate>
         <AuthField
           id="nome"
-          label="Nome completo ou Nick gamer"
+          label={ta.nomeCompletoOuNick}
           icon={<GamepadIcon />}
           placeholder="Ex: BananinhaGamer"
           value={f.nome}
@@ -131,7 +134,7 @@ export default function CadastroPage() {
 
         <AuthField
           id="email"
-          label="E-mail para alertas"
+          label={ta.emailParaAlertas}
           icon={<AtIcon />}
           type="email"
           placeholder="seuemail@exemplo.com"
@@ -144,10 +147,10 @@ export default function CadastroPage() {
 
         <AuthField
           id="senha"
-          label="Senha segura"
+          label={ta.senhaSegura}
           icon={<LockIcon />}
           type={ver ? 'text' : 'password'}
-          placeholder="Mínimo 8 caracteres"
+          placeholder={ta.minimo8Char}
           value={f.senha}
           onChange={set('senha')}
           autoComplete="new-password"
@@ -173,7 +176,7 @@ export default function CadastroPage() {
                 ))}
               </div>
               <small className="min-w-9 text-right text-[11px] tracking-[.44px] text-bp-muted/70">
-                {rotulos[nivel]}
+                {ta.forcaRotulos[nivel] ?? rotulos[nivel]}
               </small>
             </div>
           }
@@ -181,10 +184,10 @@ export default function CadastroPage() {
 
         <AuthField
           id="confirma"
-          label="Confirmar senha"
+          label={ta.confirmarSenha}
           icon={<RestoreIcon />}
           type={ver ? 'text' : 'password'}
-          placeholder="Repita a senha"
+          placeholder={ta.repitaSenha}
           value={f.confirma}
           onChange={set('confirma')}
           autoComplete="new-password"
@@ -200,8 +203,8 @@ export default function CadastroPage() {
               className={checkInput}
             />
             <span>
-              Li e concordo com os <a href="#" className="text-bp-text underline">Termos de Uso</a> e{' '}
-              <a href="#" className="text-bp-text underline">Políticas de Privacidade</a>
+              {ta.concordoCom} <Link href="/termos-de-uso" className="text-bp-text underline">{ta.termosUso}</Link> e{' '}
+              <Link href="/politica-de-privacidade" className="text-bp-text underline">{ta.politicaPrivacidade}</Link>
             </span>
           </label>
           {erro.termos && <span className="pl-3 text-[11px] text-[#ff8a8e]">{erro.termos}</span>}
@@ -212,7 +215,7 @@ export default function CadastroPage() {
               onChange={(e) => setAlertas(e.target.checked)}
               className={checkInput}
             />
-            <span>Desejo receber alertas de ofertas e bugs de preço selecionados</span>
+            <span>{ta.alertasOfertas}</span>
           </label>
         </div>
 
@@ -221,14 +224,14 @@ export default function CadastroPage() {
           disabled={carregando}
           className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {carregando ? 'Criando...' : <>Criar Conta BananaPrice <ArrowRight /></>}
+          {carregando ? ta.criando : <>{ta.criarConta} <ArrowRight /></>}
         </button>
       </form>
 
       <p className="pt-1 text-center text-sm text-bp-muted">
-        Já tem uma conta?
+        {ta.jaTemConta}
         <Link href="/login" className="ml-1 text-xs tracking-[.36px] text-bp-text hover:underline">
-          Fazer login
+          {ta.fazerLogin}
         </Link>
       </p>
     </AuthShell>

@@ -10,9 +10,11 @@ import Divisor from '../../components/Divisor'
 import { BellIcon, SteamIcon } from '../../components/Icons'
 import { macacobanana } from '../../components/assets'
 import { createClient } from '@/lib/supabase.ts/client'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 export default function ContaPage() {
   const router = useRouter()
+  const { t } = useIdioma()
   const [salvo, setSalvo] = useState({ nome: '', email: '' })
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -126,10 +128,10 @@ export default function ContaPage() {
         <section className="relative flex min-h-[199px] items-center overflow-hidden rounded-3xl bg-[linear-gradient(90deg,rgba(50,40,36,.9)_0%,rgba(39,29,26,.7)_50%,rgba(35,25,22,.8)_100%)] px-[70px] py-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[640px]:px-6">
           <div className="relative z-[1] flex max-w-[352px] flex-col gap-4">
             <h1 className="font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">
-              Olá, {salvo.nome}!
+              {t.conta.ola(salvo.nome)}
             </h1>
             <p className="text-2xl leading-7 text-bp-muted max-[640px]:text-base">
-              Gerencie seu perfil, preferências e contas conectadas.
+              {t.conta.subtitulo}
             </p>
           </div>
           <Image
@@ -154,7 +156,7 @@ export default function ContaPage() {
           >
             <h2 className="flex items-center gap-2.5 p-2.5 font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">
               <UserIcon className="h-12 w-[42px] shrink-0 max-[640px]:h-8 max-[640px]:w-7" />
-              Dados da Conta
+              {t.conta.dadosConta}
             </h2>
 
             <Divisor cor="#3d322e" className="my-2 mx-0" />
@@ -162,7 +164,7 @@ export default function ContaPage() {
             <div className="flex flex-col gap-4 p-2.5">
               <Campo
                 id="nome"
-                label="Nome de Usuário"
+                label={t.conta.nomeUsuario}
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
@@ -170,7 +172,7 @@ export default function ContaPage() {
               />
               <Campo
                 id="email"
-                label="E-mail"
+                label={t.conta.email}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -185,9 +187,9 @@ export default function ContaPage() {
                 <SteamIcon />
               </div>
               <div className="flex flex-1 flex-col p-2.5">
-                <span className="text-2xl font-bold leading-7 text-bp-muted max-[640px]:text-lg">Steam</span>
+                <span className="text-2xl font-bold leading-7 text-bp-muted max-[640px]:text-lg">{t.conta.steam}</span>
                 <span className="text-2xl leading-7 text-bp-muted max-[640px]:text-base">
-                  Sincronização de conta e lista de desejos
+                  {t.conta.steamDesc}
                 </span>
               </div>
 
@@ -197,7 +199,7 @@ export default function ContaPage() {
                   disabled
                   className="inline-flex h-[38px] cursor-default items-center gap-1.5 rounded-[9px] bg-[#4a682d] px-4 text-xs font-bold text-bp-muted opacity-90"
                 >
-                  <CheckIcon className="size-4" /> Conectado
+                  <CheckIcon className="size-4" /> {t.conta.conectado}
                 </button>
               ) : (
                 <button
@@ -207,7 +209,7 @@ export default function ContaPage() {
                   }}
                   className="inline-flex h-[38px] cursor-pointer items-center rounded-[9px] bg-bp-primary px-4 text-xs font-bold text-bp-neutral transition hover:brightness-110 active:scale-95"
                 >
-                  Conectar
+                  {t.conta.conectar}
                 </button>
               )}
             </div>
@@ -218,13 +220,13 @@ export default function ContaPage() {
                 onClick={cancelar}
                 className="cursor-pointer rounded-[9px] bg-bp-primary px-4 py-[5px] text-[15px] text-bp-neutral transition hover:brightness-110 active:scale-95"
               >
-                Cancelar
+                {t.conta.cancelar}
               </button>
               <button
                 type="submit"
                 className="cursor-pointer rounded-[9px] bg-[#4a682d] px-4 py-[5px] text-[15px] text-bp-muted transition hover:brightness-110 active:scale-95"
               >
-                Confirmar
+                {t.conta.confirmar}
               </button>
             </div>
           </form>
@@ -233,7 +235,7 @@ export default function ContaPage() {
             <section className="flex flex-col gap-2.5 rounded-3xl border-2 border-[#3d322e] bg-bp-nav p-3">
               <h2 className="flex items-center gap-2.5 p-2.5 font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">
                 <BellIcon width={58} height={58} strokeWidth={1.6} />
-                Notificações
+                {t.conta.notificacoes}
               </h2>
 
               <Divisor cor="#3d322e" className="my-2 mx-0" />
@@ -243,7 +245,7 @@ export default function ContaPage() {
                 className="flex cursor-pointer items-center justify-between gap-6 rounded-[13px] border border-[#3d322e] bg-bp-neutral p-2.5"
               >
                 <span className="p-2.5 text-2xl leading-7 text-bp-muted max-[640px]:text-base">
-                  Notificar E-mail
+                  {t.conta.notificarEmail}
                 </span>
                 <input
                   id="notificar-email"
@@ -267,7 +269,7 @@ export default function ContaPage() {
                 className="inline-flex cursor-pointer items-center gap-2 rounded-[9px] bg-bp-primary px-4 py-4 text-[15px] text-bp-neutral transition hover:brightness-110 active:scale-95"
               >
                 <LogoutIcon className="size-[29px]" />
-                Sair
+                {t.conta.sair}
               </button>
             </div>
           </div>

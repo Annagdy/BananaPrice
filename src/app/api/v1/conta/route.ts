@@ -4,8 +4,10 @@ import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
 /**
  * Endpoint para obter os dados do perfil, preferências e vínculo Steam do usuário (GET /api/v1/conta).
+ * | Endpoint to get the user's profile data, preferences and Steam link (GET /api/v1/conta).
  *
  * @returns JSON `{ id, nomeUsuario, email, notificarEmail, steamConectada, idSteam }` ou erro 401/404.
+ *   | JSON `{ id, nomeUsuario, email, notificarEmail, steamConectada, idSteam }` or a 401/404 error.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -43,15 +45,19 @@ export async function GET() {
 
 /**
  * Endpoint para atualizar dados e preferências da conta do usuário logado (PATCH /api/v1/conta).
+ * | Endpoint to update data and preferences of the logged-in user's account (PATCH /api/v1/conta).
  *
- * Suporta alteração de:
- * - `nomeUsuario`: Atualiza nome único e metadados.
+ * Suporta alteração de: | Supports changing:
+ * - `nomeUsuario`: Atualiza nome único e metadados. | `nomeUsuario`: Updates the unique name and metadata.
  * - `email`: Dispara confirmação pelo Supabase Auth (rejeitando emails `@steam.local`).
+ *   | `email`: Triggers confirmation through Supabase Auth (rejecting `@steam.local` emails).
  * - `senha`: Permite definir credenciais em contas criadas via Steam.
- * - `notificarEmail`: Liga ou desliga envio de alertas por e-mail.
+ *   | `senha`: Allows setting credentials on accounts created via Steam.
+ * - `notificarEmail`: Liga ou desliga envio de alertas por e-mail. | `notificarEmail`: Turns the sending of email alerts on or off.
  *
- * @param request Requisição HTTP com o payload parcial de atualização.
+ * @param request Requisição HTTP com o payload parcial de atualização. | HTTP request with the partial update payload.
  * @returns Status 200 `{ ok, aviso }` ou erros de validação e conflito (400, 401, 404, 409).
+ *   | Status 200 `{ ok, aviso }` or validation and conflict errors (400, 401, 404, 409).
  */
 export async function PATCH(request: Request) {
   const { origin } = new URL(request.url);
