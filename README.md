@@ -1,41 +1,53 @@
-# BananaPrice: Responsividade Mobile Completa e Páginas de Transparência Institucional
+# BananaPrice: Suporte Internacional (Português pt-BR & Inglês en-US), Responsividade Mobile e Transparência
 
-Nesta etapa, foi realizada a adaptação completa da experiência do **BananaPrice para dispositivos móveis (smartphones)**, além da criação e vinculação das páginas institucionais de **Transparência (Termos de Uso, Política de Privacidade e Contato & API Pública)**.
+Nesta etapa, foi implementado o **suporte completo a internacionalização (i18n)** com seleção de idiomas entre **Português do Brasil (`pt-BR`) como padrão** e **Inglês Americano (`en-US`)**, além da consolidação da experiência mobile responsiva e páginas de transparência institucional.
+
+---
+
+## 🌐 Internacionalização & Suporte Multilíngue (`pt-BR` & `en-US`)
+
+* **Contexto Central de Idiomas (`IdiomaContext.tsx`)**:
+  * **Português do Brasil (`pt-BR`)** definido e mantido como o idioma padrão da plataforma.
+  * Suporte nativo a **Inglês dos EUA (`en-US`)**.
+  * **Persistência de Preferência**: Salvo automaticamente em `localStorage` (`bp_idioma_preferido`) e atualização em tempo real da tag `<html lang="...">`.
+  * **Formatação Monetária Inteligente (`formatarMoeda`)**: Converte valores para Real brasileiro (`R$ 0,00`) quando em `pt-BR` e formato americano (`$0.00`) quando em `en-US`.
+
+* **Seletor de Idiomas no Cabeçalho (`Nav.tsx`) e Autenticação (`AuthShell.tsx`)**:
+  * **Desktop**: Botões em pílula estilizados (`🇧🇷 PT` / `🇺🇸 EN`) ao lado das ações do usuário.
+  * **Mobile**: Botão alternador direto na barra de navegação responsiva.
+  * **Telas de Login & Cadastro**: Seletor flutuante com efeito *glassmorphism* no canto superior direito para alternar o idioma antes ou durante o cadastro/login.
+
+* **Telas e Componentes Traduzidos Dinamicamente**:
+  * **Navegação & Rodapé**: Placeholders de busca, modais, histórico de buscas recentes, manifestos, créditos da API ITAD e direitos autorais.
+  * **Home & Vitrines**: Cabeçalhos de seção (*Vitrine Turbo / Turbo Showcase*, *Ofertas do Momento / Current Deals*), badges de jogos (*GRÁTIS / FREE*, *Indisponível / Unavailable*).
+  * **Catálogo & Filtros (`/jogos`)**: Todos os acordeões de filtro (*Estado*, *Preços*, *Descontos*, *Lojas*, *Conteúdo Adulto*, *Consoles & Gift Cards*), avisos de busca por IA e paginação.
+  * **Página do Jogo (`/jogos/[id]`)**: Onde comprar, especificações do jogo, resumo, histórico de preços, modal de DLCs com busca e tooltips de lista de desejos.
+  * **Cards e Página de Notificações (`/notificacoes`)**:
+    * Tradução dinâmica de notificações salvas no banco (tanto alertas com porcentagem de desconto quanto títulos e mensagens descritivas).
+    * Badges (*NOVA / NEW*), ações de marcar como lida/excluir e tempos relativos (*agora mesmo / just now*, *há X min / Xm ago*, *ontem / yesterday*, etc.).
+  * **Minha Conta (`/conta`)**: Dados da conta, sincronização com a Steam, preferências de notificação por e-mail e encerramento de sessão.
+  * **Lista de Desejos (`/lista-de-desejos`)**: Cabeçalho, avisos laterais do mascote, cards desejados e botões de remoção/ofertas.
+  * **Checkout e Sucesso do Turbo (`/turbo/[gameId]` e `/turbo/sucesso`)**: Títulos de boost, instruções de Copia e Cola, avisos de conferência de valor e tela de comemoração.
+  * **Páginas Institucionais de Transparência**:
+    * Termos de Uso (`/termos-de-uso`)
+    * Política de Privacidade (`/politica-de-privacidade`)
+    * Contato & API Pública (`/contato-api`) com esclarecimentos sobre a IsThereAnyDeal (ITAD).
+  * **Telas de Carregamento (*Loadings*)**: Componente global e telas individuais exibem mensagens no idioma selecionado (*Carregando...* / *Loading...*).
 
 ---
 
 ## 📱 Responsividade para Celulares (Mobile First)
 
 * **Navegação Superior Compacta (`Nav.tsx`)**:
-  * **Logo proporcional**: Redução do tamanho da logo no cabeçalho em telas menores (`48px` de altura e `140px` de largura), impedindo que o topo ocupe espaço desnecessário.
-  * **Menu Hambúrguer (3 Linhas)**: Em celulares, os botões longos de texto da navbar são substituídos por um botão com ícone de menu de 3 linhas, que expande um menu suspenso elegante contendo:
-    * 🔔 **Notificações** (com badge dinâmico de novos alertas);
-    * ❤️ **Lista de Desejos**;
-    * 👤 **Minha Conta** / **Login**.
-  * **Barra de Pesquisa acionada por Lupa**: Em telas pequenas, a barra fica oculta para liberar espaço na tela inicial. Ao tocar no botão de Lupa, ela desliza suavemente exibindo o campo de texto, o alternador de modo (**Nativa / IA**) e o histórico de buscas recentes.
+  * Logo proporcional para telas menores (`48px` de altura).
+  * Menu Hambúrguer expansível contendo Notificações, Lista de Desejos e Minha Conta/Login.
+  * Barra de busca acionada via botão de Lupa, expandindo os modos **Nativa / IA** e histórico recente.
 * **Cards de Jogos Compactos (`GameCard.tsx`)**:
-  * Ajuste de tipografia, paddings internos, badges de desconto e de status para celulares.
-  * Grid responsivo estruturado em 2 colunas no celular, mantendo a proporção correta das capas de jogos sem estourar a tela.
+  * Grid responsivo em 2 colunas no celular com proporção equilibrada para as capas.
 * **Filtros da Página de Jogos (`/jogos`)**:
-  * Adicionado botão sanfonado mobile **"Filtrar Ofertas e Categorias"**: os filtros agora iniciam recolhidos no celular, permitindo que o usuário veja a vitrine de jogos de imediato sem precisar rolar uma coluna inteira de opções.
+  * Painel sanfonado mobile recolhido por padrão para acesso imediato às ofertas.
 * **Lista de Desejos Mobile (`/lista-de-desejos`)**:
-  * Cards horizontais compactos com capa de `88px`, evitando que a imagem do jogo ocupe a tela vertical inteira.
-  * **Paginação Inteligente**: Correção da paginação que antes vazava da tela quando havia muitas páginas; agora conta com janela deslizante e reticências (`...`), mantendo os botões contidos e alinhados.
-
----
-
-## 📄 Páginas Institucionais & Transparência
-
-As páginas de rodapé foram implementadas com layout nativo do BananaPrice e conectadas diretamente no `Footer.tsx`:
-
-* **Termos de Uso (`/termos-de-uso`)**:
-  * Esclarece o propósito do BananaPrice como ferramenta agregadora e comparadora independente de preços (não processamos pagamentos de chaves de jogos de terceiros).
-* **Política de Privacidade (`/politica-de-privacidade`)**:
-  * Detalha a coleta mínima de dados (cadastro, vínculo com Steam ID público sem senhas, histórico de buscas em `localStorage`) e conformidade com a LGPD.
-* **Contato & API Pública (`/contato-api`)**:
-  * **Origem dos Dados & IsThereAnyDeal**: Seção com badge ITAD explicando como as ofertas, histórico de preços e catálogo são alimentados pela API pública da [IsThereAnyDeal.com](https://isthereanydeal.com).
-  * **E-mail Oficial**: `bananaprice.not@gmail.com`.
-  * **Repositório Oficial**: Link direto para a comunidade e issues no GitHub ([https://github.com/Annagdy/BananaPrice](https://github.com/Annagdy/BananaPrice)).
+  * Cards horizontais compactos com capa de `88px` e paginação com reticências (`...`) para não vazar a tela.
 
 ---
 
@@ -69,13 +81,13 @@ Acesse em [http://localhost:3000](http://localhost:3000).
 
 ## 🧪 Como Testar as Mudanças
 
-1. **Responsividade no Celular**:
-   * Abra as ferramentas do desenvolvedor no navegador (`F12`) e ative o modo responsivo/mobile (ex: iPhone, Pixel, Samsung Galaxy).
-   * Verifique a **logo compacta**, a **lupa de busca** (clique para expandir com opções Nativa/IA) e o **menu de 3 linhas** (clique para abrir Notificações, Lista de Desejos e Conta).
-   * Verifique a grade de jogos na home e catálogo: os cards agora renderizam em 2 colunas organizadas e com proporção adequada.
-2. **Filtros em `/jogos`**:
-   * No modo mobile, clique em **"Filtrar Ofertas e Categorias"** para abrir e recolher o painel de filtros.
-3. **Lista de Desejos em `/lista-de-desejos`**:
-   * Verifique se as imagens dos cards desejados estão em tamanho compacto (`88px`) e se a barra de paginação não vaza para fora da tela.
-4. **Páginas Institucionais**:
-   * No rodapé, clique nos links **Termos de Uso**, **Política de Privacidade** e **Contato & API Pública** para validar a navegação e o conteúdo sobre a API da IsThereAnyDeal.
+1. **Seleção de Idioma (`🇧🇷 PT` / `🇺🇸 EN`)**:
+   * No topo da página (desktop ou mobile), clique nos botões de alternância `🇧🇷 PT` e `🇺🇸 EN`.
+   * Observe a tradução imediata dos textos, títulos, filtros, loadings e a conversão de preços (`R$` para `$`).
+   * Atualize a página e confira se sua escolha de idioma permaneceu salva (`localStorage`).
+2. **Páginas de Login & Cadastro**:
+   * Acesse `/login` ou `/cadastro` e utilize o seletor de idioma no canto superior direito para alternar entre inglês e português.
+3. **Página de Notificações**:
+   * Acesse `/notificacoes` e confira a tradução dos cards e tempos relativos em ambos os idiomas.
+4. **Páginas de Transparência e Turbo**:
+   * Acesse `/termos-de-uso`, `/politica-de-privacidade`, `/contato-api` e `/turbo/[gameId]`, alternando o idioma para validar o conteúdo adaptado.
