@@ -8,12 +8,17 @@ export const maxDuration = 300
 
 /**
  * Rotina automatizada cron para sincronização periódica de preços de todos os jogos em wishlists (GET /api/cron/sync-prices).
+ * | Automated cron routine for periodic price synchronization of all games on wishlists (GET /api/cron/sync-prices).
  *
  * Busca cotações atualizadas no ITAD e Steam, executa deduplicação de jogos e dispara notificações
  * por e-mail e no painel para os usuários afetados em caso de queda de preço.
+ * | Fetches updated quotes from ITAD and Steam, deduplicates games and triggers email and dashboard notifications for the affected
+ *   users in case of a price drop.
  *
  * @param request Requisição HTTP com cabeçalho ou parâmetro `Authorization: Bearer <CRON_SECRET>`.
+ *   | HTTP request with the header or parameter `Authorization: Bearer <CRON_SECRET>`.
  * @returns Relatório JSON com o total de jogos analisados e atualizados.
+ *   | JSON report with the total number of games analyzed and updated.
  */
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET

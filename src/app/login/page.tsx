@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import AuthShell from '../../components/AuthShell'
 import AuthField from '../../components/AuthField'
 import { AtIcon, LockIcon, EyeIcon, EyeOffIcon, ArrowRight, VisitorIcon, SteamIcon } from '../../components/Icons'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 /* Aceita só caminhos internos em ?next= (evita open redirect). Qualquer outro valor vira "/conta".
 
@@ -19,6 +20,8 @@ function destinoSeguro(next: string | null): string {
 (GET /api/v1/auth/steam). Mostra erros da API e o erro vindo de ?erro=steam. */
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useIdioma()
+  const ta = t.auth
   const [login, setLogin] = useState('')
   const [senha, setSenha] = useState('')
   const [ver, setVer] = useState(false)
@@ -58,25 +61,25 @@ export default function LoginPage() {
   return (
     <AuthShell>
       <div className="flex flex-col items-center gap-1 text-center">
-        <h1 className="font-head text-2xl font-bold leading-8 tracking-[-.6px] text-bp-text">Bem-vindo</h1>
-        <p className="text-sm leading-5 text-bp-muted">Acesse seus alertas de preços e wishlist</p>
+        <h1 className="font-head text-2xl font-bold leading-8 tracking-[-.6px] text-bp-text">{ta.bemVindo}</h1>
+        <p className="text-sm leading-5 text-bp-muted">{ta.acesseAlertas}</p>
       </div>
 
       <a
         href="/api/v1/auth/steam"
         className="flex items-center justify-center gap-2 rounded-full bg-bp-steam px-4 py-2 text-sm tracking-[.28px] text-bp-text hover:brightness-110"
       >
-        <SteamIcon /> Continuar com Steam
+        <SteamIcon /> {ta.continuarComSteam}
       </a>
 
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-[.55px] text-bp-muted/70 before:h-px before:flex-1 before:bg-bp-nav before:content-[''] after:h-px after:flex-1 after:bg-bp-nav after:content-['']">
-        ou com e-mail
+        {ta.ouComEmail}
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={entrar}>
         <AuthField
           id="login"
-          label="E-mail ou usuário"
+          label={ta.emailOuUsuario}
           icon={<AtIcon />}
           type="text"
           placeholder="banana@gamer.com"
@@ -88,10 +91,10 @@ export default function LoginPage() {
 
         <AuthField
           id="senha"
-          label="Senha"
+          label={ta.senha}
           labelRight={
             <a href="#" className="text-[11px] tracking-[.44px] text-bp-primary">
-              Esqueceu a senha?
+              {ta.esqueceuSenha}
             </a>
           }
           icon={<LockIcon />}
@@ -118,20 +121,20 @@ export default function LoginPage() {
           disabled={carregando}
           className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 rounded-full bg-bp-primary px-4 py-2 font-head text-base leading-6 text-bp-on-primary shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {carregando ? 'Entrando...' : <>Entrar na Conta <ArrowRight /></>}
+          {carregando ? ta.entrando : <>{ta.entrarNaConta} <ArrowRight /></>}
         </button>
         <Link
           href="/"
           className="flex items-center justify-center gap-1 px-4 py-2 text-xs tracking-[.36px] text-bp-muted"
         >
-          <VisitorIcon /> Continuar como visitante
+          <VisitorIcon /> {ta.continuarComoVisitante}
         </Link>
       </form>
 
       <p className="pt-1 text-center text-sm text-bp-muted">
-        Não tem uma conta?
+        {ta.naoTemConta}
         <Link href="/cadastro" className="ml-1 text-xs tracking-[.36px] text-bp-text hover:underline">
-          Cadastre-se gratuitamente
+          {ta.cadastreGratis}
         </Link>
       </p>
     </AuthShell>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useIdioma } from './contexts/IdiomaContext'
 import {
   CartesianGrid,
   Line,
@@ -63,6 +64,7 @@ estica a escala e achata as demais. As outras podem ser ligadas pelos botões.
  * @returns Painel com gráfico de linha temporal e tabela comparativa.
  */
 export default function HistoricoPrecos({ idJogo }: { idJogo: number }) {
+  const { idioma, formatarMoeda } = useIdioma()
   const [dias, setDias] = useState(90)
   const [dados, setDados] = useState<Resposta | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -201,21 +203,36 @@ export default function HistoricoPrecos({ idJogo }: { idJogo: number }) {
       </div>
 
       {carregando ? (
-        <p className="py-10 text-center text-bp-muted">Carregando histórico...</p>
+        <p className="py-10 text-center text-bp-muted">
+          {idioma === 'en-US' ? 'Loading price history...' : 'Carregando histórico...'}
+        </p>
       ) : erro ? (
         <p role="alert" className="py-10 text-center text-red-400">
           {erro}
         </p>
       ) : series.length === 0 ? (
-        <p className="py-10 text-center text-bp-muted">Ainda não há histórico de preços para este jogo.</p>
+        <p className="py-10 text-center text-bp-muted">
+          {idioma === 'en-US' ? 'No price history available for this game yet.' : 'Ainda não há histórico de preços para este jogo.'}
+        </p>
       ) : (
         <>
           {/* Resumo (das lojas exibidas) */}
           {resumo && (
             <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-              <Cartao rotulo="Menor preço atual" valor={brl(resumo.atual)} />
-              <Cartao rotulo="Menor já registrado" valor={brl(resumo.menor.valor)} detalhe={dataBr(resumo.menor.data)} />
-              <Cartao rotulo="Maior no período" valor={brl(resumo.maior.valor)} detalhe={dataBr(resumo.maior.data)} />
+              <Cartao
+                rotulo={idioma === 'en-US' ? 'Current lowest' : 'Menor preço atual'}
+                valor={formatarMoeda(resumo.atual)}
+              />
+              <Cartao
+                rotulo={idioma === 'en-US' ? 'All-time low' : 'Menor já registrado'}
+                valor={formatarMoeda(resumo.menor.valor)}
+                detalhe={idioma === 'en-US' ? resumo.menor.data : dataBr(resumo.menor.data)}
+              />
+              <Cartao
+                rotulo={idioma === 'en-US' ? 'Highest in period' : 'Maior no período'}
+                valor={formatarMoeda(resumo.maior.valor)}
+                detalhe={idioma === 'en-US' ? resumo.maior.data : dataBr(resumo.maior.data)}
+              />
             </div>
           )}
 

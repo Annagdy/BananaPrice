@@ -9,6 +9,7 @@ import Footer from '@/components/Footer'
 import Divisor from '@/components/Divisor'
 import Loading from '@/components/loading'
 import { capaExemplo, macacoFeliz } from '@/components/assets'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 type ItemDesejo = {
   id: number
@@ -27,6 +28,7 @@ const brl = (valor: number): string =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export default function ListaDeDesejosPage() {
+  const { t } = useIdioma()
   const [itens, setItens] = useState<ItemDesejo[]>([])
   const [carregando, setCarregando] = useState<boolean>(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -93,7 +95,7 @@ export default function ListaDeDesejosPage() {
       <main className="flex flex-1 flex-col pb-10">
         <h1 className="flex items-center gap-3 px-[38px] py-5 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:px-4 max-[640px]:text-2xl">
           <HeartIcon className="size-[57px] shrink-0 max-[640px]:size-10" />
-          Lista de Desejos
+          {t.wishlist.titulo}
         </h1>
 
         {/* Divisor com a mesma cor `#3d322e` dos cards da conta */}
@@ -103,14 +105,14 @@ export default function ListaDeDesejosPage() {
           <section aria-label="Jogos desejados" className="flex w-full min-h-[350px] flex-col items-center justify-start gap-6">
             {carregando ? (
               <div className="flex w-full min-h-[300px] items-center justify-center py-12">
-                <Loading mensagem="Carregando sua lista de desejos..." tamanho={160} />
+                <Loading mensagem={t.wishlist.carregando} tamanho={160} />
               </div>
             ) : erro ? (
               <p role="alert" className="py-10 text-center text-red-400">
                 {erro}
               </p>
             ) : itens.length === 0 ? (
-              <p className="py-10 text-center text-bp-muted">Sua lista de desejos está vazia.</p>
+              <p className="py-10 text-center text-bp-muted">{t.wishlist.vazia}</p>
             ) : (
               <ul className="flex w-full list-none flex-col gap-[33px]">
                 {visiveis.map((item) => (
@@ -161,10 +163,10 @@ export default function ListaDeDesejosPage() {
 
           <aside className="flex h-fit flex-col items-center gap-2.5 self-center rounded-3xl bg-[#3d322e] p-2.5 shadow-[0_25px_50px_-12px_rgba(0,0,0,.25)] max-[1200px]:order-first">
             <h2 className="p-2.5 text-center font-head text-4xl font-extrabold text-bp-muted max-[640px]:text-2xl">
-              O Bananinha fica atento nos seus jogos desejados
+              {t.wishlist.avisoTitulo}
             </h2>
             <p className="max-w-[352px] p-2.5 text-center text-2xl leading-7 text-bp-muted max-[640px]:text-base">
-              Fique atento à notificações tanto no seu e-mail quanto no site!
+              {t.wishlist.avisoDescricao}
             </p>
             <Image
               src={macacoFeliz}
@@ -190,6 +192,7 @@ function CartaoDesejo({
   item: ItemDesejo
   onRemover: (id: number) => void
 }) {
+  const { t, formatarMoeda } = useIdioma()
   const temDesconto = item.desconto > 0 && item.precoOriginal !== null
 
   const [falhou, setFalhou] = useState(false)
@@ -220,13 +223,13 @@ function CartaoDesejo({
           <div className="flex flex-col gap-0.5 sm:gap-1.5">
             {temDesconto && (
               <span className="text-[10px] sm:text-sm lg:text-base text-bp-muted/60 line-through">
-                {brl(item.precoOriginal as number)}
+                {formatarMoeda(item.precoOriginal as number)}
               </span>
             )}
             <span className="font-head text-sm sm:text-xl lg:text-2xl font-extrabold text-bp-primary leading-tight">
-              {item.precoComDesconto !== null ? brl(item.precoComDesconto) : 'Sem preço'}
+              {item.precoComDesconto !== null ? formatarMoeda(item.precoComDesconto) : t.wishlist.semPreco}
             </span>
-            {item.loja && <span className="text-[10px] sm:text-xs text-bp-muted/70">na {item.loja}</span>}
+            {item.loja && <span className="text-[10px] sm:text-xs text-bp-muted/70">{t.wishlist.naLoja(item.loja)}</span>}
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -235,14 +238,14 @@ function CartaoDesejo({
               onClick={() => onRemover(item.id)}
               className="cursor-pointer rounded-[7px] sm:rounded-[9px] border border-bp-muted px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-sm text-bp-muted transition hover:brightness-125 active:scale-95"
             >
-              Remover
+              {t.wishlist.remover}
             </button>
             <Link
               href={item.url}
               className="inline-flex items-center gap-1 sm:gap-1.5 rounded-[7px] sm:rounded-[9px] bg-bp-muted px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-sm text-bp-neutral transition hover:brightness-110 active:scale-95"
             >
               <ExternalIcon className="size-3.5 sm:size-4" />
-              Ver ofertas
+              {t.wishlist.verOfertas}
             </Link>
           </div>
         </div>

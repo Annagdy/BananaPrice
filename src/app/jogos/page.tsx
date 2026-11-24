@@ -17,6 +17,7 @@ import type { Game } from '../../mocks/games'
 import { adultoAtivoNoNavegador, definirAdultoNoNavegador } from '../../lib/adulto'
 import { ehConsoleOuGiftCard } from '../../lib/hardwareGiftCard'
 import { urlCapaItad } from '../../lib/itad.ts'
+import { useIdioma } from '../../components/contexts/IdiomaContext'
 
 export const dynamic = 'force-dynamic'
 
@@ -296,6 +297,7 @@ function Grupo({
 function ConteudoJogos() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useIdioma()
 
   const termoNaUrl = (searchParams.get('search') || searchParams.get('busca') || '').trim()
   const modoNaUrl = (searchParams.get('modo') as ModoBusca) || 'nativa'
@@ -491,7 +493,7 @@ function ConteudoJogos() {
         {/* Título da Seção */}
         <section className="px-[55px] pt-2.5 max-[640px]:px-4">
           <h1 className="flex items-center gap-3 p-5 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:text-2xl">
-            <TagIcon width={56} height={56} /> Ofertas do Momento
+            <TagIcon width={56} height={56} /> {t.jogos.titulo}
           </h1>
         </section>
 
@@ -508,7 +510,7 @@ function ConteudoJogos() {
             >
               <span className="flex items-center gap-2">
                 <StoreIcon className="size-4" />
-                {filtrosMobileAbertos ? 'Ocultar Filtros' : 'Filtrar Ofertas e Categorias'}
+                {filtrosMobileAbertos ? t.jogos.ocultarFiltros : t.jogos.filtrarOfertas}
               </span>
               <span className="text-xs text-bp-muted">
                 {filtrosMobileAbertos ? '▲' : '▼'}
@@ -526,9 +528,9 @@ function ConteudoJogos() {
               aria-label="Filtros"
               className="flex w-full flex-col gap-4 rounded-3xl border-2 border-[#3d322e] bg-bp-nav p-5 shadow-lg"
             >
-              <Grupo titulo="Estado" icone={<StatusIcon />} abertoPadrao={true}>
+              <Grupo titulo={t.jogos.estado} icone={<StatusIcon />} abertoPadrao={true}>
                 <Chip
-                  label="Todos"
+                  label={t.jogos.todos}
                   ativa={filtroStatus === 'TODOS'}
                   onClick={() => {
                     setFiltroStatus('TODOS')
@@ -536,7 +538,7 @@ function ConteudoJogos() {
                   }}
                 />
                 <Chip
-                  label="Grátis"
+                  label={t.jogos.gratis}
                   ativa={filtroStatus === 'GRATIS'}
                   onClick={() => {
                     setFiltroStatus(filtroStatus === 'GRATIS' ? 'TODOS' : 'GRATIS')
@@ -544,7 +546,7 @@ function ConteudoJogos() {
                   }}
                 />
                 <Chip
-                  label="Indisponível"
+                  label={t.jogos.indisponivel}
                   ativa={filtroStatus === 'INDISPONIVEL'}
                   onClick={() => {
                     setFiltroStatus(filtroStatus === 'INDISPONIVEL' ? 'TODOS' : 'INDISPONIVEL')
@@ -553,7 +555,7 @@ function ConteudoJogos() {
                 />
               </Grupo>
 
-              <Grupo titulo="Preços" icone={<PriceIcon />} abertoPadrao={true}>
+              <Grupo titulo={t.jogos.precos} icone={<PriceIcon />} abertoPadrao={true}>
                 {PRICE_FILTERS.map((v) => (
                   <Chip
                     key={v}
@@ -564,7 +566,7 @@ function ConteudoJogos() {
                 ))}
               </Grupo>
 
-              <Grupo titulo="Descontos" icone={<DiscountIcon />} abertoPadrao={false}>
+              <Grupo titulo={t.jogos.descontos} icone={<DiscountIcon />} abertoPadrao={false}>
                 {CUT_FILTERS.map((v) => (
                   <Chip
                     key={v}
@@ -575,7 +577,7 @@ function ConteudoJogos() {
                 ))}
               </Grupo>
 
-              <Grupo titulo="Lojas" icone={<StoreIcon />} abertoPadrao={false}>
+              <Grupo titulo={t.jogos.lojas} icone={<StoreIcon />} abertoPadrao={false}>
                 {STORES.map((s) => (
                   <Chip
                     key={s}
@@ -586,17 +588,17 @@ function ConteudoJogos() {
                 ))}
               </Grupo>
 
-              <Grupo titulo="Conteúdo" icone={<ContentIcon />} abertoPadrao={false}>
+              <Grupo titulo={t.jogos.conteudo} icone={<ContentIcon />} abertoPadrao={false}>
                 <Chip
-                  label="18+ Adulto"
+                  label={t.jogos.adulto}
                   ativa={adulto}
                   onClick={alternarAdulto}
                 />
               </Grupo>
 
-              <Grupo titulo="Outros" icone={<HardwareIcon />} abertoPadrao={false}>
+              <Grupo titulo={t.jogos.outros} icone={<HardwareIcon />} abertoPadrao={false}>
                 <Chip
-                  label="Consoles & Gift Cards"
+                  label={t.jogos.consolesGiftCards}
                   ativa={incluirHardware}
                   onClick={() => {
                     setIncluirHardware(!incluirHardware)
@@ -628,8 +630,8 @@ function ConteudoJogos() {
                 <Loading
                   mensagem={
                     modoNaUrl === 'ia'
-                      ? 'Realizando busca profunda com IA...'
-                      : 'Pesquisando jogos no catálogo...'
+                      ? t.jogos.carregandoIa
+                      : t.jogos.carregandoCatalogo
                   }
                 />
               ) : erroBusca ? (
@@ -638,11 +640,11 @@ function ConteudoJogos() {
                 </p>
               ) : resultadoBusca.length === 0 ? (
                 <p className="py-16 text-center text-bp-muted">
-                  Nenhum jogo relacionado foi encontrado.
+                  {t.jogos.nenhumRelacionado}
                 </p>
               ) : resultadoFiltrado.length === 0 ? (
                 <p className="py-16 text-center text-bp-muted">
-                  Nenhum jogo da busca corresponde aos filtros selecionados.
+                  {t.jogos.nenhumFiltro}
                 </p>
               ) : (
                 <ul className="grid w-full list-none auto-rows-fr grid-cols-2 gap-2 sm:gap-[13px] md:grid-cols-2 lg:grid-cols-3">
@@ -659,14 +661,14 @@ function ConteudoJogos() {
                 </ul>
               )
             ) : carregando ? (
-              <Loading mensagem="Carregando ofertas..." />
+              <Loading mensagem={t.jogos.carregandoCatalogo} />
             ) : erroCatalogo ? (
               <p role="alert" className="py-16 text-center text-red-400">
                 {erroCatalogo}
               </p>
             ) : jogos.length === 0 ? (
               <p className="py-16 text-center text-bp-muted">
-                Nenhuma oferta encontrada com esses filtros.
+                {t.jogos.nenhumaOfertaFiltro}
               </p>
             ) : (
               <ul className="grid w-full list-none auto-rows-fr grid-cols-2 gap-2 sm:gap-[13px] md:grid-cols-2 lg:grid-cols-3">
@@ -692,19 +694,19 @@ function ConteudoJogos() {
                   type="button"
                   onClick={() => setPagina(atual - 1)}
                   disabled={atual === 1}
-                  aria-label="Página anterior"
+                  aria-label={t.jogos.paginaAnterior}
                   className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 active:scale-95 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(100%_0,100%_100%,0_50%)]"
                 />
 
                 <span className="sr-only" aria-live="polite">
-                  Página {atual} de {totalPaginas}
+                  {t.jogos.paginaDe(atual, totalPaginas)}
                 </span>
 
                 <button
                   type="button"
                   onClick={() => setPagina(atual + 1)}
                   disabled={atual === totalPaginas}
-                  aria-label="Próxima página"
+                  aria-label={t.jogos.proximaPagina}
                   className="h-[49px] w-9 cursor-pointer bg-bp-primary transition hover:brightness-110 active:scale-95 disabled:cursor-default disabled:opacity-40 [clip-path:polygon(0_0,100%_50%,0_100%)]"
                 />
               </nav>
@@ -720,7 +722,7 @@ function ConteudoJogos() {
 
 export default function JogosPage() {
   return (
-    <Suspense fallback={<Loading mensagem="Carregando página..." />}>
+    <Suspense fallback={<Loading />}>
       <ConteudoJogos />
     </Suspense>
   )

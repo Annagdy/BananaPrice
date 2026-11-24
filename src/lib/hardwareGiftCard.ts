@@ -1,6 +1,8 @@
 /**
  * Padrões de expressões regulares que identificam itens que são Hardware,
  * Consoles ou Gift Cards / Moedas / Assinaturas (não sendo jogos em si).
+ * | Regular expression patterns that identify items that are Hardware, Consoles or Gift Cards / Coins / Subscriptions (not games
+ *   themselves).
  */
 const PADROES_HARDWARE_GIFTCARD: RegExp[] = [
   // Gift cards e cartões de saldo / moedas virtuais / assinaturas de loja
@@ -35,9 +37,11 @@ const PADROES_HARDWARE_GIFTCARD: RegExp[] = [
 
 /**
  * Verifica se o título de um item corresponde a um console, hardware ou cartão presente / gift card.
+ * | Checks whether an item's title corresponds to a console, hardware or gift card.
  *
- * @param titulo Nome do jogo ou produto a ser verificado.
+ * @param titulo Nome do jogo ou produto a ser verificado. | Name of the game or product to be checked.
  * @returns `true` se for classificado como console ou gift card; `false` se for jogo padrão.
+ *   | `true` if classified as a console or gift card; `false` if it is a regular game.
  */
 export function ehConsoleOuGiftCard(titulo: string | null | undefined): boolean {
   if (!titulo) return false

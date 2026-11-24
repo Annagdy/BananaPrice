@@ -4,8 +4,9 @@ import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
 /**
  * Converte e valida o identificador do jogo vindo dos parâmetros de URL.
- * @param gameId String com o id informado na URL.
- * @returns Número inteiro positivo válido ou null.
+ * | Converts and validates the game identifier coming from the URL parameters.
+ * @param gameId String com o id informado na URL. | String with the id given in the URL.
+ * @returns Número inteiro positivo válido ou null. | Valid positive integer, or null.
  */
 function lerIdJogo(gameId: string): number | null {
   const idJogo = Number(gameId);
@@ -14,7 +15,8 @@ function lerIdJogo(gameId: string): number | null {
 
 /**
  * Consulta o id do usuário logado através da sessão dos cookies da requisição.
- * @returns Identificador numérico do usuário ou null se não autenticado.
+ * | Looks up the logged-in user's id through the session in the request cookies.
+ * @returns Identificador numérico do usuário ou null se não autenticado. | Numeric user identifier, or null if not authenticated.
  */
 async function usuarioLogado(): Promise<number | null> {
   const supabase = await createClient();
@@ -32,12 +34,14 @@ async function usuarioLogado(): Promise<number | null> {
 
 /**
  * Verifica se um jogo específico está presente na lista de desejos do usuário (GET /api/v1/wishlist/[gameId]).
+ * | Checks whether a specific game is on the user's wishlist (GET /api/v1/wishlist/[gameId]).
  *
  * Utilizado pelos componentes de botão de ação e coração da interface para refletir o estado instantaneamente.
+ * | Used by the interface's action button and heart components to reflect the state instantly.
  *
- * @param _request Objeto de requisição.
- * @param context Parâmetros da rota contendo `gameId`.
- * @returns JSON `{ naLista: boolean }` ou erro 400/401.
+ * @param _request Objeto de requisição. | Request object.
+ * @param context Parâmetros da rota contendo `gameId`. | Route parameters containing `gameId`.
+ * @returns JSON `{ naLista: boolean }` ou erro 400/401. | JSON `{ naLista: boolean }` or a 400/401 error.
  */
 export async function GET(
   _request: Request,
@@ -76,10 +80,11 @@ export async function GET(
 
 /**
  * Endpoint para remover um jogo específico da lista de desejos do usuário (DELETE /api/v1/wishlist/[gameId] - RF10).
+ * | Endpoint to remove a specific game from the user's wishlist (DELETE /api/v1/wishlist/[gameId] - RF10).
  *
- * @param _request Objeto de requisição.
- * @param context Parâmetros da rota contendo `gameId`.
- * @returns JSON `{ ok: true }` ou erro correspondente.
+ * @param _request Objeto de requisição. | Request object.
+ * @param context Parâmetros da rota contendo `gameId`. | Route parameters containing `gameId`.
+ * @returns JSON `{ ok: true }` ou erro correspondente. | JSON `{ ok: true }` or the corresponding error.
  */
 export async function DELETE(
   _request: Request,

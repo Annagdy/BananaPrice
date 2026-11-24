@@ -20,6 +20,7 @@ const NO_CACHE_HEADERS = {
 /**
  * Helper privado para descobrir o `id_usuario` da tabela `usuario`
  * a partir do UUID da sessão do Supabase Auth (`auth_id`).
+ * | Private helper to find the `id_usuario` in the `usuario` table from the Supabase Auth session UUID (`auth_id`).
  */
 async function usuarioLogado(): Promise<number | null> {
   try {
@@ -46,6 +47,7 @@ async function usuarioLogado(): Promise<number | null> {
 /**
  * GET /api/v1/notifications
  * Retorna as notificações do usuário logado e a contagem de não lidas.
+ * | Returns the logged-in user's notifications and the unread count.
  */
 export async function GET() {
   const idUsuario = await usuarioLogado()
@@ -71,7 +73,7 @@ export async function GET() {
 
 /**
  * PATCH /api/v1/notifications
- * Marca uma ou todas as notificações do usuário como lidas.
+ * Marca uma ou todas as notificações do usuário como lidas. | Marks one or all of the user's notifications as read.
  * @body { idNotificacao?: number, todas?: boolean }
  */
 export async function PATCH(request: Request) {
@@ -109,7 +111,8 @@ export async function PATCH(request: Request) {
 /**
  * DELETE /api/v1/notifications
  * Exclui uma notificação específica ou todas do usuário logado.
- * @query ?id=123 ou ?todas=true
+ * | Deletes a specific notification or all notifications of the logged-in user.
+ * @query ?id=123 ou ?todas=true | ?id=123 or ?todas=true
  * @body { idNotificacao?: number, todas?: boolean }
  */
 export async function DELETE(request: Request) {
@@ -156,6 +159,7 @@ export async function DELETE(request: Request) {
 /**
  * POST /api/v1/notifications
  * Cria uma notificação in-app para o usuário logado e valida a preferência `notificar_email` no banco.
+ * | Creates an in-app notification for the logged-in user and validates the `notificar_email` preference in the database.
  * @body { idJogo?, idLista?, titulo, mensagem, preco?, desconto?, loja?, enviarEmail? }
  */
 export async function POST(request: Request) {

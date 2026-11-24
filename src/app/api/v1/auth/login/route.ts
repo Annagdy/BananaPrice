@@ -6,12 +6,16 @@ const ERRO_CREDENCIAIS = { error: "E-mail/usuário ou senha inválidos." };
 
 /**
  * Endpoint de autenticação e login de usuários (POST /api/v1/auth/login - RF03).
+ * | User authentication and login endpoint (POST /api/v1/auth/login - RF03).
  *
  * Suporta autenticação tanto via e-mail quanto via nome de usuário (`nome_usuario`).
  * Define os cookies seguros de sessão no navegador via Supabase SSR.
+ * | Supports authentication via both email and username (`nome_usuario`). Sets the secure session cookies in the browser via Supabase
+ *   SSR.
  *
- * @param request Requisição HTTP com `{ login, senha }`.
+ * @param request Requisição HTTP com `{ login, senha }`. | HTTP request with `{ login, senha }`.
  * @returns Status 200 `{ user }` ou 401 com erro genérico de credenciais.
+ *   | Status 200 `{ user }` or 401 with a generic credentials error.
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

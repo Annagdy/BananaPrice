@@ -4,6 +4,7 @@ import { enviarEmailAlertaPreco } from '@/lib/email'
 
 /**
  * Formato unificado de notificação entregue para a interface do usuário.
+ * | Unified notification format delivered to the user interface.
  */
 export type NotificacaoFormatada = {
   id: number
@@ -24,9 +25,11 @@ const brl = (valor: number): string =>
 
 /**
  * Busca ou cria o registro de lista de desejos (`lista_desejo`) pertencente a um usuário.
+ * | Finds or creates the wishlist record (`lista_desejo`) that belongs to a user.
  *
- * @param idUsuario Identificador único do usuário (`id_usuario`).
+ * @param idUsuario Identificador único do usuário (`id_usuario`). | Unique identifier of the user (`id_usuario`).
  * @returns O identificador da lista (`id_lista`) ou null em caso de erro na consulta/criação.
+ *   | The list identifier (`id_lista`) or null in case of a query/creation error.
  */
 export async function obterOuCriarListaUsuario(idUsuario: number): Promise<number | null> {
   const { data: existente } = await supabaseAdmin
@@ -57,9 +60,11 @@ export async function obterOuCriarListaUsuario(idUsuario: number): Promise<numbe
 /**
  * Busca as notificações de um usuário logado, incluindo contagem de não lidas.
  * É tolerante a variações no schema do banco de dados (colunas extras como mensagem, preco, desconto).
+ * | Fetches the notifications of a logged-in user, including the unread count. It is tolerant of variations in the database schema
+ *   (extra columns such as mensagem, preco, desconto).
  *
- * @param idUsuario Identificador do usuário.
- * @returns Lista de notificações formatadas e total de não lidas.
+ * @param idUsuario Identificador do usuário. | User identifier.
+ * @returns Lista de notificações formatadas e total de não lidas. | List of formatted notifications and total unread.
  */
 export async function buscarNotificacoesUsuario(idUsuario: number): Promise<{
   notificacoes: NotificacaoFormatada[]
@@ -212,11 +217,12 @@ export async function buscarNotificacoesUsuario(idUsuario: number): Promise<{
 }
 
 /**
- * Marca uma ou todas as notificações de um usuário como lidas.
+ * Marca uma ou todas as notificações de um usuário como lidas. | Marks one or all of a user's notifications as read.
  *
- * @param idUsuario Identificador do usuário.
+ * @param idUsuario Identificador do usuário. | User identifier.
  * @param params Opções com o id da notificação específica ou sinalizador para marcar todas.
- * @returns Verdadeiro se a atualização foi executada com sucesso.
+ *   | Options with the id of the specific notification or a flag to mark all.
+ * @returns Verdadeiro se a atualização foi executada com sucesso. | True if the update was executed successfully.
  */
 export async function marcarNotificacoesLidas(
   idUsuario: number,
@@ -249,10 +255,12 @@ export async function marcarNotificacoesLidas(
 
 /**
  * Exclui uma notificação específica ou limpa todas as notificações de um usuário.
+ * | Deletes a specific notification or clears all of a user's notifications.
  *
- * @param idUsuario Identificador do usuário.
+ * @param idUsuario Identificador do usuário. | User identifier.
  * @param params Identificador da notificação a remover ou sinalizador `todas: true`.
- * @returns Verdadeiro caso a exclusão seja realizada sem falhas.
+ *   | Identifier of the notification to remove or the flag `todas: true`.
+ * @returns Verdadeiro caso a exclusão seja realizada sem falhas. | True if the deletion is carried out without failures.
  */
 export async function excluirNotificacoes(
   idUsuario: number,
@@ -281,7 +289,7 @@ export async function excluirNotificacoes(
 }
 
 /**
- * Parâmetros para disparo em massa de alertas de preço.
+ * Parâmetros para disparo em massa de alertas de preço. | Parameters for mass dispatch of price alerts.
  */
 export type DispararAlertaParams = {
   idJogo: number
@@ -294,11 +302,15 @@ export type DispararAlertaParams = {
 /**
  * Dispara notificações no sistema e por e-mail para todos os usuários que possuem o jogo
  * em sua lista de desejos quando é detectada uma queda de preço ou promoção.
+ * | Triggers in-system and email notifications to all users who have the game on their wishlist when a price drop or promotion is
+ *   detected.
  *
  * Inclui deduplicação automática evitando notificações repetidas em menos de 24 horas.
+ * | Includes automatic deduplication, avoiding repeated notifications within 24 hours.
  *
  * @param params Dados da nova oferta (jogo, novo preço, desconto e loja).
- * @returns Quantidade total de notificações registradas no banco.
+ *   | Data of the new offer (game, new price, discount and store).
+ * @returns Quantidade total de notificações registradas no banco. | Total number of notifications recorded in the database.
  */
 export async function notificarQuedaDePreco({
   idJogo,
@@ -433,9 +445,13 @@ export async function notificarQuedaDePreco({
 /**
  * Cria uma notificação direta no sistema com suporte a fallback de schema e envio opcional de e-mail.
  * Utilizado por rotas de teste ou eventos manuais administrativos.
+ * | Creates a direct notification in the system with schema fallback support and optional email sending. Used by test routes or manual
+ *   administrative events.
  *
  * @param params Configurações da notificação (usuário, mensagem, dados de preço e flag de e-mail).
+ *   | Notification settings (user, message, price data and email flag).
  * @returns Objeto com status da operação e informações de entrega do e-mail.
+ *   | Object with the operation status and email delivery information.
  */
 export async function criarNotificacaoManual(params: {
   idUsuario: number

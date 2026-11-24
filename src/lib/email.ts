@@ -2,7 +2,9 @@ import nodemailer from 'nodemailer'
 
 /**
  * Configura o transporter SMTP utilizando as credenciais definidas em variáveis de ambiente.
+ * | Configures the SMTP transporter using the credentials defined in environment variables.
  * @returns Instância do Transporter do Nodemailer ou null se as variáveis não estiverem configuradas.
+ *   | Nodemailer Transporter instance or null if the variables are not configured.
  */
 function criarTransporter() {
   const host = process.env.SMTP_HOST
@@ -26,7 +28,7 @@ function criarTransporter() {
 }
 
 /**
- * Parâmetros para envio de e-mail de notificação de alerta de preço.
+ * Parâmetros para envio de e-mail de notificação de alerta de preço. | Parameters for sending the price alert notification email.
  */
 export type EmailNotificacaoParams = {
   para: string
@@ -40,9 +42,12 @@ export type EmailNotificacaoParams = {
 
 /**
  * Envia um e-mail com layout temático de alerta de preço para o usuário.
+ * | Sends an email with a themed price alert layout to the user.
  *
  * @param params Dados para montagem da mensagem (destinatário, jogo, preço, desconto, loja e link).
+ *   | Data to build the message (recipient, game, price, discount, store and link).
  * @returns Resultado do envio contendo sucesso e mensagem de erro caso falhe.
+ *   | Sending result containing success and an error message if it fails.
  */
 export async function enviarEmailAlertaPreco({
   para,

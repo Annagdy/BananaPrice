@@ -10,6 +10,7 @@ import { BoltIcon } from '../../../components/Icons'
 import { capaExemplo } from '../../../components/assets'
 import { VALOR_TURBO, TEMPO_TOTAL } from '../../../mocks/turbo'
 import { tema } from '../../../mocks/tema'
+import { useIdioma } from '@/components/contexts/IdiomaContext'
 
 const brl = (valor: number): string =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -40,6 +41,8 @@ type PixDados = {
 export default function TurboPage() {
   const { gameId } = useParams<{ gameId: string }>()
   const router = useRouter()
+  const { t, formatarMoeda } = useIdioma()
+  const tt = t.turbo
 
   const [jogo, setJogo] = useState<JogoDados | null>(null)
   const [pix, setPix] = useState<PixDados | null>(null)
@@ -177,7 +180,7 @@ export default function TurboPage() {
         <Nav logado />
         <div className="h-[5px]" style={{ background: tema.divisor }} />
         <main className="flex flex-1 items-center justify-center">
-          <p className="animate-pulse text-2xl text-bp-muted">Gerando pagamento Pix...</p>
+          <p className="animate-pulse text-2xl text-bp-muted">{tt.gerandoPix}</p>
         </main>
         <div className="h-[5px]" style={{ background: tema.divisor }} />
         <Footer />
@@ -193,7 +196,7 @@ export default function TurboPage() {
         <main className="flex flex-1 flex-col items-center justify-center gap-4">
           <p className="text-xl text-red-400">{erro}</p>
           <Link href={`/jogos/${gameId}`} className="rounded-lg bg-bp-primary px-6 py-2 text-white transition hover:brightness-110">
-            Voltar ao jogo
+            {tt.voltarAoJogo}
           </Link>
         </main>
         <div className="h-[5px]" style={{ background: tema.divisor }} />
@@ -213,7 +216,7 @@ export default function TurboPage() {
 
       <main className="flex flex-1 flex-col pb-10">
         <h1 className="flex items-center gap-3 px-[38px] py-5 font-head text-[32px] font-extrabold text-bp-primary max-[640px]:px-4 max-[640px]:text-2xl">
-          <BoltIcon /> Dar um Turbo
+          <BoltIcon /> {tt.titulo}
         </h1>
 
         <div className="mx-2.5 h-[5px] rounded-[2px]" style={{ background: tema.divisorForte }} />
@@ -232,9 +235,9 @@ export default function TurboPage() {
 
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex items-baseline gap-3">
-                  <h2 className="font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">Copia e Cola</h2>
+                  <h2 className="font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">{tt.copiaCola}</h2>
                   <span role="status" className="text-sm text-bp-muted">
-                    {copiado ? 'Copiado!' : ''}
+                    {copiado ? tt.copiado : ''}
                   </span>
                 </div>
 
@@ -242,7 +245,7 @@ export default function TurboPage() {
                   type="button"
                   onClick={copiar}
                   title={pix.pixCopiaCola}
-                  aria-label="Copiar código Pix"
+                  aria-label={tt.copiarAria}
                   disabled={expirado}
                   className="cursor-pointer truncate rounded-3xl border bg-bp-neutral p-2.5 text-left text-4xl text-white transition hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-50 max-[640px]:text-lg"
                   style={{ borderColor: tema.painel }}
@@ -251,11 +254,11 @@ export default function TurboPage() {
                 </button>
 
                 <p className="p-2.5 pb-0 font-head text-4xl font-extrabold text-bp-primary max-[640px]:text-2xl">
-                  {expirado ? 'Expirado!' : formatarTempo(restante)}
+                  {expirado ? tt.expirado : formatarTempo(restante)}
                 </p>
                 <div
                   role="progressbar"
-                  aria-label="Tempo restante para pagar"
+                  aria-label={tt.tempoRestanteAria}
                   aria-valuemin={0}
                   aria-valuemax={TEMPO_TOTAL}
                   aria-valuenow={restante}
@@ -271,10 +274,10 @@ export default function TurboPage() {
 
             <div className="flex items-center justify-between gap-6 rounded-3xl border bg-bp-neutral p-8 max-[800px]:flex-col max-[800px]:text-center" style={{ borderColor: tema.painel }}>
               <p className="max-w-[308px] text-center text-4xl text-bp-muted max-[640px]:text-xl">
-                Lembre de checar o código e valor antes de concluir o pagamento!
+                {tt.avisoValor}
               </p>
               <p className="flex-1 text-center text-5xl font-bold text-bp-primary max-[640px]:text-3xl">
-                {brl(pix.valor)}
+                {formatarMoeda(pix.valor)}
               </p>
             </div>
           </section>
@@ -306,10 +309,10 @@ export default function TurboPage() {
                 </p>
                 <div className="flex flex-col">
                   {jogo.precoOriginal > jogo.precoComDesconto && (
-                    <span className="text-[10px] text-bp-muted/60">{brl(jogo.precoOriginal)}</span>
+                    <span className="text-[10px] text-bp-muted/60">{formatarMoeda(jogo.precoOriginal)}</span>
                   )}
                   <span className="font-head text-sm font-extrabold text-bp-primary">
-                    {jogo.precoComDesconto > 0 ? brl(jogo.precoComDesconto) : 'Gratuito'}
+                    {jogo.precoComDesconto > 0 ? formatarMoeda(jogo.precoComDesconto) : t.card.gratis}
                   </span>
                 </div>
               </div>
@@ -319,7 +322,7 @@ export default function TurboPage() {
               href={`/jogos/${gameId}`}
               className="mx-2.5 rounded-3xl bg-bp-neutral p-4 text-center text-4xl text-bp-muted transition hover:brightness-125 max-[640px]:text-xl"
             >
-              Verifique a preview para o jogo selecionado.
+              {tt.verifiquePreview}
             </Link>
           </section>
         </div>

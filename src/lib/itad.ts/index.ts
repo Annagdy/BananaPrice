@@ -24,9 +24,9 @@ function calcularEspera429(erro: any): number {
 }
 
 /**
- * Gera um slug amigável para URLs a partir do título do jogo.
- * @param texto Título original do jogo.
- * @returns Slug formatado em minúsculas separado por hífens.
+ * Gera um slug amigável para URLs a partir do título do jogo. | Generates a URL-friendly slug from the game title.
+ * @param texto Título original do jogo. | Original game title.
+ * @returns Slug formatado em minúsculas separado por hífens. | Slug formatted in lowercase, separated by hyphens.
  */
 export function slugify(texto: string) {
     return texto
@@ -40,8 +40,9 @@ export function slugify(texto: string) {
 
 /**
  * Busca uma página do catálogo de jogos na API ITAD com suporte a paginação contínua via cursor.
- * @param ultimoId Cursor do último jogo retornado da página anterior.
- * @returns Dados brutos retornados pela API ITAD.
+ * | Fetches a page of the game catalog from the ITAD API with continuous cursor-based pagination support.
+ * @param ultimoId Cursor do último jogo retornado da página anterior. | Cursor of the last game returned from the previous page.
+ * @returns Dados brutos retornados pela API ITAD. | Raw data returned by the ITAD API.
  */
 export async function buscarPaginaJogos(ultimoId?: string) {
     console.log("Buscando jogos...");
@@ -80,9 +81,12 @@ export async function buscarGenero(itadId: string): Promise<string | null> {
 /**
  * Consulta informações detalhadas do jogo no ITAD para extrair gêneros e classificação etária adulta.
  * Trata limite de requisições HTTP 429 com repetição exponencial.
+ * | Queries detailed game information on ITAD to extract genres and adult age rating. Handles the HTTP 429 request limit with
+ *   exponential retry.
  *
- * @param itadId Identificador do jogo no ITAD.
+ * @param itadId Identificador do jogo no ITAD. | ITAD identifier of the game.
  * @returns Objeto contendo os gêneros separados por vírgula e se é classificado para adultos.
+ *   | Object containing the comma-separated genres and whether it is rated for adults.
  */
 export async function buscarInfoJogo(itadId: string): Promise<{ genero: string | null; adulto: boolean | null }> {
     while (true) {
@@ -109,11 +113,12 @@ export async function buscarInfoJogo(itadId: string): Promise<{ genero: string |
 
 /**
  * Busca os preços atuais de um lote de jogos no ITAD para a região do Brasil.
+ * | Fetches the current prices of a batch of games on ITAD for the Brazil region.
  *
- * @param ids Lista de IDs do ITAD a serem consultados.
- * @param inicio Índice de início para controle de loteamento.
- * @param fim Índice de fim para controle de loteamento.
- * @returns Resposta da API com as promoções vigentes.
+ * @param ids Lista de IDs do ITAD a serem consultados. | List of ITAD IDs to be queried.
+ * @param inicio Índice de início para controle de loteamento. | Start index for batching control.
+ * @param fim Índice de fim para controle de loteamento. | End index for batching control.
+ * @returns Resposta da API com as promoções vigentes. | API response with the current promotions.
  */
 export async function buscarPrecosLote(ids: string[], inicio: number, fim: number) {
     while (true) {
@@ -137,9 +142,10 @@ export async function buscarPrecosLote(ids: string[], inicio: number, fim: numbe
 
 /**
  * Converte uma lista de Steam App IDs para seus respectivos IDs no catálogo ITAD.
+ * | Converts a list of Steam App IDs to their respective IDs in the ITAD catalog.
  *
- * @param appIds Array com os App IDs numéricos da Steam.
- * @returns Lista de IDs ITAD correspondentes.
+ * @param appIds Array com os App IDs numéricos da Steam. | Array with the numeric Steam App IDs.
+ * @returns Lista de IDs ITAD correspondentes. | List of corresponding ITAD IDs.
  */
 export async function buscarItadIdsPorSteamAppIds(appIds: number[]): Promise<string[]> {
     const resultado: string[] = [];
@@ -171,9 +177,11 @@ const TTL_OFERTAS_MS = 10 * 60 * 1000;
 /**
  * Consulta as ofertas vigentes de um jogo diretamente na API pública da Steam Store.
  * Trata tanto jogos gratuitos quanto preços em Reais (BRL).
+ * | Queries a game's current offers directly from the public Steam Store API. Handles both free games and prices in Reais (BRL).
  *
- * @param appid Código numérico do jogo na Steam.
+ * @param appid Código numérico do jogo na Steam. | Numeric game code on Steam.
  * @returns Array com oferta normalizada no formato padrão do sistema.
+ *   | Array with an offer normalized to the system's standard format.
  */
 export async function buscarOfertasSteam(appid: number): Promise<any[]> {
     try {
@@ -225,12 +233,14 @@ export async function buscarOfertasSteam(appid: number): Promise<any[]> {
 /**
  * Busca as melhores ofertas de um jogo no ITAD com fallback automático para a Steam Store
  * caso nenhuma oferta seja encontrada na base do ITAD.
+ * | Fetches the best offers for a game on ITAD with automatic fallback to the Steam Store if no offer is found in ITAD's database.
  *
  * Utiliza cache em memória de 10 minutos para proteger contra requisições excessivas.
+ * | Uses a 10-minute in-memory cache to protect against excessive requests.
  *
- * @param itadId Identificador do jogo no ITAD.
- * @param appid Código Steam App ID opcional para busca de fallback rápida.
- * @returns Lista de ofertas encontradas com loja, preço e link.
+ * @param itadId Identificador do jogo no ITAD. | ITAD identifier of the game.
+ * @param appid Código Steam App ID opcional para busca de fallback rápida. | Optional Steam App ID for a quick fallback search.
+ * @returns Lista de ofertas encontradas com loja, preço e link. | List of offers found with store, price and link.
  */
 export async function buscarOfertasJogo(itadId: string, appid?: number | null): Promise<any[]> {
     const emCache = cacheOfertas.get(itadId);
@@ -278,8 +288,10 @@ export async function buscarOfertasJogo(itadId: string, appid?: number | null): 
 
 /**
  * Mapeia os links oficiais de compra para cada loja a partir da lista de promoções.
- * @param deals Lista de ofertas retornada pelo ITAD ou Steam.
+ * | Maps the official purchase links for each store from the list of promotions.
+ * @param deals Lista de ofertas retornada pelo ITAD ou Steam. | List of offers returned by ITAD or Steam.
  * @returns Dicionário indexado pelo nome da loja em minúsculas contendo a URL de destino.
+ *   | Dictionary indexed by lowercase store name containing the destination URL.
  */
 export function linksDasOfertas(deals: any[]): Record<string, string> {
     const links: Record<string, string> = {};
@@ -295,8 +307,9 @@ export function linksDasOfertas(deals: any[]): Record<string, string> {
 
 /**
  * Atalho que busca ofertas e devolve diretamente o mapa de links por loja.
- * @param itadId ID do jogo no ITAD.
- * @returns Objeto com as URLs das lojas.
+ * | Shortcut that fetches offers and directly returns the map of links per store.
+ * @param itadId ID do jogo no ITAD. | ITAD ID of the game.
+ * @returns Objeto com as URLs das lojas. | Object with the store URLs.
  */
 export async function buscarLinksOfertas(itadId: string): Promise<Record<string, string>> {
     return linksDasOfertas(await buscarOfertasJogo(itadId));
@@ -353,10 +366,12 @@ export async function buscarInfoBasica(itadId: string): Promise<{ capa: string |
 
 /**
  * Constrói a URL direta de banner ou imagem de capa nos servidores de assets do ITAD.
+ * | Builds the direct banner or cover image URL on ITAD's asset servers.
  *
- * @param itadId ID do jogo no ITAD.
+ * @param itadId ID do jogo no ITAD. | ITAD ID of the game.
  * @param tamanho Dimensão da imagem ('banner300', 'banner600', 'boxart', etc.). Padrão é 'banner300'.
- * @returns URL completa do arquivo de imagem.
+ *   | Image dimension ('banner300', 'banner600', 'boxart', etc.). Default is 'banner300'.
+ * @returns URL completa do arquivo de imagem. | Full URL of the image file.
  */
 export function urlCapaItad(
     itadId: string,

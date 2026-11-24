@@ -4,11 +4,14 @@ import { supabase as supabaseAdmin } from "@/lib/supabase.ts";
 
 /**
  * Endpoint para cadastro de nova conta por e-mail e senha (POST /api/v1/auth/register - RF02).
+ * | Endpoint for registering a new account with email and password (POST /api/v1/auth/register - RF02).
  *
  * Valida o formato do nome de usuário, força unicidade e dispara fluxo de confirmação por e-mail do Supabase Auth.
+ * | Validates the username format, enforces uniqueness and triggers the Supabase Auth email confirmation flow.
  *
- * @param request Requisição HTTP contendo `{ nomeUsuario, email, senha }`.
+ * @param request Requisição HTTP contendo `{ nomeUsuario, email, senha }`. | HTTP request containing `{ nomeUsuario, email, senha }`.
  * @returns Status 201 com dados do usuário e flag de confirmação, ou erro 400/409.
+ *   | Status 201 with user data and confirmation flag, or a 400/409 error.
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

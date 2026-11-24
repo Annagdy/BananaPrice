@@ -6,35 +6,39 @@ const DIAS_MAXIMO = 3650;
 
 /**
  * Converte um timestamp milissegundos para o formato ISO YYYY-MM-DD no fuso de Brasília.
- * @param ms Timestamp em milissegundos.
- * @returns Data formatada.
+ * | Converts a millisecond timestamp to ISO YYYY-MM-DD format in the Brasília time zone.
+ * @param ms Timestamp em milissegundos. | Timestamp in milliseconds.
+ * @returns Data formatada. | Formatted date.
  */
 function dataBrasil(ms: number): string {
   return new Date(ms).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 }
 
 /**
- * Normaliza o relacionamento de loja retornado pelo Supabase.
- * @param rel Objeto ou array de relacionamento.
- * @returns Nome da loja.
+ * Normaliza o relacionamento de loja retornado pelo Supabase. | Normalizes the store relation returned by Supabase.
+ * @param rel Objeto ou array de relacionamento. | Relation object or array.
+ * @returns Nome da loja. | Store name.
  */
 function nomeDaLoja(rel: any): string | null {
   return Array.isArray(rel) ? (rel[0]?.nome ?? null) : (rel?.nome ?? null);
 }
 
 /**
- * Ponto amostral para o gráfico de evolução temporal de preços.
+ * Ponto amostral para o gráfico de evolução temporal de preços. | Sample point for the price evolution over time chart.
  */
 type Ponto = { data: string; valor: number };
 
 /**
  * Endpoint para obter a série temporal histórica de preços por loja (GET /api/v1/games/[id]/history - RF09).
+ * | Endpoint to get the historical price time series per store (GET /api/v1/games/[id]/history - RF09).
  *
  * Gera a série de pontos e consolida estatísticas de menor preço histórico, maior preço e valor vigente.
+ * | Generates the series of points and consolidates statistics for the lowest historical price, highest price and current value.
  *
  * @param request Requisição HTTP com os query params opcionais `dias` e `store`.
- * @param context Parâmetros da rota contendo `id`.
- * @returns Resposta com as séries cronológicas separadas por loja.
+ *   | HTTP request with the optional query params `dias` and `store`.
+ * @param context Parâmetros da rota contendo `id`. | Route parameters containing `id`.
+ * @returns Resposta com as séries cronológicas separadas por loja. | Response with the chronological series separated by store.
  */
 export async function GET(
   request: Request,

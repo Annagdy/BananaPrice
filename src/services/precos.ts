@@ -3,16 +3,24 @@ import type { ResultadoPrecoApi } from "../types/preco";
 
 /**
  * Grava os preços de um lote de resultados de `buscarPrecosLote` nas tabelas `preco_jogo` e `preco_historico`.
+ * | Writes the prices of a batch of `buscarPrecosLote` results into the `preco_jogo` and `preco_historico` tables.
  *
  * Primeiro garante que todas as lojas envolvidas existem em `loja` (criando as que faltarem) para resolver os ids. Depois grava:
+ * | First makes sure all the stores involved exist in `loja` (creating any that are missing) to resolve the ids. Then writes:
  * - `preco_jogo`: preço atual por jogo+loja (upsert, sempre substitui o valor anterior). Linhas duplicadas de jogo+loja
  *   dentro do mesmo lote são deduplicadas antes do upsert, porque o Postgres não permite atualizar a mesma linha duas vezes numa só
  *   operação de ON CONFLICT.
+ *   | `preco_jogo`: current price per game+store (upsert, always replaces the previous value). Duplicate game+store rows within the
+ *     same batch are deduplicated before the upsert, because Postgres does not allow updating the same row twice in a single ON
+ *     CONFLICT operation.
  * - `preco_historico`: uma linha nova por jogo+loja+dia (insert puro, sem upsert), formando a série histórica.
+ *   | `preco_historico`: one new row per game+store+day (plain insert, no upsert), forming the historical series.
  *
- * @param resultados Resposta crua de `buscarPrecosLote`.
+ * @param resultados Resposta crua de `buscarPrecosLote`. | Raw response from `buscarPrecosLote`.
  * @param mapaItadParaIdJogo Mapa `itad_id` -> `id_jogo`, vindo de `salvarJogos`, usado para resolver a chave estrangeira
  *   de cada preço. Jogos ausentes do mapa são pulados (com aviso no log).
+ *   | Map `itad_id` -> `id_jogo`, coming from `salvarJogos`, used to resolve the foreign key of each price. Games missing from the map
+ *     are skipped (with a log warning).
  */
 export async function salvarPrecos(
     resultados: ResultadoPrecoApi[],

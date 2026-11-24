@@ -16,8 +16,8 @@ const NO_CACHE_HEADERS = {
 }
 
 /**
- * Identifica o usuário logado e seu e-mail a partir da sessão.
- * @returns Objeto com `idUsuario` e `email` ou null.
+ * Identifica o usuário logado e seu e-mail a partir da sessão. | Identifies the logged-in user and their email from the session.
+ * @returns Objeto com `idUsuario` e `email` ou null. | Object with `idUsuario` and `email`, or null.
  */
 async function usuarioLogado(): Promise<{ idUsuario: number; email: string } | null> {
   const supabase = await createClient()
@@ -38,9 +38,10 @@ async function usuarioLogado(): Promise<{ idUsuario: number; email: string } | n
 
 /**
  * Cria uma cobrança Pix via Mercado Pago para impulsionar um jogo no Destaque Turbo (POST /api/v1/payment/pix).
+ * | Creates a Pix charge via Mercado Pago to boost a game in the Turbo Highlight (POST /api/v1/payment/pix).
  *
- * @param request Requisição HTTP com `{ idJogo: number }`.
- * @returns Status 201 com QR Code em base64 e código Copia e Cola.
+ * @param request Requisição HTTP com `{ idJogo: number }`. | HTTP request with `{ idJogo: number }`.
+ * @returns Status 201 com QR Code em base64 e código Copia e Cola. | Status 201 with a base64 QR Code and the Pix copy-and-paste code.
  */
 export async function POST(request: Request) {
   const usuario = await usuarioLogado()
@@ -89,11 +90,13 @@ export async function POST(request: Request) {
 
 /**
  * Consulta o status atual de uma ordem de pagamento Pix (GET /api/v1/payment/pix?id={idPagamento}).
+ * | Queries the current status of a Pix payment order (GET /api/v1/payment/pix?id={idPagamento}).
  *
- * Utilizado para polling da tela de checkout em tempo real.
+ * Utilizado para polling da tela de checkout em tempo real. | Used for real-time polling by the checkout screen.
  *
- * @param request Requisição HTTP com parâmetro `id`.
+ * @param request Requisição HTTP com parâmetro `id`. | HTTP request with the `id` parameter.
  * @returns Status da transação (`pendente`, `aprovado`, `expirado` ou `rejeitado`).
+ *   | Transaction status (`pendente`, `aprovado`, `expirado` or `rejeitado`).
  */
 export async function GET(request: Request) {
   const usuario = await usuarioLogado()

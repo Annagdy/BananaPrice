@@ -4,11 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { capaExemplo } from './assets'
 import type { Game } from '../mocks/games'
-
-const brl = (v: number | null | undefined) => {
-  if (v === null || v === undefined) return ''
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
+import { useIdioma } from './contexts/IdiomaContext'
 
 /**
  * Propriedades para renderização do card de jogo.
@@ -28,6 +24,7 @@ export type GameCardProps = {
  * @returns Elemento JSX renderizado.
  */
 export default function GameCard({ game, variant = 'default' }: GameCardProps) {
+  const { t, formatarMoeda } = useIdioma()
   const wide = variant === 'wide'
 
   const [falhou, setFalhou] = useState(false)
@@ -72,7 +69,7 @@ export default function GameCard({ game, variant = 'default' }: GameCardProps) {
         ) : isGratis ? (
           /* Badge de Grátis Permanente (Free to Play) */
           <span className="absolute bottom-0 right-0 bg-green-500 py-1 pl-3.5 pr-2 font-head text-[10px] font-black text-black tracking-wider [clip-path:polygon(20%_0,100%_0,100%_100%,0_100%)] sm:py-2 sm:pl-6 sm:pr-3 sm:text-xs">
-            GRÁTIS
+            {t.card.gratis}
           </span>
         ) : temDesconto ? (
           /* Badge de Desconto Padrão (para jogos pagos) */
@@ -97,7 +94,7 @@ export default function GameCard({ game, variant = 'default' }: GameCardProps) {
           }`}
         />
         <span className="min-w-0 truncate text-[11px] sm:text-sm">
-          {isIndisponivel ? 'Sem oferta ativa' : game.store || 'Loja parceira'}
+          {isIndisponivel ? t.card.semOferta : game.store || t.card.lojaParceira}
         </span>
       </div>
 
@@ -107,27 +104,27 @@ export default function GameCard({ game, variant = 'default' }: GameCardProps) {
           <>
             {game.originalPrice && game.originalPrice > game.price! && (
               <div className="text-[9px] sm:text-[10px] text-bp-muted/[.58] line-through">
-                {brl(game.originalPrice)}
+                {formatarMoeda(game.originalPrice)}
               </div>
             )}
             <div className="mt-0.5 font-head text-xs sm:text-sm font-extrabold text-bp-primary">
-              {brl(game.price)}
+              {formatarMoeda(game.price)}
             </div>
           </>
         ) : isGratis ? (
           <>
             {game.originalPrice && game.originalPrice > 0 && (
               <div className="text-[9px] sm:text-[10px] text-bp-muted/[.58] line-through">
-                {brl(game.originalPrice)}
+                {formatarMoeda(game.originalPrice)}
               </div>
             )}
             <div className="mt-0.5 font-head text-xs sm:text-base font-extrabold text-green-400 tracking-wide">
-              Grátis
+              {t.card.gratis}
             </div>
           </>
         ) : (
           <div className="mt-0.5 font-head text-[10px] sm:text-xs font-semibold text-bp-muted/60 uppercase">
-            Indisponível
+            {t.card.indisponivel}
           </div>
         )}
       </div>
