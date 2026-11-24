@@ -215,41 +215,44 @@ function parseDocBody(body: string) {
   let currentTag: ActiveTag = { kind: 'desc' }
 
   const flushTag = () => {
-    if (currentTag.kind === 'param') {
-      const raw = currentTag.lines.join('\n').trim()
-      if (currentTag.isEnOnly) {
-        const existing = params.find(p => p.name === currentTag.name)
-        if (existing) {
-          existing.description.en = raw || existing.description.pt
+    const tag = currentTag
+    if (tag.kind !== 'desc') {
+      const raw = tag.lines.join('\n').trim()
+
+      if (tag.kind === 'param') {
+        const paramName = tag.name
+        if (tag.isEnOnly) {
+          const existing = params.find(p => p.name === paramName)
+          if (existing) {
+            existing.description.en = raw || existing.description.pt
+          } else {
+            params.push({
+              type: tag.type,
+              name: paramName,
+              description: { pt: raw, en: raw },
+            })
+          }
         } else {
           params.push({
-            type: currentTag.type,
-            name: currentTag.name,
-            description: { pt: raw, en: raw },
+            type: tag.type,
+            name: paramName,
+            description: splitLocalized(raw),
           })
         }
-      } else {
-        params.push({
-          type: currentTag.type,
-          name: currentTag.name,
-          description: splitLocalized(raw),
-        })
-      }
-    } else if (currentTag.kind === 'returns') {
-      const raw = currentTag.lines.join('\n').trim()
-      if (currentTag.isEnOnly) {
-        returns = { pt: returns?.pt || raw, en: raw }
-      } else {
-        const parsed = splitLocalized(raw)
-        returns = { pt: parsed.pt, en: returns?.en || parsed.en }
-      }
-    } else if (currentTag.kind === 'throws') {
-      const raw = currentTag.lines.join('\n').trim()
-      if (currentTag.isEnOnly) {
-        throws = { pt: throws?.pt || raw, en: raw }
-      } else {
-        const parsed = splitLocalized(raw)
-        throws = { pt: parsed.pt, en: throws?.en || parsed.en }
+      } else if (tag.kind === 'returns') {
+        if (tag.isEnOnly) {
+          returns = { pt: returns?.pt || raw, en: raw }
+        } else {
+          const parsed = splitLocalized(raw)
+          returns = { pt: parsed.pt, en: returns?.en || parsed.en }
+        }
+      } else if (tag.kind === 'throws') {
+        if (tag.isEnOnly) {
+          throws = { pt: throws?.pt || raw, en: raw }
+        } else {
+          const parsed = splitLocalized(raw)
+          throws = { pt: parsed.pt, en: throws?.en || parsed.en }
+        }
       }
     }
     currentTag = { kind: 'desc' }
